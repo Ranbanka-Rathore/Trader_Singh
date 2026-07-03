@@ -1,11 +1,28 @@
+"""
+[LEGACY - v7] DO NOT USE FOR THE v8 LIVE SYSTEM.
+
+This root-level PaperBroker belongs to the deprecated v7 Streamlit stack (uses the
+peewee `database_manager`, not the v8 SQLModel layer). The v8 execution path lives
+in `backend/app/services/execution_service.py`. Kept only so legacy analysis
+scripts still import.
+"""
 import os
 import datetime
+import warnings
 import pandas as pd
+import yfinance as yf  # was used un-imported -> NameError on any square-off / TWAP
 import time
 import random
 import decimal
 from database_manager import db_manager, OpenPosition, Trade
 from risk_shield import RiskShield
+
+warnings.warn(
+    "root paper_broker.py is LEGACY (v7). Use backend.app.services.execution_service "
+    "for the v8 system.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 class PaperBroker:
     def __init__(self):

@@ -1,8 +1,29 @@
+"""
+[LEGACY - v7] DO NOT USE FOR THE v8 LIVE SYSTEM.
+
+This root-level RiskShield belongs to the deprecated v7 Streamlit stack and has
+DIFFERENT, INCOMPATIBLE risk limits and API from the authoritative v8 shield at
+`backend/app/core/risk_shield.py` (e.g. max_daily_loss 5000 vs 10000,
+max_open_positions 1 vs 5, GEX threshold 0 vs -1000, no VaR/lot-size lookup).
+
+Two divergent sources of truth for risk limits is how accidents happen. The v8
+microservices (start_v8.bat) import ONLY the backend version. This file is kept
+solely so legacy analysis scripts still import; new work must use the backend one.
+"""
+import warnings
 import mibian
 import numpy as np
 import pandas as pd
 import os
 from datetime import datetime, date
+
+warnings.warn(
+    "root risk_shield.py is LEGACY (v7). Use backend.app.core.risk_shield for the "
+    "v8 system — its limits and API differ.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 class RiskShield:
     def __init__(self, risk_free_rate=0.07):

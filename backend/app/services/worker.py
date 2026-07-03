@@ -266,7 +266,28 @@ class AutopilotWorker:
             .where(Trade.exit_date >= today_start)
         )
         daily_pnl = float(pnl_result.scalar() or 0.0)
-        
+
+        # B2. Bug #6 fix: include unrealized mark-to-market of OPEN positions in the
+        # daily-loss gate. Realized-only P&L lets an open position bleed well past the
+        # kill line (e.g. a covered call down ₹13k) while the switch stays asleep.
+        open_mtm = 0.0
+        for pos in open_positions:
+            try:
+                lookup_ticker = pos.ticker
+                if lookup_ticker == "NSEBANK":
+                    lookup_ticker = "BANKNIFTY"
+                elif lookup_ticker == "NSEI":
+                    lookup_ticker = "NIFTY"
+                snap = await redis_service.get_json(f"market_snapshot:{lookup_ticker}")
+                if snap and "price" in snap:
+                    current_price = float(snap["price"])
+                    open_mtm += execution_service._calculate_strategy_pnl(pos, current_price, now_ist)
+            except Exception as e:
+                logger.debug(f"MTM calc failed for {getattr(pos, 'ticker', '?')}: {e}")
+
+        # Combined P&L is what the kill switches must evaluate.
+        combined_pnl = daily_pnl + open_mtm
+
         # C. Fetch Latest GEX (Proxy: NIFTY)
         gex_result = await session.execute(
             select(MarketIndicator.total_gex)
@@ -288,20 +309,23 @@ class AutopilotWorker:
         # F. Calculate VaR
         portfolio_var = self.shield.calculate_portfolio_var(open_positions)
         
-        # G. Check Kill Switches
+        # G. Check Kill Switches — evaluate realized + open MTM together.
         is_killed, reason = self.shield.check_kill_switches(
-            current_daily_pnl=daily_pnl,
+            current_daily_pnl=combined_pnl,
             open_positions_count=len(open_positions),
             total_gex=total_gex,
             last_trade_time=last_trade_time,
             current_consecutive_losses=losses,
             portfolio_var=portfolio_var
         )
-        
-        report = self.shield.get_risk_report(open_positions, daily_pnl)
+
+        report = self.shield.get_risk_report(open_positions, combined_pnl)
         report["kill_reason"] = reason
         report["total_gex"] = total_gex
-        
+        report["realized_pnl"] = round(daily_pnl, 2)
+        report["open_mtm"] = round(open_mtm, 2)
+        report["combined_pnl"] = round(combined_pnl, 2)
+
         return not is_killed, report
 
 if __name__ == "__main__":

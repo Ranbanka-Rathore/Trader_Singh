@@ -9,7 +9,13 @@
       "Bash(awk -F',' '{print \"symbol=\"$6\", lot=\"$7}')",
       "Bash(awk -F',' '{print $9}')",
       "Bash(./venv/Scripts/python.exe -c ' *)",
-      "Bash(./venv/Scripts/python.exe -m py_compile trading_mode.py dhan_integration.py ml_approval_engine.py backend/app/core/scrip_master.py backend/app/core/risk_shield.py backend/app/services/execution_service.py backend/app/services/worker.py check_health.py)"
+      "Bash(./venv/Scripts/python.exe -m py_compile trading_mode.py dhan_integration.py ml_approval_engine.py backend/app/core/scrip_master.py backend/app/core/risk_shield.py backend/app/services/execution_service.py backend/app/services/worker.py check_health.py)",
+      "Bash(git -c 'user.name=Trader Singh' -c user.email=rdsrathore.1990@gmail.com commit -q -m ' *)",
+      "Bash(./venv/Scripts/python.exe -m py_compile backend/app/services/worker.py)",
+      "Bash(./venv/Scripts/python.exe -m py_compile risk_shield.py paper_broker.py)",
+      "Bash(./venv/Scripts/python.exe -c \"import yfinance; print\\('yfinance', yfinance.__version__, 'available'\\)\")",
+      "Bash(./venv/Scripts/python.exe -W all -c ' *)",
+      "Bash(git add *)"
     ]
   }
 }
