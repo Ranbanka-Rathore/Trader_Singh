@@ -11,6 +11,7 @@ we already download is the source of truth — read from it.
 Public API:
     get_lot_size(ticker) -> int
     get_nearest_expiry(ticker, ref_date=None) -> datetime.date | None
+    resolve_option_contract(ticker, strike, opt_type, expiry=None) -> dict | None
     loaded() -> bool          # did the CSV parse succeed?
 
 Both lookups normalise the ticker (strips ^ / .NS / .BO, maps NSEI->NIFTY,
@@ -27,10 +28,14 @@ logger = logging.getLogger("ScripMaster")
 _CSV_NAME = "api-scrip-master.csv"
 
 # CSV column indices (see header of api-scrip-master.csv)
+_COL_EXCH_ID = 0      # SEM_EXM_EXCH_ID      (NSE/BSE/MCX)
+_COL_SECURITY_ID = 2  # SEM_SMST_SECURITY_ID
 _COL_INSTRUMENT = 3   # SEM_INSTRUMENT_NAME  (FUTIDX/FUTSTK/OPTIDX/OPTSTK...)
 _COL_TRADING_SYMBOL = 5   # SEM_TRADING_SYMBOL   ("NIFTY-Aug2026-FUT")
 _COL_LOT_UNITS = 6   # SEM_LOT_UNITS
 _COL_EXPIRY_DATE = 8   # SEM_EXPIRY_DATE      ("2026-07-07 14:30:00")
+_COL_STRIKE = 9       # SEM_STRIKE_PRICE     ("29300.00000")
+_COL_OPTION_TYPE = 10  # SEM_OPTION_TYPE     (CE/PE)
 
 _FUT_INSTRUMENTS = {"FUTIDX", "FUTSTK", "FUTCUR", "FUTCOM"}
 _OPT_INSTRUMENTS = {"OPTIDX", "OPTSTK", "OPTCUR", "OPTFUT"}
@@ -57,6 +62,8 @@ _FALLBACK_EXPIRY_WEEKDAY: Dict[str, int] = {
 
 _lot_sizes: Dict[str, int] = {}
 _expiries: Dict[str, List[date]] = {}
+# {underlying: {expiry_date: {(strike_key, 'CE'|'PE'): (security_id, lot, trading_symbol, exchange)}}}
+_options: Dict[str, Dict[date, Dict[tuple, tuple]]] = {}
 _loaded = False
 
 
@@ -128,28 +135,48 @@ def _load() -> None:
 
                 elif instrument in _OPT_INSTRUMENTS:
                     sym = _underlying(row[_COL_TRADING_SYMBOL])
+                    if not sym:
+                        continue
+                    try:
+                        lot = int(float(row[_COL_LOT_UNITS]))
+                    except (ValueError, TypeError):
+                        lot = 0
                     # lot size can also be sourced from option rows as a backup
-                    if sym and sym not in _lot_sizes:
-                        try:
-                            lot = int(float(row[_COL_LOT_UNITS]))
-                            if lot > 0:
-                                _lot_sizes[sym] = lot
-                        except (ValueError, TypeError):
-                            pass
+                    if lot > 0 and sym not in _lot_sizes:
+                        _lot_sizes[sym] = lot
+
                     raw = (row[_COL_EXPIRY_DATE] or "").strip()
-                    if sym and raw:
+                    d = None
+                    if raw:
                         try:
                             d = datetime.strptime(raw[:10], "%Y-%m-%d").date()
                             expiry_sets.setdefault(sym, set()).add(d)
                         except ValueError:
                             pass
 
+                    # Full contract index for order routing:
+                    # (strike, CE/PE) -> security id + lot + symbol + exchange
+                    opt_type = (row[_COL_OPTION_TYPE] or "").strip().upper()
+                    if d is not None and opt_type in ("CE", "PE") and len(row) > _COL_STRIKE:
+                        try:
+                            strike_key = f"{float(row[_COL_STRIKE]):.2f}"
+                        except (ValueError, TypeError):
+                            continue
+                        _options.setdefault(sym, {}).setdefault(d, {})[(strike_key, opt_type)] = (
+                            row[_COL_SECURITY_ID].strip(),
+                            lot,
+                            row[_COL_TRADING_SYMBOL].strip(),
+                            row[_COL_EXCH_ID].strip().upper(),
+                        )
+
         for sym, dates in expiry_sets.items():
             _expiries[sym] = sorted(dates)
 
+        n_contracts = sum(len(k) for by_exp in _options.values() for k in by_exp.values())
         logger.info(
             f"✅ Scrip master loaded: {len(_lot_sizes)} lot sizes, "
-            f"{len(_expiries)} symbols with expiries (from {os.path.basename(path)})"
+            f"{len(_expiries)} symbols with expiries, {n_contracts} option contracts "
+            f"(from {os.path.basename(path)})"
         )
     except Exception as e:
         logger.error(f"❌ Failed to parse {_CSV_NAME}: {e}. Using fallbacks.")
@@ -196,3 +223,58 @@ def get_nearest_expiry(ticker: str, ref_date: Optional[date] = None) -> Optional
         return ref_date + timedelta(days=days_ahead)
 
     return None
+
+
+def resolve_option_contract(
+    ticker: str,
+    strike: float,
+    opt_type: str,
+    expiry: Optional[date] = None,
+) -> Optional[Dict]:
+    """Resolve an option leg to its tradeable contract.
+
+    opt_type accepts 'CE'/'PE'/'ce'/'pe'/'c'/'p'/'call'/'put'.
+    expiry=None uses the nearest expiry on/after today for the underlying.
+    Returns {security_id, trading_symbol, lot_size, expiry, exchange_segment}
+    (exchange_segment is the Dhan API value: NSE_FNO / BSE_FNO), or None if the
+    exact contract does not exist in the scrip master — callers must treat None
+    as "do not trade this leg", never guess an id.
+    """
+    _load()
+    sym = _normalise(ticker)
+    by_expiry = _options.get(sym)
+    if not by_expiry:
+        return None
+
+    if expiry is None:
+        expiry = get_nearest_expiry(sym)
+    if expiry is None or expiry not in by_expiry:
+        return None
+
+    ot = str(opt_type).strip().upper()
+    ot = {"C": "CE", "CALL": "CE", "P": "PE", "PUT": "PE"}.get(ot, ot)
+    if ot not in ("CE", "PE"):
+        return None
+
+    try:
+        strike_key = f"{float(strike):.2f}"
+    except (ValueError, TypeError):
+        return None
+
+    hit = by_expiry[expiry].get((strike_key, ot))
+    if hit is None:
+        return None
+    security_id, lot, trading_symbol, exchange = hit
+    return {
+        "security_id": security_id,
+        "trading_symbol": trading_symbol,
+        "lot_size": lot,
+        "expiry": expiry,
+        "exchange_segment": "BSE_FNO" if exchange == "BSE" else "NSE_FNO",
+    }
+
+
+def get_option_expiries(ticker: str) -> List[date]:
+    """All known option expiries for a ticker, sorted ascending."""
+    _load()
+    return list(_expiries.get(_normalise(ticker), []))

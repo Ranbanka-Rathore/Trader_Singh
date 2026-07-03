@@ -107,6 +107,44 @@ class MarketIndicator(SQLModel, table=True):
     total_gex: Optional[Decimal] = Field(sa_column=Column(Numeric(25, 2)))
     poc: Optional[Decimal] = Field(sa_column=Column(Numeric(15, 2)))
 
+class OrderAudit(SQLModel, table=True):
+    """One row per broker order leg. A multi-leg spread shares one basket_id.
+
+    This is the immutable audit trail Fable's Phase 2 item 13 requires: every
+    order gets a UUID, timestamps, legs, status transitions, and fills — in both
+    PAPER and LIVE mode (paper orders carry mode='PAPER' and PAPER-* order ids).
+    """
+    __tablename__ = "order_audit"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    basket_id: str = Field(max_length=40, index=True)     # UUID shared by all legs of a spread
+    position_id: Optional[int] = Field(default=None)      # open_positions.id once linked
+    ticker: str = Field(max_length=20)
+    strategy_type: Optional[str] = Field(default=None, max_length=50)
+    intent: str = Field(max_length=10)                    # ENTRY | EXIT | UNWIND
+    mode: str = Field(max_length=10)                      # PAPER | LIVE
+
+    # Leg description
+    leg_index: int = Field(default=0)
+    side: str = Field(max_length=4)                       # BUY | SELL
+    opt_type: str = Field(max_length=4)                   # CE | PE | FUT
+    strike: Optional[Decimal] = Field(default=None, sa_column=Column(Numeric(15, 2)))
+    expiry: Optional[str] = Field(default=None, max_length=12)
+    security_id: Optional[str] = Field(default=None, max_length=20)
+    trading_symbol: Optional[str] = Field(default=None, max_length=60)
+    exchange_segment: Optional[str] = Field(default=None, max_length=12)
+    quantity: int = Field(default=0)                      # units (lots * lot_size)
+
+    # Order lifecycle
+    broker_order_id: Optional[str] = Field(default=None, max_length=60)
+    status: str = Field(default="PENDING", max_length=16) # PENDING/PLACED/FILLED/REJECTED/CANCELLED/TIMEOUT/UNWOUND
+    limit_price: Optional[Decimal] = Field(default=None, sa_column=Column(Numeric(15, 2)))
+    fill_price: Optional[Decimal] = Field(default=None, sa_column=Column(Numeric(15, 2)))
+    placed_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    detail: Optional[str] = Field(default=None, sa_column=Column(Text))  # rejection reason / notes
+
+
 class Candle(SQLModel, table=True):
     __tablename__ = "candles"
     

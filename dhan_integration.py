@@ -497,6 +497,46 @@ class DhanBroker:
             logger.error(f"   ❌ API Exception checking order status: {e}")
             return 'ERROR'
 
+    async def get_order_details(self, order_id):
+        """Returns {'status': ..., 'avg_price': float, 'filled_qty': int} for an
+        order, or None on API failure. Used by the order router to capture real
+        fill prices for the audit trail."""
+        try:
+            response = await asyncio.to_thread(self.dhan.get_order_by_id, order_id=str(order_id))
+            if isinstance(response, dict) and response.get('status') == 'success':
+                data = response.get('data', {}) or {}
+                # Dhan sometimes nests order data in a list
+                if isinstance(data, list):
+                    data = data[0] if data else {}
+                return {
+                    "status": data.get('orderStatus', 'UNKNOWN'),
+                    "avg_price": float(data.get('averageTradedPrice', 0) or 0),
+                    "filled_qty": int(data.get('filledQty', 0) or 0),
+                    "reason": data.get('omsErrorDescription') or data.get('remarks') or "",
+                }
+            return None
+        except Exception as e:
+            logger.error(f"   ❌ API Exception fetching order details: {e}")
+            return None
+
+    async def get_positions(self):
+        """Fetches current broker positions (LIVE truth for reconciliation).
+
+        Returns a list of position dicts (Dhan schema: securityId, netQty,
+        exchangeSegment, tradingSymbol, ...), or None on API failure — callers
+        must distinguish 'no positions' ([]) from 'could not fetch' (None).
+        """
+        try:
+            response = await asyncio.to_thread(self.dhan.get_positions)
+            if isinstance(response, dict) and response.get('status') == 'success':
+                data = response.get('data') or []
+                return data if isinstance(data, list) else []
+            logger.error(f"   ❌ get_positions failed: {response.get('remarks') if isinstance(response, dict) else response}")
+            return None
+        except Exception as e:
+            logger.error(f"   ❌ API Exception fetching positions: {e}")
+            return None
+
     async def get_market_depth(self, security_id, exchange_segment):
         """Fetches Best Bid and Best Ask using Level 2 depth."""
         try:

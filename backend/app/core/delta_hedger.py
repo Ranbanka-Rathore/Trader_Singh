@@ -75,10 +75,10 @@ class DeltaHedger:
                     sec_id = broker.get_futures_security_id(clean_ticker)
                     
                     if sec_id:
-                        # Place order on NSE Futures ("NFO")
+                        # Place order on NSE Futures (Dhan SDK segment value is NSE_FNO)
                         order_id = await broker.place_order(
                             security_id=sec_id,
-                            exchange_segment="NFO",
+                            exchange_segment="NSE_FNO",
                             side=side,
                             order_type="MARKET",
                             quantity=hedge_lots * lot_size

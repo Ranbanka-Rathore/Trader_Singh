@@ -19,7 +19,16 @@
       "Bash(./venv/Scripts/python.exe -m py_compile dhan_integration.py)",
       "Bash(./venv/Scripts/python.exe -m py_compile backend/app/services/execution_service.py backend/app/services/worker.py backend/app/services/options_pricing_service.py dhan_integration.py)",
       "Bash(./venv/Scripts/python.exe tests/test_options_pricing.py)",
-      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 ./venv/Scripts/python.exe tests/test_options_pricing.py)"
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 ./venv/Scripts/python.exe tests/test_options_pricing.py)",
+      "Bash(awk -F',' '$9 ~ /2026-07-07/')",
+      "Bash(./venv/Scripts/python.exe -m py_compile backend/app/db/models.py dhan_integration.py backend/app/core/scrip_master.py)",
+      "Bash(./venv/Scripts/python.exe -c \"from backend.app.db.models import OrderAudit; print\\('OrderAudit table:', OrderAudit.__tablename__, '| fields:', len\\(OrderAudit.model_fields\\)\\)\")",
+      "Bash(./venv/Scripts/python.exe -m py_compile backend/app/services/order_router.py)",
+      "Bash(./venv/Scripts/python.exe -m py_compile backend/app/services/execution_service.py backend/app/services/order_router.py)",
+      "Bash(./venv/Scripts/python.exe -m py_compile backend/app/services/worker.py backend/app/core/delta_hedger.py)",
+      "Bash(PYTHONUTF8=1 ./venv/Scripts/python.exe tests/test_order_router.py)",
+      "Bash(PYTHONUTF8=1 ./venv/Scripts/python.exe tests/test_options_pricing.py)",
+      "Bash(./venv/Scripts/python.exe -m py_compile backend/app/services/order_router.py backend/app/services/execution_service.py backend/app/services/worker.py backend/app/db/models.py backend/app/core/scrip_master.py backend/app/core/delta_hedger.py dhan_integration.py)"
     ]
   }
 }

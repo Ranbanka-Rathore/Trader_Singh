@@ -63,6 +63,12 @@ class AutopilotWorker:
         logger.warning(banner())
         logger.info(f"Starting Autopilot Background Worker... [TRADING_MODE={TRADING_MODE}]")
         self.is_active = True
+
+        # Phase 2: adopt broker reality before trading (LIVE only).
+        try:
+            await self.reconcile_with_broker()
+        except Exception as e:
+            logger.error(f"Startup reconciliation error (continuing): {e}")
         
         # Start Live Market Feed (WebSockets)
         asyncio.create_task(market_data_service.start())
@@ -251,6 +257,90 @@ class AutopilotWorker:
                 "status": "ACTIVE",
                 "active_nodes": len(passed) if passed else 0
             }, expire=120)
+
+    async def reconcile_with_broker(self):
+        """Startup reconciliation (Fable Phase 2 item 11): if the bot restarts
+        mid-day it must adopt broker reality, not the DB's fantasy.
+
+        Compares net quantity per security id implied by the DB's open-position
+        entry legs against the broker's actual positions. Mismatches are logged
+        loudly and published to Redis ('reconciliation_report') for the dashboard.
+        Nothing is auto-closed or auto-adopted — a human decides; the report and
+        trading pause are the safety, silent divergence is the hazard.
+        """
+        from trading_mode import is_live
+        from backend.app.services.broker_service import broker_service
+
+        if not is_live():
+            logger.info("🧻 Reconciliation skipped: PAPER mode (no broker positions to adopt).")
+            return
+
+        broker = broker_service.get_broker()
+        broker_positions = await broker.get_positions()
+        if broker_positions is None:
+            logger.critical(
+                "🚨 RECONCILIATION FAILED: cannot fetch broker positions. "
+                "PAUSING trading cycle until resolved — unverified state is not tradeable."
+            )
+            self.is_paused = True
+            return
+
+        async with self.async_session() as session:
+            db_positions = await database_service.get_open_positions(session)
+
+        # Expected net units per security id from routed entry legs
+        expected: dict = {}
+        unverifiable = []
+        for pos in db_positions:
+            legs = ((pos.learning_context or {}).get("entry_pricing") or {}).get("legs") or []
+            if not legs:
+                unverifiable.append({"position_id": pos.id, "ticker": pos.ticker,
+                                     "strategy": pos.strategy_type})
+                continue
+            for l in legs:
+                sid = str(l.get("security_id") or "")
+                if not sid:
+                    continue
+                sign = 1 if str(l.get("side", "")).upper() == "BUY" else -1
+                expected[sid] = expected.get(sid, 0) + sign * int(l.get("quantity", 0))
+
+        actual = {}
+        for p in broker_positions:
+            sid = str(p.get("securityId") or p.get("security_id") or "")
+            if sid:
+                actual[sid] = actual.get(sid, 0) + int(p.get("netQty", p.get("net_qty", 0)) or 0)
+
+        mismatches = []
+        for sid in set(expected) | set(actual):
+            exp_qty, act_qty = expected.get(sid, 0), actual.get(sid, 0)
+            if exp_qty != act_qty:
+                mismatches.append({"security_id": sid, "db_expected": exp_qty, "broker_actual": act_qty})
+                logger.critical(
+                    f"🚨 RECONCILIATION MISMATCH sec_id={sid}: DB expects net {exp_qty}, "
+                    f"broker holds {act_qty}"
+                )
+
+        report = {
+            "checked_at": datetime.now().isoformat(),
+            "db_positions": len(db_positions),
+            "broker_lines": len(broker_positions),
+            "mismatches": mismatches,
+            "unverifiable_positions": unverifiable,
+            "status": "CLEAN" if not mismatches else "MISMATCH",
+        }
+        await redis_service.set_json("reconciliation_report", report)
+
+        if mismatches:
+            logger.critical(
+                f"🚨 {len(mismatches)} reconciliation mismatch(es). PAUSING trading — "
+                "resolve manually, then send START."
+            )
+            self.is_paused = True
+        else:
+            logger.info(
+                f"✅ Reconciliation CLEAN: {len(db_positions)} DB positions match broker "
+                f"({len(unverifiable)} unverifiable legacy rows noted)."
+            )
 
     async def perform_risk_audit(self, session: AsyncSession):
         """Checks all kill switches and calculates portfolio risk."""

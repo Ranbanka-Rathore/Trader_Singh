@@ -68,6 +68,40 @@ class ExecutionService:
             else:
                 print(f"   ⚠️ HEURISTIC pricing fallback ({entry_pricing.get('reason')}) — synthetic premium retained")
 
+            # --- 🧺 PHASE 2: ROUTE THE ENTRY BASKET THROUGH THE BROKER ---
+            # Real multi-leg order placement (PAPER mode fills instantly at the
+            # limit via the broker gate; LIVE places actual orders). A failed
+            # basket means NO position — never book a trade that didn't execute.
+            if entry_pricing.get("pricing_source") == "DHAN_LIVE":
+                from backend.app.services.order_router import order_router
+                expiry_date = None
+                try:
+                    raw_exp = str(entry_pricing.get("expiry") or "")[:10]
+                    if raw_exp:
+                        expiry_date = datetime.datetime.strptime(raw_exp, "%Y-%m-%d").date()
+                except ValueError:
+                    pass
+                route_legs = [
+                    {"opt_type": l["opt_type"], "strike": l["strike"], "side": l["side"],
+                     "limit_price": l["entry_fill"]}
+                    for l in entry_pricing.get("legs", [])
+                ]
+                basket = await order_router.route_basket(
+                    session, ticker=ticker,
+                    strategy_type=str(trade_data.get("strategy_type", "")),
+                    legs=route_legs, lots=total_lots, intent="ENTRY", expiry=expiry_date,
+                )
+                if basket.get("status") != "FILLED":
+                    print(f"   ❌ ENTRY BASKET FAILED ({basket.get('reason')}) — trade NOT booked")
+                    return False
+                # Adopt actual fills as truth: legs now carry real fill prices + order ids
+                entry_pricing["legs"] = basket["legs"]
+                entry_pricing["basket_id"] = basket["basket_id"]
+                entry_pricing["net_premium_per_share"] = basket["net_premium_per_share"]
+                real_net_credit = round(-float(basket["net_premium_per_share"]), 2)
+                entry_pricing["net_credit_per_share"] = real_net_credit
+                print(f"   🧺 BASKET FILLED {basket['basket_id'][:8]}: net credit ₹{real_net_credit}/sh from actual fills")
+
             # --- 🛡️ RISK SHIELD: CALCULATE INITIAL GREEKS ---
             greeks = {"net_delta": 0.0, "net_gamma": 0.0, "net_theta": 0.0, "net_vega": 0.0}
             try:
@@ -247,6 +281,72 @@ class ExecutionService:
             print(f"Error in _calculate_strategy_pnl: {e}")
             return 0.0
 
+    async def _route_exit_basket(self, session, pos, real_mark, use_market: bool = False):
+        """Close a position through the broker by reversing its entry legs.
+
+        Limit prices come from current marks; in PAPER mode we never send a
+        price-less order (a paper MARKET would 'fill' at 0), so we fall back to
+        the entry fill if no mark exists. use_market=True (panic path) sends true
+        MARKET orders only in LIVE mode.
+        Returns {pnl_per_share, basket} from ACTUAL exit fills, or None if the
+        basket could not be routed/filled — in LIVE that means the position is
+        still open at the broker and the DB row must NOT be closed.
+        """
+        from trading_mode import is_live
+        from backend.app.services.order_router import order_router
+
+        ctx = getattr(pos, "learning_context", None) or {}
+        entry = ctx.get("entry_pricing") or {}
+        entry_legs = entry.get("legs")
+        if not entry_legs:
+            return None
+
+        marks = {}
+        for l in (real_mark or {}).get("legs", []):
+            marks[(l["opt_type"], round(float(l["strike"]), 2))] = float(l.get("current_mark") or 0)
+
+        exit_legs = []
+        for l in entry_legs:
+            key = (l["opt_type"], round(float(l["strike"]), 2))
+            mark = marks.get(key) or 0.0
+            if use_market and is_live():
+                lp = None  # true MARKET order — certainty over price in a panic
+            else:
+                lp = mark if mark > 0 else float(l.get("entry_fill") or 0)
+            exit_legs.append({
+                "opt_type": l["opt_type"], "strike": l["strike"],
+                "side": "SELL" if str(l["side"]).upper() == "BUY" else "BUY",
+                "limit_price": lp,
+            })
+
+        expiry_date = None
+        try:
+            raw_exp = str(entry.get("expiry") or "")[:10]
+            if raw_exp:
+                expiry_date = datetime.datetime.strptime(raw_exp, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+        basket = await order_router.route_basket(
+            session, ticker=pos.ticker, strategy_type=str(pos.strategy_type or ""),
+            legs=exit_legs, lots=int(pos.lots_sized or 1), intent="EXIT",
+            expiry=expiry_date, position_id=pos.id,
+        )
+        if basket.get("status") != "FILLED":
+            return None
+
+        # Realized P&L per share from actual entry and exit fills:
+        # long leg: exit - entry ; short leg: entry - exit.
+        entry_map = {(l["opt_type"], round(float(l["strike"]), 2)): l for l in entry_legs}
+        pnl = 0.0
+        for x in basket["legs"]:
+            e = entry_map.get((x["opt_type"], round(float(x["strike"]), 2)))
+            if not e:
+                continue
+            sign = 1 if str(e["side"]).upper() == "BUY" else -1
+            pnl += sign * (float(x["entry_fill"]) - float(e["entry_fill"]))
+        return {"pnl_per_share": round(pnl, 2), "basket": basket}
+
     def _real_exit_decision(self, pos, pnl_per_share: float, is_eod: bool):
         """Decide exit from REAL mark-to-market P&L (per share).
 
@@ -305,18 +405,38 @@ class ExecutionService:
                 else:
                     print(f"⚠️ Warning: No live price for {pos.ticker} during emergency exit. Using last seen price: ₹{pos.highest_seen}")
                     current_price = float(pos.highest_seen or 0.0)
-                
+
                 if current_price == 0.0:
                     print(f"   ❌ Critical: No price data available for {pos.ticker}. Skipping square off.")
                     continue
-                
-                # Calculate actual dynamic P&L for emergency exit
-                pnl = self._calculate_strategy_pnl(pos, current_price, now)
-                
+
+                # --- 🧺 PHASE 2: real broker square-off (panic = MARKET in LIVE) ---
+                exit_reason = reason
+                has_routed_legs = bool(((pos.learning_context or {}).get("entry_pricing") or {}).get("legs"))
+                if has_routed_legs:
+                    from backend.app.services.options_pricing_service import options_pricing_service
+                    real_mark = await options_pricing_service.mark_position_pnl(pos, current_price)
+                    routed = await self._route_exit_basket(session, pos, real_mark, use_market=True)
+                    if routed is not None:
+                        lot_size = self.risk_shield.get_lot_size(pos.ticker)
+                        pnl = float(routed["pnl_per_share"]) * int(pos.lots_sized or 1) * lot_size
+                        exit_reason = f"{reason} [ROUTED]"
+                    else:
+                        from trading_mode import is_live
+                        if is_live():
+                            print(f"   🚨🚨 PANIC EXIT BASKET FAILED for {pos.ticker} (pos {pos.id}) — "
+                                  f"BROKER POSITION MAY STILL BE OPEN. Manual square-off required!")
+                            continue
+                        pnl = self._calculate_strategy_pnl(pos, current_price, now)
+                else:
+                    # Position was never routed to the broker (heuristic/pre-Phase-2)
+                    # — a DB-only close is the correct square-off for it.
+                    pnl = self._calculate_strategy_pnl(pos, current_price, now)
+
                 exit_data = {
                     "exit_date": now,
                     "exit_price": Decimal(str(round(current_price, 2))),
-                    "exit_reason": reason,
+                    "exit_reason": exit_reason,
                     "realized_pnl": Decimal(str(round(pnl, 2)))
                 }
                 await database_service.close_position(session, pos.id, exit_data)
@@ -442,6 +562,19 @@ class ExecutionService:
                         # Keep water marks fresh for reporting continuity
                         pos.highest_seen = Decimal(str(round(max(float(pos.highest_seen or current_price), current_price), 2)))
                         if exit_now:
+                            # --- 🧺 PHASE 2: route the exit through the broker ---
+                            routed = await self._route_exit_basket(session, pos, real_mark)
+                            if routed is not None:
+                                realized_ps = float(routed["pnl_per_share"])
+                                exit_reason_r += " [ROUTED]"
+                            else:
+                                from trading_mode import is_live
+                                if is_live():
+                                    # Broker still holds the legs — closing the DB row
+                                    # here would orphan a live position. Retry next cycle.
+                                    print(f"   🚨 EXIT BASKET FAILED for {ticker} (pos {pos.id}) — "
+                                          f"position NOT closed, will retry next cycle")
+                                    continue
                             exit_data = {
                                 "exit_date": now,
                                 "exit_price": Decimal(str(round(current_price, 2))),
