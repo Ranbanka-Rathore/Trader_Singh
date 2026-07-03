@@ -1,0 +1,28 @@
+{
+    "^NSEI": {
+        "DOUBLE_TOP_REVERSAL": {
+            "vol_surge_multiplier": 1.0,
+            "expected_win_rate": 49.08,
+            "double_top_bottom_margin": 0.0015
+        },
+        "DOUBLE_BOTTOM_REVERSAL": {
+            "vol_surge_multiplier": 1.0,
+            "expected_win_rate": 65.24,
+            "double_top_bottom_margin": 0.0015
+        }
+    },
+    "NIFTY": {
+        "max_lots": 1,
+        "spread_width_pct": 0.01,
+        "gex_min_threshold": -200000000.0,
+        "trend_confirm_count": 0,
+        "pcr_stability_lookback": 0,
+        "pcr_stability_limit": 0.1,
+        "gex_stability_lookback": 1,
+        "pcr_min_limit": 0.70,
+        "pcr_max_limit": 1.80,
+        "cooldown_period_hours": 1.0,
+        "stop_loss_pct": 1.0,
+        "breakeven_lock_pct": 0.30
+    }
+}

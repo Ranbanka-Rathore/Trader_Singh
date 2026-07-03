@@ -1,0 +1,115 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: trader
+      POSTGRES_PASSWORD: institutional_grade_password
+      POSTGRES_DB: agentic_trader
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trader -d agentic_trader"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "run_api.py"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+    ports:
+      - "8000:8000"
+
+  harvester:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "run_harvester.py"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - REDIS_HOST=redis
+      - DB_HOST=db
+
+  quant:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "run_quant.py"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+
+  committee:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "run_risk_committee.py"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+
+  oms:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: ["python", "run_oms.py"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=redis
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

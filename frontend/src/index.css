@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #050505;
+  --color-card: #0a0a0a;
+  --color-border: #1a1a1a;
+  --color-accent: #00f3ff;
+  --color-success: #39ff14;
+  --color-warning: #ffe014;
+  --color-danger: #ff007f;
+  
+  --color-delta: #00f3ff;
+  --color-gamma: #ff007f;
+  --color-theta: #39ff14;
+  
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-gray-300 font-mono;
+  }
+}
+
+@layer components {
+  .neon-border {
+    @apply border border-border hover:border-accent transition-all duration-300;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.05);
+  }
+  
+  .neon-border:hover {
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+  }
+  
+  .neon-text {
+    @apply text-accent;
+    text-shadow: 0 0 8px theme('colors.accent');
+  }
+}

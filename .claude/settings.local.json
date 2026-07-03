@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk -F',' '$4==\"FUTIDX\" && $16==\"NIFTY\"{print $6\",\"$7\",\"$9; c++} c>=3{exit}' api-scrip-master.csv)",
+      "Bash(awk -F',' '$4==\"FUTIDX\" && $16==\"BANKNIFTY\"{print $6\",\"$7\",\"$9; c++} c>=2{exit}' api-scrip-master.csv)",
+      "Bash(awk -F',' '$4==\"FUTIDX\" && $16==\"FINNIFTY\"{print $6\",\"$7\",\"$9; c++} c>=2{exit}' api-scrip-master.csv)",
+      "Bash(awk -F',' '$4==\"FUTIDX\" && $16==\"SENSEX\"{print $6\",\"$7\",\"$9; c++} c>=2{exit}' api-scrip-master.csv)",
+      "Bash(awk -F',' '$4==\"FUTSTK\" && $16==\"RELIANCE\"{print $6\",\"$7\",\"$9; c++} c>=2{exit}' api-scrip-master.csv)",
+      "Bash(awk -F',' '{print \"symbol=\"$6\", lot=\"$7}')",
+      "Bash(awk -F',' '{print $9}')",
+      "Bash(./venv/Scripts/python.exe -c ' *)",
+      "Bash(./venv/Scripts/python.exe -m py_compile trading_mode.py dhan_integration.py ml_approval_engine.py backend/app/core/scrip_master.py backend/app/core/risk_shield.py backend/app/services/execution_service.py backend/app/services/worker.py check_health.py)"
+    ]
+  }
+}
