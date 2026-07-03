@@ -82,6 +82,52 @@ class DhanBroker:
             logger.warning(f"Could not find Security ID for {clean_symbol} on {exchange_id}")
             return None
 
+    @staticmethod
+    def _underlying_ticker(underlying_security_id) -> str:
+        """Maps a Dhan underlying security id to our canonical ticker."""
+        return {"13": "NIFTY", "25": "BANKNIFTY", "1": "SENSEX"}.get(
+            str(underlying_security_id), str(underlying_security_id)
+        )
+
+    @staticmethod
+    def _extract_leg_premium(leg_data: dict) -> dict:
+        """Normalizes a Dhan option-chain ce/pe payload into premium + greeks.
+
+        Dhan v2 option_chain returns per leg: last_price, top_bid_price,
+        top_ask_price, implied_volatility, oi, volume, greeks{delta,theta,gamma,vega}.
+        All fields are read defensively — missing values become 0.0.
+        """
+        leg_data = leg_data or {}
+        greeks = leg_data.get("greeks", {}) or {}
+
+        def _f(*keys):
+            for k in keys:
+                v = leg_data.get(k)
+                if v is not None:
+                    try:
+                        return float(v)
+                    except (ValueError, TypeError):
+                        continue
+            return 0.0
+
+        ltp = _f("last_price", "ltp")
+        bid = _f("top_bid_price", "bid")
+        ask = _f("top_ask_price", "ask")
+        return {
+            "ltp": ltp,
+            "bid": bid,
+            "ask": ask,
+            # mid falls back to ltp if either side of the book is empty (illiquid strike)
+            "mid": round((bid + ask) / 2.0, 2) if (bid > 0 and ask > 0) else ltp,
+            "iv": _f("implied_volatility", "iv"),
+            "oi": _f("oi"),
+            "volume": _f("volume"),
+            "delta": float(greeks.get("delta", 0.0) or 0.0),
+            "theta": float(greeks.get("theta", 0.0) or 0.0),
+            "gamma": float(greeks.get("gamma", 0.0) or 0.0),
+            "vega": float(greeks.get("vega", 0.0) or 0.0),
+        }
+
     async def get_clean_option_chain(self, underlying_security_id, segment):
         """
         Uses Dhan's Expiry List API to find the exact target date, 
@@ -208,24 +254,33 @@ class DhanBroker:
             
             if raw_oc and len(raw_oc) > 0:
                 chain_data = []
+                premium_strikes = {}  # {strike: {"ce": {...}, "pe": {...}}} — real premiums
                 for strike_str, data in raw_oc.items():
                     try:
                         strike = float(strike_str)
                     except ValueError:
-                        continue 
-                        
+                        continue
+
                     ce_data = data.get('ce', {}) or {}
                     pe_data = data.get('pe', {}) or {}
-                    
+
                     call_coi = ce_data.get('oi', 0) - ce_data.get('previous_oi', 0)
                     put_coi = pe_data.get('oi', 0) - pe_data.get('previous_oi', 0)
-                    
+
+                    ce_leg = self._extract_leg_premium(ce_data)
+                    pe_leg = self._extract_leg_premium(pe_data)
+                    premium_strikes[f"{strike:.2f}"] = {"ce": ce_leg, "pe": pe_leg}
+
                     chain_data.append({
                         'Strike': strike,
                         'Call_COI': call_coi,
-                        'Put_COI': put_coi
+                        'Put_COI': put_coi,
+                        # Real premiums preserved alongside OI (additive — existing
+                        # consumers that read only Strike/Call_COI/Put_COI are unaffected)
+                        'Call_LTP': ce_leg['ltp'], 'Call_Bid': ce_leg['bid'], 'Call_Ask': ce_leg['ask'], 'Call_IV': ce_leg['iv'],
+                        'Put_LTP': pe_leg['ltp'], 'Put_Bid': pe_leg['bid'], 'Put_Ask': pe_leg['ask'], 'Put_IV': pe_leg['iv'],
                     })
-                    
+
                 if chain_data:
                     df_chain = pd.DataFrame(chain_data)
                     df_chain = df_chain.sort_values(by='Strike').reset_index(drop=True)
@@ -262,11 +317,27 @@ class DhanBroker:
                                 "chain": df_chain.to_dict(orient='records')
                             }
                             await self.redis.set(cache_key, json.dumps(cache_payload), ex=60)
+
+                            # Publish the real per-strike premium map for the pricing service.
+                            ticker = self._underlying_ticker(underlying_security_id)
+                            premium_payload = {
+                                "underlying": ticker,
+                                "underlying_security_id": str(underlying_security_id),
+                                "spot": spot_price,
+                                "expiry": nearest_expiry,
+                                "segment": dhan_segment,
+                                "timestamp": time.time(),
+                                "source": "DHAN_LIVE",
+                                "strikes": premium_strikes,
+                            }
+                            await self.redis.set(
+                                f"option_premiums:{ticker}", json.dumps(premium_payload), ex=90
+                            )
                         except Exception as re:
                             logger.warning(f"Redis cache write error: {re}")
                     else:
                         self._oc_cache[underlying_security_id] = (time.time(), spot_price, df_chain)
-                    
+
                     return spot_price, df_chain
                     
             logger.warning(f"Option chain format unrecognizable or market data empty for {underlying_security_id}. Segment: {dhan_segment}, Expiry: {nearest_expiry}")

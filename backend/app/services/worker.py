@@ -281,7 +281,14 @@ class AutopilotWorker:
                 snap = await redis_service.get_json(f"market_snapshot:{lookup_ticker}")
                 if snap and "price" in snap:
                     current_price = float(snap["price"])
-                    open_mtm += execution_service._calculate_strategy_pnl(pos, current_price, now_ist)
+                    # Prefer real mark-to-market; fall back to the heuristic estimate.
+                    from backend.app.services.options_pricing_service import options_pricing_service
+                    rm = await options_pricing_service.mark_position_pnl(pos, current_price)
+                    if rm and rm.get("pricing_source") == "DHAN_LIVE":
+                        lot_size = self.shield.get_lot_size(pos.ticker)
+                        open_mtm += float(rm["pnl_per_share"]) * int(pos.lots_sized or 1) * lot_size
+                    else:
+                        open_mtm += execution_service._calculate_strategy_pnl(pos, current_price, now_ist)
             except Exception as e:
                 logger.debug(f"MTM calc failed for {getattr(pos, 'ticker', '?')}: {e}")
 

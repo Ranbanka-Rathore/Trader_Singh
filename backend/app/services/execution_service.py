@@ -52,10 +52,26 @@ class ExecutionService:
             else:
                 final_fill_price = spot_price
 
+            # --- 💰 PHASE 1: REAL OPTION PRICING (entry) ---
+            from backend.app.services.options_pricing_service import options_pricing_service
+            entry_pricing = await options_pricing_service.price_spread_entry(trade_data)
+            real_net_credit = None
+            entry_iv = 0.15
+            if entry_pricing.get("pricing_source") == "DHAN_LIVE":
+                real_net_credit = entry_pricing.get("net_credit_per_share")
+                ivs = [float(l.get("iv") or 0) for l in entry_pricing.get("legs", [])
+                       if l.get("opt_type") != "fut"]
+                ivs = [v for v in ivs if v > 0]
+                if ivs:
+                    entry_iv = (sum(ivs) / len(ivs)) / 100.0  # Dhan IV is a percent
+                print(f"   💰 REAL PRICING: net credit ₹{real_net_credit}/sh from live chain (IV~{entry_iv:.3f})")
+            else:
+                print(f"   ⚠️ HEURISTIC pricing fallback ({entry_pricing.get('reason')}) — synthetic premium retained")
+
             # --- 🛡️ RISK SHIELD: CALCULATE INITIAL GREEKS ---
             greeks = {"net_delta": 0.0, "net_gamma": 0.0, "net_theta": 0.0, "net_vega": 0.0}
             try:
-                iv = 0.15
+                iv = entry_iv
                 today = datetime.date.today()
                 # Use the real nearest expiry from the scrip master (NIFTY weeklies
                 # are Tuesday in 2026, BANKNIFTY is monthly-only). Fall back to a
@@ -82,14 +98,21 @@ class ExecutionService:
 
             IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
             now = datetime.datetime.now(IST).replace(tzinfo=None)
-            
+
+            # Merge the real entry pricing into the learning context (audit + P&L source)
+            learning_context = dict(trade_data.get("learning_context", {}) or {})
+            learning_context["entry_pricing"] = entry_pricing
+
+            # Prefer the real net credit from live quotes; keep synthetic only on fallback
+            net_credit_value = real_net_credit if real_net_credit is not None else trade_data.get("net_credit_per_share", 0)
+
             formatted_data = {
                 "ticker": ticker,
                 "strategy_type": trade_data.get("strategy_type"),
                 "spot_price": Decimal(str(round(final_fill_price, 2))),
                 "leg_1_sell": Decimal(str(trade_data.get("leg_1_sell", 0))),
                 "leg_2_buy": Decimal(str(trade_data.get("leg_2_buy", 0))),
-                "net_credit_per_share": Decimal(str(trade_data.get("net_credit_per_share", 0))),
+                "net_credit_per_share": Decimal(str(net_credit_value)),
                 "max_risk_per_share": Decimal(str(trade_data.get("max_risk_per_share", 0))),
                 "risk_reward_ratio": str(trade_data.get("risk_reward_ratio", "1:1")),
                 "win_probability": Decimal(str(trade_data.get("win_probability", 85.0))),
@@ -108,7 +131,7 @@ class ExecutionService:
                 "net_gamma": Decimal(str(greeks.get("net_gamma", 0.0))),
                 "net_theta": Decimal(str(greeks.get("net_theta", 0.0))),
                 "net_vega": Decimal(str(greeks.get("net_vega", 0.0))),
-                "learning_context": trade_data.get("learning_context", {})
+                "learning_context": learning_context
             }
             
             await database_service.add_open_position(session, formatted_data)
@@ -223,6 +246,46 @@ class ExecutionService:
         except Exception as e:
             print(f"Error in _calculate_strategy_pnl: {e}")
             return 0.0
+
+    def _real_exit_decision(self, pos, pnl_per_share: float, is_eod: bool):
+        """Decide exit from REAL mark-to-market P&L (per share).
+
+        Returns (exit_triggered, exit_reason, realized_pnl_per_share) for the
+        strategies we can price from a single-expiry chain, or None to signal the
+        caller should use the heuristic path (calendar/diagonal/unknown).
+        Thresholds mirror the heuristic's intent but in real premium terms:
+        credit strategies profit as the spread decays; debit strategies as it appreciates.
+        """
+        st = (pos.strategy_type or "").upper()
+        credit = abs(float(pos.adjusted_net_credit if pos.adjusted_net_credit is not None
+                           else (pos.net_credit_per_share or 0.0)))
+        if credit <= 0:
+            return None
+
+        brain = self._load_brain_config()
+        clean_ticker = pos.ticker.replace("^", "").replace(".NS", "").replace(".BO", "")
+        cfg = brain.get(pos.ticker, brain.get(clean_ticker, {}))
+        sl_ratio = float(cfg.get("stop_loss_pct", 1.0))
+
+        if is_eod:
+            return True, "⏰ EOD SQUARE OFF (Time Stop at 3:15 PM) [LIVE]", pnl_per_share
+
+        if st in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD", "CASH_SECURED_PUT"):
+            tp, sl = credit * 0.80, -credit * sl_ratio
+        elif st == "DELTA_NEUTRAL":
+            tp, sl = credit * 0.50, -credit * 0.80
+        elif st in ("DEBIT_BULL_SPREAD", "DEBIT_BEAR_SPREAD"):
+            tp, sl = credit * 0.50, -credit * 0.30
+        elif st == "COVERED_CALL":
+            tp, sl = credit * 1.00, -credit * 2.00
+        else:
+            return None  # calendar/diagonal/unknown -> heuristic fallback
+
+        if pnl_per_share >= tp:
+            return True, f"🎯 TAKE PROFIT ({pos.strategy_type}) [LIVE]", pnl_per_share
+        if pnl_per_share <= sl:
+            return True, f"🛑 STOP LOSS ({pos.strategy_type}) [LIVE]", pnl_per_share
+        return False, "", pnl_per_share
 
     async def square_off_all_positions(self, session: AsyncSession, reason: str = "EMERGENCY_SQUARE_OFF") -> int:
         open_positions = await database_service.get_open_positions(session)
@@ -362,6 +425,38 @@ class ExecutionService:
                         print(f"🛡️ [Firefighter] Adjustment successfully executed and recorded for position {pos.id}!")
                         # Skip evaluating exits in the same cycle to allow the adjustment to settle
                         continue
+
+                # --- 💰 PHASE 1: REAL MARK-TO-MARKET EXIT PATH ---
+                # If we have real entry legs + live marks, drive exits from actual
+                # premiums. Falls through to the synthetic heuristic otherwise.
+                from backend.app.services.options_pricing_service import options_pricing_service
+                real_mark = await options_pricing_service.mark_position_pnl(pos, current_price)
+                if real_mark and real_mark.get("pricing_source") == "DHAN_LIVE":
+                    lots_r = int(pos.lots_sized or 1)
+                    lot_size_r = self.risk_shield.get_lot_size(ticker)
+                    total_mult_r = lots_r * lot_size_r
+                    pnl_ps = float(real_mark["pnl_per_share"])
+                    decision = self._real_exit_decision(pos, pnl_ps, is_eod)
+                    if decision is not None:
+                        exit_now, exit_reason_r, realized_ps = decision
+                        # Keep water marks fresh for reporting continuity
+                        pos.highest_seen = Decimal(str(round(max(float(pos.highest_seen or current_price), current_price), 2)))
+                        if exit_now:
+                            exit_data = {
+                                "exit_date": now,
+                                "exit_price": Decimal(str(round(current_price, 2))),
+                                "exit_reason": exit_reason_r,
+                                "realized_pnl": Decimal(str(round(realized_ps * total_mult_r, 2))),
+                            }
+                            closed_trade = await database_service.close_position(session, pos.id, exit_data)
+                            if closed_trade:
+                                closed_trades_report.append(closed_trade.model_dump())
+                                print(f"   -> EXIT [LIVE]: {ticker} | {exit_reason_r} | PnL: ₹{realized_ps*total_mult_r:.2f}")
+                        else:
+                            session.add(pos)
+                            await session.commit()
+                            print(f"   -> HOLD [LIVE]: {ticker} (Spot ₹{current_price:.2f} | MTM ₹{pnl_ps*total_mult_r:.2f})")
+                        continue  # real path handled this position
 
                 # Technical EMA Stop: Calculate 26-EMA on daily
                 exit_triggered = False

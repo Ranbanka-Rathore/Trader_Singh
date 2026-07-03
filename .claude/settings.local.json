@@ -15,7 +15,11 @@
       "Bash(./venv/Scripts/python.exe -m py_compile risk_shield.py paper_broker.py)",
       "Bash(./venv/Scripts/python.exe -c \"import yfinance; print\\('yfinance', yfinance.__version__, 'available'\\)\")",
       "Bash(./venv/Scripts/python.exe -W all -c ' *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(./venv/Scripts/python.exe -m py_compile dhan_integration.py)",
+      "Bash(./venv/Scripts/python.exe -m py_compile backend/app/services/execution_service.py backend/app/services/worker.py backend/app/services/options_pricing_service.py dhan_integration.py)",
+      "Bash(./venv/Scripts/python.exe tests/test_options_pricing.py)",
+      "Bash(PYTHONIOENCODING=utf-8 PYTHONUTF8=1 ./venv/Scripts/python.exe tests/test_options_pricing.py)"
     ]
   }
 }
