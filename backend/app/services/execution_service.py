@@ -137,6 +137,31 @@ class ExecutionService:
                     if sized < 1:
                         print(f"   🚫 SIZING VETO: 0 lots ({sdetail}) — trade NOT taken")
                         return False
+
+                    # ── 🪜 PHASE 6: ladder IVR soft-sizing + portfolio cap ──
+                    from trading_mode import ladder_enabled, LADDER_PORTFOLIO_MAX_LOSS_FRAC
+                    ivr_mult = float(trade_data.get("_ivr_size_mult") or 0.0)
+                    if ladder_enabled() and ivr_mult > 0:
+                        eq_l = position_sizer.account_equity()
+                        mlpl = float(sdetail.get("max_loss_per_lot") or 1.0)
+                        hard_lots = max(int(position_sizer.HARD_CAP * eq_l / max(mlpl, 1.0)), 1)
+                        sized = min(max(int(round(sized * ivr_mult)), 1),
+                                    hard_lots, position_sizer.MAX_LOTS)
+                        sdetail["size_mult"] = ivr_mult
+                        # portfolio max-loss cap across all open tranches
+                        open_ml = 0.0
+                        for p_open in await database_service.get_open_positions(session):
+                            w_o = abs(float(p_open.leg_1_sell or 0) - float(p_open.leg_2_buy or 0))
+                            cr_o = float(p_open.net_credit_per_share or 0)
+                            open_ml += max(w_o - cr_o, 0.0) * int(p_open.lots_sized or 1) \
+                                * self.risk_shield.get_lot_size(p_open.ticker)
+                        new_ml = mlpl * sized
+                        if open_ml + new_ml > LADDER_PORTFOLIO_MAX_LOSS_FRAC * eq_l:
+                            print(f"   🚫 PORTFOLIO CAP: open max-loss ₹{open_ml:,.0f} + "
+                                  f"new ₹{new_ml:,.0f} > {LADDER_PORTFOLIO_MAX_LOSS_FRAC:.0%} "
+                                  f"of ₹{eq_l:,.0f} — tranche NOT taken")
+                            return False
+                        sdetail["portfolio_open_max_loss"] = round(open_ml, 2)
                     if sized != total_lots:
                         print(f"   📐 RISK SIZING: desk asked {total_lots} lots -> sized {sized} ({sdetail})")
                         total_lots = sized
@@ -474,10 +499,15 @@ class ExecutionService:
         if is_eod and os.getenv("INTRADAY_SQUARE_OFF", "").lower() == "true":
             return True, "⏰ EOD SQUARE OFF (INTRADAY_SQUARE_OFF) [LIVE]", pnl_per_share
 
-        # time stop: T-1 before the priced expiry (or past expiry = fail-safe)
+        # time stop: T-1 before the priced expiry (or past expiry = fail-safe);
+        # ladder mode manages much earlier — at 21 DTE, per the validated
+        # income structure (never hold the gamma half of an option's life)
         expiry = self._position_expiry(pos)
         if expiry is not None:
             days_left = (expiry - datetime.date.today()).days
+            from trading_mode import ladder_enabled, ladder_manage_dte
+            if ladder_enabled() and days_left <= ladder_manage_dte():
+                return True, f"⏳ MANAGE @{ladder_manage_dte()}DTE (expiry {expiry}) [LIVE]", pnl_per_share
             if days_left < 0 or (days_left <= 1 and is_eod):
                 return True, f"⏳ TIME STOP T-1 (expiry {expiry}) [LIVE]", pnl_per_share
 

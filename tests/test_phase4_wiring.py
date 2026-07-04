@@ -148,9 +148,57 @@ def test_refine_iron_condor():
     check("2 sells + 2 buys", sum(1 for l in legs if l["side"] == "SELL") == 2)
 
 
+def test_ladder_wiring():
+    print("\n[4] Ladder live wiring (gate + 21-DTE management)")
+    import datetime
+    from backend.app.services.regime_service import regime_service
+
+    # inject regime state so no bhavcopy load happens
+    n = 30
+    regime_service._closes = [24000.0 / (1.0005 ** (n - i)) for i in range(n)]
+    regime_service._iv_hist = [0.13] * 80
+    regime_service._built_for = datetime.date.today()
+    regime_service._underlying = "NIFTY"
+
+    side, mult, reason = regime_service.evaluate_ladder(
+        ticker="NIFTY", pcr=1.40, spot=24000.0, live_iv=0.13)
+    check("confirmed PCR+EMA -> bull put", side == "BULL_PUT_SPREAD")
+    check("flat IVR -> mult 1.0", abs(mult - 1.0) < 0.01)
+    side2, mult2, _ = regime_service.evaluate_ladder(
+        ticker="NIFTY", pcr=1.00, spot=24000.0, live_iv=0.13)
+    check("middle PCR -> EMA tilt still trades", side2 == "BULL_PUT_SPREAD")
+    regime_service._iv_hist = [0.10 + 0.10 * (i % 10) / 9 for i in range(80)]
+    side3, mult3, _ = regime_service.evaluate_ladder(
+        ticker="NIFTY", pcr=1.00, spot=24000.0, live_iv=0.25)
+    check(f"rich IV -> mult ~1.5 ({mult3})", side3 is not None and mult3 >= 1.4)
+
+    # 21-DTE management exit (env-driven)
+    from backend.app.services.execution_service import execution_service
+
+    class _Pos:
+        strategy_type = "BULL_PUT_SPREAD"
+        ticker = "NIFTY"
+        net_credit_per_share = 30.0
+        adjusted_net_credit = None
+        leg_1_sell = 23700.0
+        learning_context = {}
+
+    pos = _Pos()
+    for dte, env_on, expect_exit in ((20, True, True), (25, True, False), (20, False, False)):
+        pos.learning_context = {"entry_pricing": {"expiry": (
+            datetime.date.today() + datetime.timedelta(days=dte)).isoformat()}}
+        os.environ["LADDER_MODE"] = "true" if env_on else ""
+        r = execution_service._real_exit_decision(pos, 1.0, is_eod=False)
+        label = f"DTE {dte} ladder={'on' if env_on else 'off'} -> {'exit' if expect_exit else 'hold'}"
+        check(label, r is not None and r[0] is expect_exit
+              and (("MANAGE" in r[1]) if expect_exit else True))
+    os.environ["LADDER_MODE"] = ""
+
+
 if __name__ == "__main__":
     test_sizer()
     test_refine()
     test_refine_iron_condor()
+    test_ladder_wiring()
     print(f"\n{'='*50}\nRESULT: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

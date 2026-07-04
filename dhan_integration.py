@@ -196,7 +196,27 @@ class DhanBroker:
                     pass
                     
                 nearest_expiry = exp_list[0]
-                logger.info(f"   ↳ Locked onto nearest expiry: {nearest_expiry}")
+                # Ladder mode trades the 30-45 DTE expiry, not the nearest
+                # weekly — the whole chain (premiums, strikes, IV) must come
+                # from the expiry the ladder actually sells.
+                from trading_mode import ladder_enabled, LADDER_DTE_MIN, LADDER_DTE_MAX
+                if ladder_enabled():
+                    import datetime as _dt
+                    today = _dt.date.today()
+                    for _e in exp_list:
+                        try:
+                            _days = (_dt.date.fromisoformat(str(_e)[:10]) - today).days
+                        except ValueError:
+                            continue
+                        if LADDER_DTE_MIN <= _days <= LADDER_DTE_MAX:
+                            nearest_expiry = _e
+                            break
+                    else:
+                        logger.warning(f"   ↳ LADDER: no expiry in {LADDER_DTE_MIN}-"
+                                       f"{LADDER_DTE_MAX} DTE window; keeping nearest")
+                    logger.info(f"   ↳ LADDER expiry selected: {nearest_expiry}")
+                else:
+                    logger.info(f"   ↳ Locked onto nearest expiry: {nearest_expiry}")
             else:
                 logger.error(f"Dhan API Rejected Request. Raw Server Response: {exp_response}")
                 return None, None

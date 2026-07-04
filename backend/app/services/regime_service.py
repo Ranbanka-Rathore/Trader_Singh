@@ -137,5 +137,44 @@ class RegimeService:
             return True, "ok", suggested
         return False, f"regime_suggests_{suggested}", suggested
 
+    def evaluate_ladder(self, *, ticker: str, pcr: float, spot: float,
+                        live_iv: Optional[float] = None
+                        ) -> Tuple[Optional[str], float, str]:
+        """Ladder-mode gate: (side, size_mult, reason).
+
+        Mirrors the VALIDATED backtest ladder branch exactly (walk-forward
+        e1bbdc4): hard filters are warmup + event blackout only; side is
+        PCR+EMA when they confirm, EMA trend tilt otherwise; the VRP hard
+        gate is replaced by IVR-scaled sizing (0.5x..1.5x).
+        Returns (None, 0.0, reason) when blocked.
+        """
+        from trading_mode import LADDER_IVR_SIZE_BASE
+        today = datetime.date.today()
+
+        try:
+            self._ensure_state(_normalise(ticker))
+        except Exception as e:
+            logger.error(f"ladder regime state unavailable: {e}")
+            return None, 0.0, "regime_state_unavailable"
+
+        closes = self._closes + ([spot] if spot > 0 else [])
+        if len(closes) < max(rf.EMA_PERIOD, rf.RV_LOOKBACK + 1):
+            return None, 0.0, "warmup"
+        ok, why = rf.event_gate(today)
+        if not ok:
+            return None, 0.0, why
+
+        ema20 = rf.ema(closes)
+        side = rf.choose_side(pcr, spot, ema20)
+        if side is None:
+            side = ("BULL_PUT_SPREAD" if (ema20 > 0 and spot > ema20)
+                    else "BEAR_CALL_SPREAD")
+
+        iv = live_iv if (live_iv and live_iv > 0) else (
+            self._iv_hist[-1] if self._iv_hist else 0.0)
+        ivr = rf.iv_rank(self._iv_hist, iv)
+        mult = LADDER_IVR_SIZE_BASE + max(min(ivr, 1.0), 0.0)
+        return side, round(mult, 3), f"ok_ivr_{ivr:.2f}"
+
 
 regime_service = RegimeService()

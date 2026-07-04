@@ -60,6 +60,16 @@ async def main():
     iso = _os.getenv("INTRADAY_SQUARE_OFF", "").lower() == "true"
     print(f"⏳ [P4] Exit stack: TP 0.5x | strike-touch | backstop -1.5x | "
           f"{'DAILY 15:15 square-off (legacy)' if iso else 'T-1 time stop (validated)'}")
+    from trading_mode import ladder_enabled, ladder_manage_dte
+    if ladder_enabled():
+        print(f"🪜 [P6] LADDER_MODE: ON — weekly tranches 30-45 DTE, manage @{ladder_manage_dte()}DTE, "
+              f"max 6 open, IVR-scaled sizing (validated at ₹15L, WF e1bbdc4)")
+        eq_chk = float(_os.getenv('TRADING_EQUITY', '500000'))
+        if eq_chk < 1_200_000:
+            print(f"   ⚠️ TRADING_EQUITY ₹{eq_chk:,.0f} is below the ₹15L the ladder was "
+                  f"validated at — tranches will size to 1 lot and the ladder loses its point")
+    else:
+        print("🪜 [P6] LADDER_MODE: off — running the gated 5-8 DTE sniper (validated at ₹5L)")
     try:
         from backend.app.services.regime_service import regime_service
         allowed, reason, _sug = regime_service.evaluate(

@@ -42,6 +42,34 @@ def mode() -> str:
     return _resolve_mode()
 
 
+# ── Phase 6: strategy structure switch ───────────────────────────────────────
+# LADDER_MODE=true switches the system from the gated 5-8 DTE sniper (hard
+# regime gates, ~1 trade/month, validated at Rs 5L) to the validated income
+# ladder (weekly tranches at 30-45 DTE, managed at 21 DTE, IVR-scaled sizing,
+# max 6 concurrent, validated at Rs 15L / walk-forward e1bbdc4). Default OFF —
+# flipping structures is a deliberate act, like going LIVE.
+LADDER_DTE_MIN = 30
+LADDER_DTE_MAX = 45
+LADDER_MAX_OPEN = 6
+LADDER_PORTFOLIO_MAX_LOSS_FRAC = 0.10
+LADDER_IVR_SIZE_BASE = 0.5
+
+
+def ladder_enabled() -> bool:
+    """True when the income-ladder structure is active (env LADDER_MODE=true).
+    Re-read each call, same as is_live()."""
+    return (os.getenv("LADDER_MODE", "") or "").strip().lower() == "true"
+
+
+def ladder_manage_dte() -> int:
+    """Management exit DTE for ladder positions (default 21 — never hold the
+    gamma half of an option's life)."""
+    try:
+        return int(os.getenv("LADDER_MANAGE_DTE", "21"))
+    except ValueError:
+        return 21
+
+
 def banner() -> str:
     m = _resolve_mode()
     if m == "LIVE":
