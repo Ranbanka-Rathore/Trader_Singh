@@ -190,6 +190,23 @@ def load_chain(d: datetime.date, underlying: str = "NIFTY") -> Optional[Dict[str
     }
 
 
+def infer_strike_interval(chain: Dict[str, Any], expiry: datetime.date,
+                          spot: float) -> Optional[float]:
+    """Strike step near the money for one expiry. Stock strike grids change
+    after corporate actions (RELIANCE 20->10, HDFCBANK 10->5), so this must
+    be inferred per day, never hardcoded."""
+    strikes = sorted({k[1] for k in chain["options"]
+                      if k[0] == expiry and abs(k[1] - spot) <= spot * 0.06})
+    if len(strikes) < 3:
+        return None
+    diffs = [round(strikes[i + 1] - strikes[i], 2)
+             for i in range(len(strikes) - 1)]
+    diffs = [x for x in diffs if x > 0]
+    if not diffs:
+        return None
+    return min(diffs)  # smallest positive step = the grid near ATM
+
+
 def nearest_expiry(chain: Dict[str, Any], on_or_after: datetime.date,
                    min_days: int = 0) -> Optional[datetime.date]:
     """First expiry >= on_or_after + min_days from the chain's expiry list."""

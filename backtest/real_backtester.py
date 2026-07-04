@@ -48,6 +48,10 @@ class Config:
     underlying: str = "NIFTY"
     slippage_per_leg: float = 0.75
     strike_interval: int = 50
+    # stocks: infer the strike grid per day from the chain (grids change
+    # after corporate actions) and ratio-adjust the closes series across
+    # bonus/split jumps (>22% overnight = corporate action, not a move)
+    auto_interval: bool = False
     # structure
     delta_target: float = 0.18        # grid: {0.15, 0.20}
     delta_band: Tuple[float, float] = (0.10, 0.28)
@@ -167,6 +171,7 @@ class RealBacktester:
         self._iv_hist: List[float] = []
         self._equity: float = self.cfg.equity0
         self._closed: List[ClosedTrade] = []
+        self._cur_interval: float = float(self.cfg.strike_interval)
         self.skip_reasons: Dict[str, int] = {}
 
     # ── strike selection ───────────────────────────────────────────────────
@@ -176,8 +181,9 @@ class RealBacktester:
         target inside the band. Uses BS IV inverted from each strike's close."""
         cfg = self.cfg
         t = max((expiry - on_date).days, 1) / 365.0
-        step = cfg.strike_interval if opt_type == "CE" else -cfg.strike_interval
-        atm = round(spot / cfg.strike_interval) * cfg.strike_interval
+        iv_step = self._cur_interval
+        step = iv_step if opt_type == "CE" else -iv_step
+        atm = round(spot / iv_step) * iv_step
         best: Optional[Tuple[float, float]] = None
         best_err = 1e9
         for i in range(1, 40):
@@ -258,6 +264,12 @@ class RealBacktester:
             self._skip("no_expiry")
             return None
 
+        self._cur_interval = cfg.strike_interval
+        if cfg.auto_interval:
+            inferred = bhavcopy.infer_strike_interval(chain, expiry, spot)
+            if inferred:
+                self._cur_interval = inferred
+
         pcr = chain_pcr(chain, expiry)
         iv_now = self._iv_hist[-1] if self._iv_hist else 0.0
 
@@ -310,7 +322,7 @@ class RealBacktester:
         # falls back to a narrower hedge instead of not trading at all
         last_reason = "sizing_zero"
         for w_int in cfg.width_fallbacks:
-            off = w_int * cfg.strike_interval
+            off = w_int * self._cur_interval
             buy_strike = sell_strike - off if opt_type == "PE" else sell_strike + off
             sf = self._leg_fills(chain, expiry, sell_strike, opt_type)
             bf = self._leg_fills(chain, expiry, buy_strike, opt_type)
@@ -382,7 +394,7 @@ class RealBacktester:
 
         last_reason = "sizing_zero"
         for w_int in cfg.width_fallbacks:
-            off = w_int * cfg.strike_interval
+            off = w_int * self._cur_interval
             pe_b, ce_b = pe_s - off, ce_s + off
             legs = []
             fills = {}
@@ -439,7 +451,7 @@ class RealBacktester:
         if far is None:
             self._skip("cal_no_far_expiry")
             return None
-        atm = float(round(spot / cfg.strike_interval) * cfg.strike_interval)
+        atm = float(round(spot / self._cur_interval) * self._cur_interval)
 
         near_f = self._leg_fills(chain, expiry, atm, "CE")
         far_f = self._leg_fills(chain, far, atm, "CE")
@@ -670,6 +682,11 @@ class RealBacktester:
 
             # update state AFTER decisions (no lookahead)
             if spot > 0:
+                if self._closes and abs(spot / self._closes[-1] - 1.0) > 0.22:
+                    # corporate action (bonus/split), not a market move:
+                    # ratio-adjust history so RV/EMA/ER stay meaningful
+                    f = spot / self._closes[-1]
+                    self._closes = [c * f for c in self._closes]
                 self._closes.append(spot)
                 self._closes = self._closes[-300:]
                 exp_iv = bhavcopy.nearest_expiry(chain, d, min_days=cfg.min_days_to_expiry)
@@ -677,7 +694,7 @@ class RealBacktester:
                     iv = rf.atm_straddle_iv(
                         spot, exp_iv, d,
                         lambda k, ty, _c=chain, _e=exp_iv: _leg_close(_c, _e, k, ty),
-                        cfg.strike_interval)
+                        self._cur_interval)
                     self._iv_hist.append(iv)
                     self._iv_hist = self._iv_hist[-252:]
 

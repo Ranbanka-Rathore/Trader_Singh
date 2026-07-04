@@ -1,0 +1,995 @@
+{
+ "generated": "2026-07-04T20:26:57",
+ "window": [
+  "2024-01-01",
+  "2026-07-03"
+ ],
+ "grid": [
+  {
+   "delta_target": 0.15,
+   "tp_ratio": 0.5,
+   "sl_mode": "strike_touch"
+  },
+  {
+   "delta_target": 0.15,
+   "tp_ratio": 0.5,
+   "sl_mode": "mark"
+  },
+  {
+   "delta_target": 0.15,
+   "tp_ratio": 0.6,
+   "sl_mode": "strike_touch"
+  },
+  {
+   "delta_target": 0.15,
+   "tp_ratio": 0.6,
+   "sl_mode": "mark"
+  },
+  {
+   "delta_target": 0.2,
+   "tp_ratio": 0.5,
+   "sl_mode": "strike_touch"
+  },
+  {
+   "delta_target": 0.2,
+   "tp_ratio": 0.5,
+   "sl_mode": "mark"
+  },
+  {
+   "delta_target": 0.2,
+   "tp_ratio": 0.6,
+   "sl_mode": "strike_touch"
+  },
+  {
+   "delta_target": 0.2,
+   "tp_ratio": 0.6,
+   "sl_mode": "mark"
+  }
+ ],
+ "oos_metrics": {
+  "n_trades": 0,
+  "win_rate": 0.0,
+  "total_net_pnl": 0,
+  "total_friction": 0,
+  "expectancy": 0.0,
+  "profit_factor": 0.0,
+  "sharpe": 0.0,
+  "max_drawdown": 0.0
+ },
+ "is_sharpe_mean": 0.0,
+ "wfe": null,
+ "deflated_sharpe_hurdle": 1.413,
+ "profitable_folds": "0/0 active (25 total)",
+ "acceptance": {
+  "wfe_ge_0.5": null,
+  "oos_pf_ge_1.25": false,
+  "folds_60pct_profitable": false,
+  "oos_sharpe_gt_hurdle": false
+ },
+ "mc_bootstrap_dd": {
+  "p50": 0.0,
+  "p95": 0.0,
+  "p99": 0.0
+ },
+ "mc_cost_stress": {
+  "slippage_x2": {
+   "total_net_pnl": 0,
+   "profit_factor": 0.0,
+   "n_trades": 0
+  },
+  "slippage_x3": {
+   "total_net_pnl": 0,
+   "profit_factor": 0.0,
+   "n_trades": 0
+  }
+ },
+ "mc_jackknife": {
+  "total": 0,
+  "drop_best_1": 0,
+  "drop_best_2": 0,
+  "drop_best_3": 0
+ },
+ "folds": [
+  {
+   "fold": 0,
+   "train": [
+    "2024-01-01",
+    "2024-06-30"
+   ],
+   "test": [
+    "2024-07-01",
+    "2024-07-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 1,
+   "train": [
+    "2024-02-01",
+    "2024-07-31"
+   ],
+   "test": [
+    "2024-08-01",
+    "2024-08-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 2,
+   "train": [
+    "2024-03-01",
+    "2024-08-31"
+   ],
+   "test": [
+    "2024-09-01",
+    "2024-09-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 3,
+   "train": [
+    "2024-04-01",
+    "2024-09-30"
+   ],
+   "test": [
+    "2024-10-01",
+    "2024-10-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 4,
+   "train": [
+    "2024-05-01",
+    "2024-10-31"
+   ],
+   "test": [
+    "2024-11-01",
+    "2024-11-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 5,
+   "train": [
+    "2024-06-01",
+    "2024-11-30"
+   ],
+   "test": [
+    "2024-12-01",
+    "2024-12-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 6,
+   "train": [
+    "2024-07-01",
+    "2024-12-31"
+   ],
+   "test": [
+    "2025-01-01",
+    "2025-01-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 7,
+   "train": [
+    "2024-08-01",
+    "2025-01-31"
+   ],
+   "test": [
+    "2025-02-01",
+    "2025-02-28"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 8,
+   "train": [
+    "2024-09-01",
+    "2025-02-28"
+   ],
+   "test": [
+    "2025-03-01",
+    "2025-03-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 9,
+   "train": [
+    "2024-10-01",
+    "2025-03-31"
+   ],
+   "test": [
+    "2025-04-01",
+    "2025-04-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 10,
+   "train": [
+    "2024-11-01",
+    "2025-04-30"
+   ],
+   "test": [
+    "2025-05-01",
+    "2025-05-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 11,
+   "train": [
+    "2024-12-01",
+    "2025-05-31"
+   ],
+   "test": [
+    "2025-06-01",
+    "2025-06-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 12,
+   "train": [
+    "2025-01-01",
+    "2025-06-30"
+   ],
+   "test": [
+    "2025-07-01",
+    "2025-07-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 13,
+   "train": [
+    "2025-02-01",
+    "2025-07-31"
+   ],
+   "test": [
+    "2025-08-01",
+    "2025-08-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 14,
+   "train": [
+    "2025-03-01",
+    "2025-08-31"
+   ],
+   "test": [
+    "2025-09-01",
+    "2025-09-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 15,
+   "train": [
+    "2025-04-01",
+    "2025-09-30"
+   ],
+   "test": [
+    "2025-10-01",
+    "2025-10-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 16,
+   "train": [
+    "2025-05-01",
+    "2025-10-31"
+   ],
+   "test": [
+    "2025-11-01",
+    "2025-11-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 17,
+   "train": [
+    "2025-06-01",
+    "2025-11-30"
+   ],
+   "test": [
+    "2025-12-01",
+    "2025-12-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 18,
+   "train": [
+    "2025-07-01",
+    "2025-12-31"
+   ],
+   "test": [
+    "2026-01-01",
+    "2026-01-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 19,
+   "train": [
+    "2025-08-01",
+    "2026-01-31"
+   ],
+   "test": [
+    "2026-02-01",
+    "2026-02-28"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 20,
+   "train": [
+    "2025-09-01",
+    "2026-02-28"
+   ],
+   "test": [
+    "2026-03-01",
+    "2026-03-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 21,
+   "train": [
+    "2025-10-01",
+    "2026-03-31"
+   ],
+   "test": [
+    "2026-04-01",
+    "2026-04-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 22,
+   "train": [
+    "2025-11-01",
+    "2026-04-30"
+   ],
+   "test": [
+    "2026-05-01",
+    "2026-05-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 23,
+   "train": [
+    "2025-12-01",
+    "2026-05-31"
+   ],
+   "test": [
+    "2026-06-01",
+    "2026-06-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 24,
+   "train": [
+    "2026-01-01",
+    "2026-06-30"
+   ],
+   "test": [
+    "2026-07-01",
+    "2026-07-03"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  }
+ ],
+ "oos_trades": []
+}
