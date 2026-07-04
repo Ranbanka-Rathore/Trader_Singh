@@ -36,6 +36,13 @@ SOURCE_FALLBACK = "HEURISTIC_FALLBACK"
 # Strategies that a single nearest-expiry chain cannot price (need >1 expiry).
 _MULTI_EXPIRY = {"CALENDAR_SPREAD", "DIAGONAL_SPREAD"}
 
+# Phase 4 validated structure: short strike by delta, hedge several intervals
+# out (see backtest/real_backtester.py Config — keep these in sync).
+DELTA_TARGET = 0.18
+DELTA_BAND = (0.10, 0.28)
+WIDTH_INTERVALS = 4
+CREDIT_FLOOR = 8.0  # Rs/share — thinner credits cannot beat friction
+
 
 def _normalise(ticker: str) -> str:
     t = (ticker or "").replace("^", "").replace(".NS", "").replace(".BO", "").strip().upper()
@@ -149,6 +156,75 @@ class OptionsPricingService:
         if not node:
             return None
         return node.get(opt_type)
+
+    async def refine_spread_with_chain(self, spread: Dict[str, Any]) -> Dict[str, Any]:
+        """Phase 4 — replace the desk's synthetic 1%-OTM/1-interval strikes with
+        the validated structure: short strike at |delta| ~ DELTA_TARGET from the
+        live chain, hedge WIDTH_INTERVALS further out, credit re-estimated from
+        real bid/ask paper fills. Leaves the spread untouched when no fresh
+        chain exists (execution-time pricing still applies real premiums).
+        Sets spread['_chain_atm_iv'] (fraction) for the regime gate when possible.
+        """
+        st = str(spread.get("strategy_type", "")).upper()
+        if st not in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD"):
+            return spread
+        chain = await self.get_premium_chain(spread.get("ticker", ""))
+        if chain is None:
+            return spread
+        spot = float(spread.get("spot_price") or chain.get("spot") or 0)
+        if spot <= 0:
+            return spread
+
+        from backend.app.services.options_desk_service import options_desk_service
+        interval = options_desk_service._get_strike_interval(spread.get("ticker", ""))
+        opt_type = "pe" if st == "BULL_PUT_SPREAD" else "ce"
+        step = -interval if opt_type == "pe" else interval
+        atm = round(spot / interval) * interval
+
+        # ATM IV for the regime gate (Dhan IV is a percent)
+        atm_leg = self._leg_from_chain(chain, float(atm), opt_type)
+        if atm_leg and float(atm_leg.get("iv") or 0) > 0:
+            spread["_chain_atm_iv"] = float(atm_leg["iv"]) / 100.0
+
+        best, best_err = None, 1e9
+        for i in range(1, 40):
+            k = float(atm + i * step)
+            leg = self._leg_from_chain(chain, k, opt_type)
+            if not leg:
+                continue
+            d = abs(float(leg.get("delta") or 0))
+            if d > 1.0:
+                d /= 100.0
+            if d <= 0:
+                continue
+            if d < DELTA_BAND[0] - 0.02:
+                break  # deltas only shrink further out
+            if DELTA_BAND[0] <= d <= DELTA_BAND[1]:
+                err = abs(d - DELTA_TARGET)
+                if err < best_err:
+                    best, best_err = (k, d), err
+        if best is None:
+            return spread
+        sell_k, sell_d = best
+        buy_k = sell_k + WIDTH_INTERVALS * step
+
+        s_leg = self._leg_from_chain(chain, sell_k, opt_type)
+        b_leg = self._leg_from_chain(chain, buy_k, opt_type)
+        if not s_leg or not b_leg or float(s_leg.get("bid") or 0) <= 0:
+            return spread
+        credit = round(paper_fill_price(s_leg, "SELL") - paper_fill_price(b_leg, "BUY"), 2)
+        width = abs(sell_k - buy_k)
+
+        spread["leg_1_sell"] = sell_k
+        spread["leg_2_buy"] = buy_k
+        spread["net_credit_per_share"] = credit
+        spread["max_risk_per_share"] = round(width - credit, 2)
+        spread["risk_reward_ratio"] = (f"1:{round((width - credit) / credit, 1)}"
+                                       if credit > 0 else "1:0")
+        spread["strike_selection"] = f"DELTA_TARGETED({sell_d:.2f})"
+        logger.info(f"🎯 Strikes refined from chain: {st} sell {sell_k:.0f} "
+                    f"(d {sell_d:.2f}) / buy {buy_k:.0f}, est credit ₹{credit}/sh")
+        return spread
 
     async def price_spread_entry(self, spread: Dict[str, Any]) -> Dict[str, Any]:
         """Compute a spread's real net entry premium (per share) and per-leg entry

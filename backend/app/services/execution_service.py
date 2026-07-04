@@ -68,6 +68,68 @@ class ExecutionService:
             else:
                 print(f"   ⚠️ HEURISTIC pricing fallback ({entry_pricing.get('reason')}) — synthetic premium retained")
 
+            # --- 📐 PHASE 4: credit floor + risk-based sizing (credit spreads) ---
+            st_up = str(trade_data.get("strategy_type", "")).upper()
+            if st_up in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD"):
+                from backend.app.core import position_sizer
+                from backend.app.core import regime_filters as _rf
+                from backend.app.services.options_pricing_service import CREDIT_FLOOR
+
+                if real_net_credit is not None and float(real_net_credit) < CREDIT_FLOOR:
+                    print(f"   🚫 CREDIT FLOOR: real credit ₹{real_net_credit}/sh < ₹{CREDIT_FLOOR} "
+                          f"— too thin to beat friction, trade NOT taken")
+                    return False
+
+                width = abs(float(trade_data.get("leg_1_sell", 0) or 0)
+                            - float(trade_data.get("leg_2_buy", 0) or 0))
+                credit_est = float(real_net_credit if real_net_credit is not None
+                                   else trade_data.get("net_credit_per_share", 0) or 0)
+                lot_size_s = self.risk_shield.get_lot_size(ticker)
+
+                # net spread delta from live chain legs when available
+                dnet = 0.10
+                deltas = [abs(float(l.get("delta") or 0))
+                          for l in entry_pricing.get("legs", [])
+                          if l.get("opt_type") != "fut"]
+                deltas = [d / 100.0 if d > 1.0 else d for d in deltas if d > 0]
+                if len(deltas) == 2:
+                    dnet = max(max(deltas) - min(deltas), 0.02)
+
+                rv = None
+                try:
+                    from backend.app.services.regime_service import regime_service
+                    if regime_service._closes:
+                        rv = _rf.realized_vol(regime_service._closes)
+                except Exception:
+                    pass
+
+                recent_pnls = None
+                try:
+                    q_pnl = select(Trade.realized_pnl).order_by(Trade.exit_date.desc()).limit(50)
+                    res_pnl = await session.execute(q_pnl)
+                    vals = [float(x) for x in res_pnl.scalars().all() if x is not None]
+                    recent_pnls = list(reversed(vals))
+                except Exception:
+                    pass
+
+                if width > 0:
+                    sized, sdetail = position_sizer.size_lots(
+                        width=width, credit=credit_est, lot_size=lot_size_s,
+                        spot=spot_price, dnet=dnet, realized_vol_ann=rv,
+                        recent_pnls=recent_pnls)
+                    if sized < 1:
+                        print(f"   🚫 SIZING VETO: 0 lots ({sdetail}) — trade NOT taken")
+                        return False
+                    if sized != total_lots:
+                        print(f"   📐 RISK SIZING: desk asked {total_lots} lots -> sized {sized} ({sdetail})")
+                        total_lots = sized
+                        trade_data["lots_sized"] = sized
+                    learning_context_sizing = sdetail
+                else:
+                    learning_context_sizing = None
+            else:
+                learning_context_sizing = None
+
             # --- 🧺 PHASE 2: ROUTE THE ENTRY BASKET THROUGH THE BROKER ---
             # Real multi-leg order placement (PAPER mode fills instantly at the
             # limit via the broker gate; LIVE places actual orders). A failed
@@ -136,6 +198,8 @@ class ExecutionService:
             # Merge the real entry pricing into the learning context (audit + P&L source)
             learning_context = dict(trade_data.get("learning_context", {}) or {})
             learning_context["entry_pricing"] = entry_pricing
+            if learning_context_sizing:
+                learning_context["position_sizing"] = learning_context_sizing
 
             # Prefer the real net credit from live quotes; keep synthetic only on fallback
             net_credit_value = real_net_credit if real_net_credit is not None else trade_data.get("net_credit_per_share", 0)
@@ -360,14 +424,28 @@ class ExecutionService:
             friction = {"entry": {}, "exit": {}, "total": 0.0}
         return {"pnl_per_share": round(pnl, 2), "basket": basket, "friction": friction}
 
-    def _real_exit_decision(self, pos, pnl_per_share: float, is_eod: bool):
+    def _position_expiry(self, pos):
+        """Expiry date of the position's priced legs, or None."""
+        try:
+            ctx = getattr(pos, "learning_context", None) or {}
+            raw = str((ctx.get("entry_pricing") or {}).get("expiry") or "")[:10]
+            return datetime.date.fromisoformat(raw) if raw else None
+        except ValueError:
+            return None
+
+    def _real_exit_decision(self, pos, pnl_per_share: float, is_eod: bool,
+                            spot: Optional[float] = None):
         """Decide exit from REAL mark-to-market P&L (per share).
 
-        Returns (exit_triggered, exit_reason, realized_pnl_per_share) for the
-        strategies we can price from a single-expiry chain, or None to signal the
-        caller should use the heuristic path (calendar/diagonal/unknown).
-        Thresholds mirror the heuristic's intent but in real premium terms:
-        credit strategies profit as the spread decays; debit strategies as it appreciates.
+        Phase 4 exit stack (validated in backtest/real_backtester.py v2):
+          1. TAKE PROFIT at +0.50 x credit — the last part of a credit has the
+             worst theta/gamma ratio; free the margin and re-arm
+          2. STRIKE-TOUCH STOP — spot through the short strike (checked every
+             5-min cycle, which is exactly why it beats the old mark stop)
+          3. backstop mark stop at -1.5 x credit (gap protection)
+          4. TIME STOP at T-1 before expiry, 15:15 — never hold expiry-day gamma
+        Set INTRADAY_SQUARE_OFF=true to restore the legacy daily 15:15 exit.
+        Returns (exit, reason, pnl_ps) or None -> heuristic path.
         """
         st = (pos.strategy_type or "").upper()
         credit = abs(float(pos.adjusted_net_credit if pos.adjusted_net_credit is not None
@@ -375,16 +453,26 @@ class ExecutionService:
         if credit <= 0:
             return None
 
-        brain = self._load_brain_config()
-        clean_ticker = pos.ticker.replace("^", "").replace(".NS", "").replace(".BO", "")
-        cfg = brain.get(pos.ticker, brain.get(clean_ticker, {}))
-        sl_ratio = float(cfg.get("stop_loss_pct", 1.0))
+        # legacy behavior on demand
+        if is_eod and os.getenv("INTRADAY_SQUARE_OFF", "").lower() == "true":
+            return True, "⏰ EOD SQUARE OFF (INTRADAY_SQUARE_OFF) [LIVE]", pnl_per_share
 
-        if is_eod:
-            return True, "⏰ EOD SQUARE OFF (Time Stop at 3:15 PM) [LIVE]", pnl_per_share
+        # time stop: T-1 before the priced expiry (or past expiry = fail-safe)
+        expiry = self._position_expiry(pos)
+        if expiry is not None:
+            days_left = (expiry - datetime.date.today()).days
+            if days_left < 0 or (days_left <= 1 and is_eod):
+                return True, f"⏳ TIME STOP T-1 (expiry {expiry}) [LIVE]", pnl_per_share
 
         if st in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD", "CASH_SECURED_PUT"):
-            tp, sl = credit * 0.80, -credit * sl_ratio
+            tp, sl = credit * 0.50, -credit * 1.5
+            # strike-touch stop: short strike breached by spot
+            if spot is not None and spot > 0:
+                short_strike = float(getattr(pos, "leg_1_sell", 0) or 0)
+                breached = (spot <= short_strike if st != "BEAR_CALL_SPREAD"
+                            else spot >= short_strike)
+                if short_strike > 0 and breached:
+                    return True, f"🛑 STOP: SHORT STRIKE TOUCHED ({short_strike:.0f}) [LIVE]", pnl_per_share
         elif st == "DELTA_NEUTRAL":
             tp, sl = credit * 0.50, -credit * 0.80
         elif st in ("DEBIT_BULL_SPREAD", "DEBIT_BEAR_SPREAD"):
@@ -577,7 +665,7 @@ class ExecutionService:
                     lot_size_r = self.risk_shield.get_lot_size(ticker)
                     total_mult_r = lots_r * lot_size_r
                     pnl_ps = float(real_mark["pnl_per_share"])
-                    decision = self._real_exit_decision(pos, pnl_ps, is_eod)
+                    decision = self._real_exit_decision(pos, pnl_ps, is_eod, spot=current_price)
                     if decision is not None:
                         exit_now, exit_reason_r, realized_ps = decision
                         # Keep water marks fresh for reporting continuity

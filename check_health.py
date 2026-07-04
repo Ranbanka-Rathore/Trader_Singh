@@ -50,6 +50,27 @@ async def main():
     except Exception as e:
         print(f"❌ [DATA] Scrip master check failed: {e}")
 
+    # 0e. Phase 4 controls: sizing equity, committee mode, regime state
+    import os as _os
+    print(f"📐 [P4] TRADING_EQUITY: ₹{float(_os.getenv('TRADING_EQUITY', '500000')):,.0f} "
+          f"(risk 1.5%/trade, hard cap 3%)")
+    cm = _os.getenv("COMMITTEE_MODE", "advisory").lower()
+    print(f"⚖️ [P4] COMMITTEE_MODE: {cm}" +
+          (" — LLM verdicts recorded but NOT blocking" if cm != "blocking" else " — LLM can veto"))
+    iso = _os.getenv("INTRADAY_SQUARE_OFF", "").lower() == "true"
+    print(f"⏳ [P4] Exit stack: TP 0.5x | strike-touch | backstop -1.5x | "
+          f"{'DAILY 15:15 square-off (legacy)' if iso else 'T-1 time stop (validated)'}")
+    try:
+        from backend.app.services.regime_service import regime_service
+        allowed, reason = regime_service.evaluate(
+            ticker="NIFTY", strategy_type="BULL_PUT_SPREAD", pcr=1.40,
+            spot=float((await redis_service.get_json('market_snapshot:NIFTY') or {}).get('price', 0) or 0) or 24000.0)
+        print(f"🌡️ [P4] Regime gate (probe bull-put @ PCR 1.4): "
+              f"{'OPEN' if allowed else f'CLOSED ({reason})'} "
+              f"[{len(regime_service._closes)} sessions of state]")
+    except Exception as e:
+        print(f"⚠️ [P4] Regime state unavailable: {e} (gate will fail-safe = no entries)")
+
     # 1. Check Redis Connection
     try:
         await redis_service.client.ping()

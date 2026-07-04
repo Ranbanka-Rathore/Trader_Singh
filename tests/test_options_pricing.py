@@ -91,16 +91,36 @@ async def main():
     print(f"[2] MTM pnl = ₹{mark['pnl_per_share']}/sh after decay  OK")
     passed += 1
 
-    # --- 3. Exit decision: HOLD (below TP), TP, and SL ---
-    hold = execution_service._real_exit_decision(pos, 3.80, is_eod=False)
+    # --- 3. Exit decisions (Phase 4 stack: TP 0.5x, touch stop, backstop, T-1) ---
+    import datetime as _dt
+    # keep the test stable as real time passes: expiry 5 days out
+    pos.learning_context["entry_pricing"]["expiry"] = (
+        _dt.date.today() + _dt.timedelta(days=5)).isoformat()
+    pos.leg_1_sell = 23800.0
+
+    hold = execution_service._real_exit_decision(pos, 3.80, is_eod=False)  # < 0.5*9.80=4.90
     assert hold is not None and hold[0] is False, hold
-    tp = execution_service._real_exit_decision(pos, 8.0, is_eod=False)   # >= 0.8*9.80=7.84
+    tp = execution_service._real_exit_decision(pos, 5.0, is_eod=False)     # >= 4.90
     assert tp[0] is True and "TAKE PROFIT" in tp[1], tp
-    sl = execution_service._real_exit_decision(pos, -10.2, is_eod=False)  # <= -9.80
+    mid = execution_service._real_exit_decision(pos, -10.2, is_eod=False)  # > -14.70 backstop
+    assert mid[0] is False, mid
+    sl = execution_service._real_exit_decision(pos, -15.0, is_eod=False)   # <= -1.5*9.80
     assert sl[0] is True and "STOP LOSS" in sl[1], sl
-    eod = execution_service._real_exit_decision(pos, 1.0, is_eod=True)
-    assert eod[0] is True and "EOD" in eod[1], eod
-    print(f"[3] exits: hold/TP/SL/EOD all correct  OK")
+    touch = execution_service._real_exit_decision(pos, -2.0, is_eod=False, spot=23795.0)
+    assert touch[0] is True and "STRIKE TOUCHED" in touch[1], touch
+    no_touch = execution_service._real_exit_decision(pos, -2.0, is_eod=False, spot=23900.0)
+    assert no_touch[0] is False, no_touch
+    # T-1 time stop: expiry tomorrow + EOD window
+    pos.learning_context["entry_pricing"]["expiry"] = (
+        _dt.date.today() + _dt.timedelta(days=1)).isoformat()
+    tstop = execution_service._real_exit_decision(pos, 1.0, is_eod=True)
+    assert tstop[0] is True and "TIME STOP" in tstop[1], tstop
+    # not EOD yet, T-1 -> hold
+    thold = execution_service._real_exit_decision(pos, 1.0, is_eod=False)
+    assert thold[0] is False, thold
+    pos.learning_context["entry_pricing"]["expiry"] = (
+        _dt.date.today() + _dt.timedelta(days=5)).isoformat()
+    print(f"[3] exits: hold/TP/backstop/SL/touch/T-1 all correct  OK")
     passed += 1
 
     # --- 4. Fallback: calendar spread cannot be priced (multi-expiry) ---

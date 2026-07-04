@@ -220,9 +220,38 @@ class AutopilotWorker:
                 for spread in structured_spreads:
                     ml_score = spread.get("ml_score", 0.5)
                     ticker = spread.get("ticker", "UNKNOWN")
-                    
+
+                    # --- 🎯 PHASE 4: delta-targeted strikes from the live chain ---
+                    try:
+                        from backend.app.services.options_pricing_service import options_pricing_service
+                        spread = await options_pricing_service.refine_spread_with_chain(spread)
+                    except Exception as e:
+                        logger.warning(f"strike refinement failed for {ticker}: {e}")
+
+                    # --- 🌡️ PHASE 4: regime gate (VRP/trend/event/side) ---
+                    try:
+                        from backend.app.services.regime_service import regime_service
+                        allowed, gate_reason = await asyncio.to_thread(
+                            regime_service.evaluate,
+                            ticker=ticker,
+                            strategy_type=str(spread.get("strategy_type", "")),
+                            pcr=float(spread.get("coi_pcr", 1.0) or 1.0),
+                            spot=float(spread.get("spot_price", 0) or 0),
+                            live_iv=spread.get("_chain_atm_iv"),
+                        )
+                    except Exception as e:
+                        logger.error(f"regime gate error for {ticker}: {e} — refusing entry (fail-safe)")
+                        allowed, gate_reason = False, "regime_gate_error"
+                    if not allowed:
+                        logger.info(f"🌡️ [Regime Gate] {ticker} {spread.get('strategy_type')} "
+                                    f"blocked: {gate_reason}")
+                        continue
+
                     # 6. AI Risk Committee Verdict
-                    # Call our new headless Autogen Risk Committee
+                    # Phase 4: committee is ADVISORY by default — its verdict is
+                    # recorded for audit but does not block entries the
+                    # quantitative gates approved (unbacktestable filter).
+                    # Set COMMITTEE_MODE=blocking to restore veto power.
                     verdict, reasoning = await risk_committee.evaluate_trade(spread)
 
                     # Log to database SignalAudit table
@@ -244,7 +273,12 @@ class AutopilotWorker:
                         "data": passed
                     })
                     
-                    if verdict == "APPROVED":
+                    committee_mode = os.getenv("COMMITTEE_MODE", "advisory").lower()
+                    proceed = (verdict == "APPROVED") or committee_mode != "blocking"
+                    if proceed and verdict != "APPROVED":
+                        logger.info(f"⚖️ Committee said {verdict} (advisory mode) — "
+                                    f"proceeding on quantitative gates")
+                    if proceed:
                         # Phase 3 attribution: carry the audit id into the position's
                         # learning_context so close_position can write the outcome back.
                         spread.setdefault("learning_context", {})["signal_audit_id"] = audit.id
