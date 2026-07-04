@@ -296,6 +296,9 @@ def main():
                     help="absolute per-trade loss cap as fraction of equity")
     ap.add_argument("--auto-interval", action="store_true",
                     help="infer strike grid per day from the chain (stocks)")
+    ap.add_argument("--ladder", action="store_true",
+                    help="income-ladder mode: weekly tranches 30-45 DTE, "
+                         "managed at 21 DTE, IVR-scaled sizing, 6 concurrent")
     ap.add_argument("--report", default="wf_report.json")
     args = ap.parse_args()
     start = datetime.date.fromisoformat(args.start)
@@ -304,6 +307,9 @@ def main():
     base_cfg = Config(underlying=args.underlying, equity0=args.equity,
                       risk_frac_hard_cap=args.max_loss_frac,
                       auto_interval=args.auto_interval)
+    if args.ladder:
+        base_cfg = replace(base_cfg, ladder_mode=True, min_days_to_expiry=30,
+                           dte_max=45, time_stop_days=21, max_open=6)
     print(f"WALK-FORWARD {start} -> {end} | equity Rs {args.equity:,.0f} | "
           f"loss cap {args.max_loss_frac:.0%} | grid of {len(GRID)} combos")
     wf = walk_forward(start, end, base_cfg)

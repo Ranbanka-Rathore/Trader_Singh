@@ -333,6 +333,68 @@ def test_adaptive_width_small_account():
     check("3% cap refuses 50k account", bt2._try_enter(d, ch) is None)
 
 
+def ladder_cfg():
+    return Config(ladder_mode=True, min_days_to_expiry=30, dte_max=45,
+                  time_stop_days=21, max_open=6, equity0=1_500_000)
+
+
+def test_ladder():
+    print("\n[10] Income ladder mode")
+    FAR = D(2026, 8, 11)  # ~35 DTE from test dates
+    d1, d2 = D(2026, 7, 6), D(2026, 7, 8)   # same ISO week
+    d3 = D(2026, 7, 13)                      # next week
+    ch1 = mk_chain(d1, 24000.0, iv=0.13, pcr=1.5, expiry=FAR)
+    ch2 = mk_chain(d2, 24010.0, iv=0.13, pcr=1.5, expiry=FAR)
+    FAR2 = D(2026, 8, 18)  # 36 DTE from d3 (FAR is only 29 out by then)
+    ch3 = mk_chain(d3, 24020.0, iv=0.13, pcr=1.5, expiry=FAR2)
+    closes, ivh = seeds()
+
+    # weekly cadence: only ONE tranche per ISO week
+    bt = RealBacktester(ladder_cfg(), provider_from({d1: ch1, d2: ch2, d3: ch3}))
+    bt._closes, bt._iv_hist, bt._equity, bt._closed = closes, ivh, 1_500_000.0, []
+    p1 = bt._try_enter(d1, ch1)
+    check("tranche 1 entered (30-45 DTE)", p1 is not None
+          and 30 <= (p1.expiry - d1).days <= 45)
+    bt._last_entry_week = (d1.isocalendar()[0], d1.isocalendar()[1])
+    check("same week blocked", bt._try_enter(d2, ch2) is None)
+    p3 = bt._try_enter(d3, ch3)
+    check("next week allowed", p3 is not None)
+
+    # IVR sizing: flat history -> rank 0.5 -> mult 1.0; rich IV -> bigger
+    check("mult recorded", "size_mult" in p1.sizing)
+    check("flat IVR -> mult 1.0", abs(p1.sizing["size_mult"] - 1.0) < 0.01)
+    bt2 = RealBacktester(ladder_cfg(), provider_from({d1: ch1}))
+    ivh_rich = [0.10 + 0.10 * (i % 10) / 9 for i in range(79)] + [0.20]  # rank ~1
+    bt2._closes, bt2._iv_hist, bt2._equity, bt2._closed = closes, ivh_rich, 1_500_000.0, []
+    p_rich = bt2._try_enter(d1, ch1)
+    check("rich IVR -> mult ~1.5", p_rich is not None
+          and p_rich.sizing["size_mult"] >= 1.4)
+    check("rich sizes >= flat", p_rich.lots >= p1.lots)
+
+    # EMA fallback side: middle PCR + uptrend seeds -> bull put (no hard skip)
+    ch_mid = mk_chain(d1, 24000.0, iv=0.13, pcr=1.0, expiry=FAR)
+    bt3 = RealBacktester(ladder_cfg(), provider_from({d1: ch_mid}))
+    bt3._closes, bt3._iv_hist, bt3._equity, bt3._closed = closes, ivh, 1_500_000.0, []
+    p_mid = bt3._try_enter(d1, ch_mid)
+    check("middle PCR still trades (EMA tilt)", p_mid is not None
+          and p_mid.strategy == "BULL_PUT_SPREAD")
+
+    # portfolio cap: inflate open risk -> new tranche refused
+    bt4 = RealBacktester(ladder_cfg(), provider_from({d1: ch1}))
+    bt4._closes, bt4._iv_hist, bt4._equity, bt4._closed = closes, ivh, 1_500_000.0, []
+    bt4._open_max_loss = 0.099 * 1_500_000
+    check("portfolio cap blocks", bt4._try_enter(d1, ch1) is None
+          and "portfolio_risk_cap" in bt4.skip_reasons)
+
+    # 21-DTE management exit: day at DTE 21, drifting market (no TP/SL)
+    d_mgmt = FAR - datetime.timedelta(days=21)
+    ch_m = mk_chain(d_mgmt, 24050.0, iv=0.15, pcr=1.10, expiry=FAR)
+    bt5 = RealBacktester(ladder_cfg(), provider_from({d1: ch1, d_mgmt: ch_m}))
+    res = bt5.run([d1, d_mgmt], seed_closes=closes, seed_iv_hist=ivh)
+    check("managed at 21 DTE", len(res["trades"]) == 1
+          and res["trades"][0]["exit_reason"] == "TIME_STOP_T1")
+
+
 if __name__ == "__main__":
     test_delta_strike_selection()
     test_gates()
@@ -343,5 +405,6 @@ if __name__ == "__main__":
     test_iron_condor()
     test_calendar()
     test_adaptive_width_small_account()
+    test_ladder()
     print(f"\n{'='*50}\nRESULT: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

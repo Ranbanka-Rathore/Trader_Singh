@@ -77,6 +77,15 @@ class Config:
     sl_mode: str = "strike_touch"     # grid: {"strike_touch", "mark"}
     sl_mark_mult: float = 1.5
     time_stop_days: int = 1           # exit at T-1 before expiry
+    # ── LADDER MODE (income structure; all fixed a priori, none in grid) ──
+    # weekly tranches at 30-45 DTE, managed at 21 DTE (set time_stop_days=21),
+    # IVR-scaled sizing replaces the VRP hard gate, side = PCR+EMA when they
+    # agree else EMA trend alone; event blackout + credit floor + risk caps
+    # are the only hard filters kept.
+    ladder_mode: bool = False
+    dte_max: int = 45                 # entry expiry must be <= this many days out
+    ivr_size_base: float = 0.5        # size mult = base + IV_rank  (0.5x..1.5x)
+    portfolio_max_loss_frac: float = 0.10  # sum of open max-losses <= 10% equity
     # gates
     use_gates: bool = True
     # GEX off by default in backtest: the naive OI-sign convention (dealers
@@ -172,6 +181,8 @@ class RealBacktester:
         self._equity: float = self.cfg.equity0
         self._closed: List[ClosedTrade] = []
         self._cur_interval: float = float(self.cfg.strike_interval)
+        self._last_entry_week: Optional[Tuple[int, int]] = None  # ladder cadence
+        self._open_max_loss: float = 0.0                         # portfolio cap
         self.skip_reasons: Dict[str, int] = {}
 
     # ── strike selection ───────────────────────────────────────────────────
@@ -273,6 +284,39 @@ class RealBacktester:
         pcr = chain_pcr(chain, expiry)
         iv_now = self._iv_hist[-1] if self._iv_hist else 0.0
 
+        if cfg.ladder_mode:
+            wk = (d.isocalendar()[0], d.isocalendar()[1])
+            if self._last_entry_week == wk:
+                return None  # one tranche per ISO week — cadence, not a skip
+            if len(self._closes) < max(rf.EMA_PERIOD, rf.RV_LOOKBACK + 1):
+                self._skip("warmup")
+                return None
+            ok, why = rf.event_gate(d)
+            if not ok:
+                self._skip(why)
+                return None
+            if (expiry - d).days > cfg.dte_max:
+                self._skip("no_expiry_in_dte_window")
+                return None
+            ema20 = rf.ema(self._closes)
+            side = rf.choose_side(pcr, spot, ema20)
+            if side is None:
+                # soft tilt: trend side when PCR has no confirmed opinion
+                side = ("BULL_PUT_SPREAD" if (ema20 > 0 and spot > ema20)
+                        else "BEAR_CALL_SPREAD")
+            ivr = rf.iv_rank(self._iv_hist[:-1], iv_now)
+            mult = cfg.ivr_size_base + max(min(ivr, 1.0), 0.0)
+            pos = self._enter_directional(d, chain, expiry, spot, side, pcr,
+                                          size_mult=mult)
+            if pos is not None:
+                new_ml = pos.sizing.get("max_loss_total", 0.0)
+                if (self._open_max_loss + new_ml
+                        > cfg.portfolio_max_loss_frac * self._equity):
+                    self._skip("portfolio_risk_cap")
+                    return None
+                self._last_entry_week = wk
+            return pos
+
         if cfg.use_gates:
             gex = 0
             if cfg.use_gex:
@@ -306,7 +350,8 @@ class RealBacktester:
         return (max(close - self.cfg.slippage_per_leg, 0.05),
                 close + self.cfg.slippage_per_leg)
 
-    def _enter_directional(self, d, chain, expiry, spot, side, pcr) -> Optional[Position]:
+    def _enter_directional(self, d, chain, expiry, spot, side, pcr,
+                           size_mult: float = 1.0) -> Optional[Position]:
         cfg = self.cfg
         opt_type = "PE" if side == "BULL_PUT_SPREAD" else "CE"
         picked = self._pick_short_strike(chain, expiry, spot, opt_type, d)
@@ -359,6 +404,14 @@ class RealBacktester:
             if lots < 1:
                 last_reason = "sizing_zero"
                 continue
+            if size_mult != 1.0:
+                # IVR soft sizing: scale the base, never past the hard cap
+                hard_lots = max(int(cfg.risk_frac_hard_cap * self._equity
+                                    / max(sizing["max_loss_per_lot"], 1.0)), 1)
+                lots = min(max(int(round(lots * size_mult)), 1),
+                           hard_lots, cfg.max_lots)
+            sizing["size_mult"] = round(size_mult, 3)
+            sizing["max_loss_total"] = round(sizing["max_loss_per_lot"] * lots, 2)
 
             quantity = lots * lot
             entry_friction = friction_model.basket_friction([
@@ -646,6 +699,8 @@ class RealBacktester:
         self._iv_hist = list(seed_iv_hist or [])
         self._equity = cfg.equity0
         self._closed = []
+        self._last_entry_week = None
+        self._open_max_loss = 0.0
         self.skip_reasons = {}
         open_pos: List[Position] = []
         daily_pnl: Dict[datetime.date, float] = {}
@@ -670,6 +725,7 @@ class RealBacktester:
                     self._closed.append(closed)
                     self._equity += closed.net_pnl
                     daily_pnl[d] += closed.net_pnl
+                    self._open_max_loss -= pos.sizing.get("max_loss_total", 0.0)
                 else:
                     still.append(pos)
             open_pos = still
@@ -679,6 +735,7 @@ class RealBacktester:
                 pos = self._try_enter(d, chain)
                 if pos:
                     open_pos.append(pos)
+                    self._open_max_loss += pos.sizing.get("max_loss_total", 0.0)
 
             # update state AFTER decisions (no lookahead)
             if spot > 0:
