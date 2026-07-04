@@ -40,6 +40,10 @@ PCR_BULL = 1.25
 PCR_BEAR = 0.75
 EVENT_BLACKOUT_DAYS = 2        # block entries within N calendar days before event
 IV_RANK_MIN_HISTORY = 60       # need this many IV observations before rank gate binds
+# multi-strategy regime map (theory-fixed):
+IC_ER_MAX = 0.25               # iron condor: middle PCR + genuinely range-bound
+CAL_IVR_MAX = 0.30             # calendar: vol CHEAP (long-vol structure) ...
+CAL_ER_MAX = 0.25              # ... and no strong trend (pin risk at the short)
 
 # ── scheduled macro events (decision dates; verify quarterly) ────────────────
 FOMC_DATES = [
@@ -237,13 +241,22 @@ def naive_gex_sign(spot: float, expiry: datetime.date, on_date: datetime.date,
     return 1 if total >= 0 else -1
 
 
-def entry_allowed(*, side_pcr: float, spot: float, closes: List[float],
-                  iv: float, iv_hist: List[float], on_date: datetime.date,
-                  gex_sign: int = 0) -> Tuple[Optional[str], str]:
-    """Run all gates in order. Returns (side or None, reason).
+def classify_entry(*, side_pcr: float, spot: float, closes: List[float],
+                   iv: float, iv_hist: List[float], on_date: datetime.date,
+                   gex_sign: int = 0, allow_ic: bool = True,
+                   allow_calendar: bool = True) -> Tuple[Optional[str], str]:
+    """The full regime map: which structure (if any) does today license?
 
-    gex_sign: pass 0 if unavailable (gate skipped) — the backtester computes
-    it from the chain, the live worker from its GEX feed.
+    Returns (strategy, reason) where strategy is one of
+    BULL_PUT_SPREAD | BEAR_CALL_SPREAD | IRON_CONDOR | CALENDAR_SPREAD | None.
+
+    Branching (theory-fixed):
+      cheap vol  (IV rank < 0.30) + range  -> CALENDAR (long vol, debit-defined)
+      rich vol   (VRP + IV rank >= 0.30):
+          directional PCR + trend confirm  -> credit spread on that side
+          middle PCR + range (ER < 0.25)   -> IRON_CONDOR (both sides)
+      otherwise                            -> no trade
+    Used verbatim by the backtester and the live regime_service — do not fork.
     """
     # warmup: EMA/ER/RV are garbage on a thin series — refuse to trade blind
     if len(closes) < max(EMA_PERIOD, RV_LOOKBACK + 1):
@@ -255,6 +268,12 @@ def entry_allowed(*, side_pcr: float, spot: float, closes: List[float],
 
     rv = realized_vol(closes)
     ivr = iv_rank(iv_hist, iv)
+    er = efficiency_ratio(closes)
+
+    # cheap-vol branch: long the term structure instead of selling nothing
+    if allow_calendar and iv > 0 and ivr < CAL_IVR_MAX and er < CAL_ER_MAX:
+        return "CALENDAR_SPREAD", f"cheap_vol_ivr_{ivr:.2f}"
+
     ok, why = vrp_gate(iv, rv, ivr)
     if not ok:
         return None, why
@@ -263,11 +282,24 @@ def entry_allowed(*, side_pcr: float, spot: float, closes: List[float],
         return None, "negative_gex"
 
     side = choose_side(side_pcr, spot, ema(closes))
-    if side is None:
-        return None, f"no_side_pcr_{side_pcr:.2f}"
+    if side is not None:
+        ok, why = er_gate(side, closes)
+        if not ok:
+            return None, why
+        return side, "ok"
 
-    ok, why = er_gate(side, closes)
-    if not ok:
-        return None, why
+    # middle PCR: no directional read — sell both sides only in a real range
+    if allow_ic and PCR_BEAR < side_pcr < PCR_BULL and er < IC_ER_MAX:
+        return "IRON_CONDOR", f"range_pcr_{side_pcr:.2f}_er_{er:.2f}"
 
-    return side, "ok"
+    return None, f"no_side_pcr_{side_pcr:.2f}"
+
+
+def entry_allowed(*, side_pcr: float, spot: float, closes: List[float],
+                  iv: float, iv_hist: List[float], on_date: datetime.date,
+                  gex_sign: int = 0) -> Tuple[Optional[str], str]:
+    """Directional-only view of classify_entry (backward compatible)."""
+    strategy, reason = classify_entry(
+        side_pcr=side_pcr, spot=spot, closes=closes, iv=iv, iv_hist=iv_hist,
+        on_date=on_date, gex_sign=gex_sign, allow_ic=False, allow_calendar=False)
+    return strategy, reason

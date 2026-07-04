@@ -291,12 +291,18 @@ def main():
     ap.add_argument("--start", default="2024-01-01")
     ap.add_argument("--end", default="2026-07-03")
     ap.add_argument("--underlying", default="NIFTY")
+    ap.add_argument("--equity", type=float, default=500_000.0)
+    ap.add_argument("--max-loss-frac", type=float, default=0.03,
+                    help="absolute per-trade loss cap as fraction of equity")
+    ap.add_argument("--report", default="wf_report.json")
     args = ap.parse_args()
     start = datetime.date.fromisoformat(args.start)
     end = datetime.date.fromisoformat(args.end)
 
-    base_cfg = Config(underlying=args.underlying)
-    print(f"WALK-FORWARD {start} -> {end} | grid of {len(GRID)} pre-registered combos")
+    base_cfg = Config(underlying=args.underlying, equity0=args.equity,
+                      risk_frac_hard_cap=args.max_loss_frac)
+    print(f"WALK-FORWARD {start} -> {end} | equity Rs {args.equity:,.0f} | "
+          f"loss cap {args.max_loss_frac:.0%} | grid of {len(GRID)} combos")
     wf = walk_forward(start, end, base_cfg)
 
     print("\nMONTE CARLO: bootstrap DD, cost stress, jackknife...")
@@ -321,7 +327,7 @@ def main():
         "oos_trades": wf["oos_trades"],
     }
     os.makedirs(RESULTS_DIR, exist_ok=True)
-    out_path = os.path.join(RESULTS_DIR, "wf_report.json")
+    out_path = os.path.join(RESULTS_DIR, args.report)
     with open(out_path, "w") as f:
         json.dump(report, f, indent=1, default=str)
 
@@ -333,8 +339,11 @@ def main():
           f"PF {m['profit_factor']}  Sharpe {m['sharpe']}")
     print(f"  OOS net P&L: Rs {m['total_net_pnl']:,.2f}  friction {m['total_friction']:,.2f}  "
           f"expectancy Rs {m['expectancy']:,.2f}/trade")
+    wfe_label = (wf["wfe"] if wf["wfe"] is not None
+                 else ("n/a (IS Sharpe <= 0)" if wf["n_selected_folds"] > 0
+                       else "n/a (no selection in any fold)"))
     print(f"  IS Sharpe (mean of used combos): {wf['is_sharpe_mean']}  ->  "
-          f"WFE {wf['wfe'] if wf['wfe'] is not None else 'n/a (no selection in any fold)'}"
+          f"WFE {wfe_label}"
           f"  [{wf['n_selected_folds']}/{wf['n_folds']} folds selected params]")
     print(f"  deflated-Sharpe hurdle: {wf['deflated_sharpe_hurdle']}")
     print(f"  profitable folds: {wf['profitable_folds']}/{wf['active_folds']} active")

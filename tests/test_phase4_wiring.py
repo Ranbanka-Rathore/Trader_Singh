@@ -100,8 +100,57 @@ def test_refine():
     check("calendar untouched", "strike_selection" not in cal)
 
 
+def test_refine_iron_condor():
+    print("\n[3] Iron condor refinement (dark-shipped; gates keep it off)")
+    spot = 24000.0
+    strikes = {}
+    pe = {23900: (0.35, 90.0), 23800: (0.27, 65.0), 23700: (0.19, 45.0),
+          23600: (0.13, 30.0), 23500: (0.09, 20.0), 23400: (0.06, 13.0),
+          23300: (0.04, 8.0), 23200: (0.03, 5.0), 23100: (0.02, 3.0)}
+    ce = {24100: (0.35, 85.0), 24200: (0.26, 60.0), 24300: (0.18, 42.0),
+          24400: (0.12, 27.0), 24500: (0.08, 17.0), 24600: (0.05, 11.0),
+          24700: (0.035, 7.0), 24800: (0.025, 4.5), 24900: (0.015, 2.5)}
+    for k, (d, p) in pe.items():
+        strikes.setdefault(f"{float(k):.2f}", {})["pe"] = {
+            "ltp": p, "bid": p - 0.5, "ask": p + 0.5, "mid": p, "iv": 13.0,
+            "delta": -d, "oi": 1000}
+    for k, (d, p) in ce.items():
+        strikes.setdefault(f"{float(k):.2f}", {})["ce"] = {
+            "ltp": p, "bid": p - 0.5, "ask": p + 0.5, "mid": p, "iv": 13.0,
+            "delta": d, "oi": 1000}
+    strikes[f"{24000.0:.2f}"] = {"pe": {"ltp": 150.0, "bid": 149.5, "ask": 150.5,
+                                        "mid": 150.0, "iv": 13.2, "delta": -0.5, "oi": 1000}}
+    chain = {"underlying": "NIFTY", "spot": spot, "expiry": "2099-01-05",
+             "timestamp": time.time(), "source": "DHAN_LIVE", "strikes": strikes}
+
+    async def fake_get_json(key):
+        return chain if key.startswith("option_premiums:") else None
+    redis_service.get_json = fake_get_json
+
+    out = asyncio.run(PS.refine_spread_with_chain(
+        {"ticker": "NIFTY", "strategy_type": "IRON_CONDOR",
+         "spot_price": spot, "leg_1_sell": 0, "leg_2_buy": 0, "coi_pcr": 1.0}))
+    check("put short 23700 (d 0.19)", out.get("leg_1_sell") == 23700.0)
+    check("call short 24300 (d 0.18)", out.get("ic_call_sell") == 24300.0)
+    check("hedges 200 out", out.get("leg_2_buy") == 23500.0
+          and out.get("ic_call_buy") == 24500.0)
+    # credit = (44.5-0.1)-(20.5+0.1) + (41.5-0.1)-(17.5+0.1) = 23.8 + 23.8
+    check(f"total credit ({out.get('net_credit_per_share')})",
+          abs(out.get("net_credit_per_share", 0) - 47.60) < 0.05)
+    check("IC tagged", "IC_DELTA_TARGETED" in out.get("strike_selection", ""))
+
+    # leg_specs expands the 4 legs for pricing/routing
+    from backend.app.services.options_pricing_service import leg_specs
+    legs = leg_specs("IRON_CONDOR", out["leg_1_sell"], out["leg_2_buy"],
+                     extra={"ic_call_sell": out["ic_call_sell"],
+                            "ic_call_buy": out["ic_call_buy"]})
+    check("4 legs", legs is not None and len(legs) == 4)
+    check("2 sells + 2 buys", sum(1 for l in legs if l["side"] == "SELL") == 2)
+
+
 if __name__ == "__main__":
     test_sizer()
     test_refine()
+    test_refine_iron_condor()
     print(f"\n{'='*50}\nRESULT: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

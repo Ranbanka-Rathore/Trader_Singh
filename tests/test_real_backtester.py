@@ -219,6 +219,120 @@ def test_friction_and_metrics():
     check("skip_reasons tracked", isinstance(res["skip_reasons"], dict))
 
 
+def choppy_seeds(spot=24000.0, n=30, amp=0.001, iv=0.13):
+    """Range-bound warmup closes (ER ~ 0) + flat IV history."""
+    closes = [spot * (1 + (amp if i % 2 else -amp)) for i in range(n - 1)] + [spot]
+    return closes, [iv] * 80
+
+
+def mk_chain_multi(date, spot, expiries_iv, pcr=1.0, lot=75):
+    """Chain with several expiries: expiries_iv = {expiry: iv}."""
+    base = None
+    for exp, iv in sorted(expiries_iv.items()):
+        ch = mk_chain(date, spot, iv=iv, pcr=pcr, expiry=exp, lot=lot)
+        if base is None:
+            base = ch
+        else:
+            base["options"].update(ch["options"])
+            base["expiries"] = sorted(set(base["expiries"] + [exp]))
+    return base
+
+
+def test_iron_condor():
+    print("\n[7] Iron condor in middle-PCR range regime (research flag ON)")
+    d1, d2 = D(2026, 7, 6), D(2026, 7, 7)
+    ic_cfg = Config(enable_iron_condor=True)
+    ch1 = mk_chain(d1, 24000.0, iv=0.13, pcr=1.00)
+    bt = RealBacktester(ic_cfg, provider_from({d1: ch1}))
+    closes, ivh = choppy_seeds()
+    bt._closes, bt._iv_hist, bt._equity, bt._closed = closes, ivh, 500_000.0, []
+    pos = bt._try_enter(d1, ch1)
+    # default config must NOT trade IC (rejected by walk-forward)
+    bt_off = RealBacktester(Config(), provider_from({d1: ch1}))
+    bt_off._closes, bt_off._iv_hist, bt_off._equity, bt_off._closed = closes, ivh, 500_000.0, []
+    check("IC disabled by default", bt_off._try_enter(d1, ch1) is None)
+    check("IC entered", pos is not None and pos.strategy == "IRON_CONDOR")
+    check("put short below spot", pos.sell_strike < 24000.0)
+    check("call short above spot", pos.call_sell > 24000.0)
+    check("hedges 200 out both sides",
+          pos.buy_strike == pos.sell_strike - 200 and pos.call_buy == pos.call_sell + 200)
+    check(f"total credit {pos.entry_credit} >= 12", pos.entry_credit >= 12.0)
+
+    # vol crush next day -> both sides collapse -> TP
+    ch2 = mk_chain(d2, 24000.0, iv=0.07, pcr=1.0)
+    bt2 = RealBacktester(ic_cfg, provider_from({d1: ch1, d2: ch2}))
+    res = bt2.run([d1, d2], seed_closes=closes, seed_iv_hist=ivh)
+    ic = [t for t in res["trades"] if t["strategy"] == "IRON_CONDOR"]
+    check("IC TP on vol crush", ic and ic[0]["exit_reason"] == "TAKE_PROFIT")
+    check("4-leg friction > 2-leg",
+          ic and ic[0]["friction"] > 100)  # 8 leg-orders round trip
+
+    # rally through the call short -> strike touch
+    ch2b = mk_chain(d2, float(pos.call_sell) + 60, iv=0.15, pcr=1.0)
+    bt3 = RealBacktester(ic_cfg, provider_from({d1: ch1, d2: ch2b}))
+    res2 = bt3.run([d1, d2], seed_closes=closes, seed_iv_hist=ivh)
+    ic2 = [t for t in res2["trades"] if t["strategy"] == "IRON_CONDOR"]
+    check("IC call-side strike touch", ic2 and ic2[0]["exit_reason"] == "STOP_STRIKE_TOUCH")
+
+
+def test_calendar():
+    print("\n[8] Calendar spread in cheap-vol regime")
+    d1, d2 = D(2026, 7, 6), D(2026, 7, 7)
+    near, far = EXPIRY, D(2026, 7, 21)
+    ch1 = mk_chain_multi(d1, 24000.0, {near: 0.13, far: 0.13}, pcr=1.0)
+    closes, _ = choppy_seeds()
+    # IV history says current vol is CHEAP: rank of 0.11 within [0.10, 0.25]
+    ivh = [0.10 + 0.15 * (i % 10) / 9 for i in range(79)] + [0.11]
+    cal_cfg = Config(enable_calendar=True)
+    bt = RealBacktester(cal_cfg, provider_from({d1: ch1}))
+    bt._closes, bt._iv_hist, bt._equity, bt._closed = closes, ivh, 500_000.0, []
+    pos = bt._try_enter(d1, ch1)
+    check("calendar entered", pos is not None and pos.strategy == "CALENDAR_SPREAD")
+    check("ATM strike", pos.sell_strike == 24000.0 and pos.buy_strike == 24000.0)
+    check("near/far expiries", pos.expiry == near and pos.far_expiry == far)
+    check(f"debit {pos.entry_credit} >= 8", pos.entry_credit >= 8.0)
+    check("max loss = debit", approx(pos.sizing["max_loss_per_lot"],
+                                     pos.entry_credit * pos.lot_size, 1.0))
+
+    # vol expansion -> far leg gains more (vega) -> TP
+    ch2 = mk_chain_multi(d2, 24000.0, {near: 0.20, far: 0.20}, pcr=1.0)
+    bt2 = RealBacktester(cal_cfg, provider_from({d1: ch1, d2: ch2}))
+    res = bt2.run([d1, d2], seed_closes=closes, seed_iv_hist=ivh)
+    cal = [t for t in res["trades"] if t["strategy"] == "CALENDAR_SPREAD"]
+    check("calendar TP on vol expansion", cal and cal[0]["exit_reason"] == "TAKE_PROFIT")
+    check("calendar profit positive", cal and cal[0]["net_pnl"] > 0)
+
+    # vol collapse -> debit shrinks -> SL
+    ch2b = mk_chain_multi(d2, 24000.0, {near: 0.10, far: 0.085}, pcr=1.0)
+    bt3 = RealBacktester(cal_cfg, provider_from({d1: ch1, d2: ch2b}))
+    res2 = bt3.run([d1, d2], seed_closes=closes, seed_iv_hist=ivh)
+    cal2 = [t for t in res2["trades"] if t["strategy"] == "CALENDAR_SPREAD"]
+    check("calendar SL on vol collapse", cal2 and cal2[0]["exit_reason"] == "STOP_LOSS_MARK")
+
+
+def test_adaptive_width_small_account():
+    print("\n[9] Adaptive width for a Rs 50k account")
+    d = D(2026, 7, 6)
+    ch = mk_chain(d, 24000.0, iv=0.13, pcr=1.5)
+    cfg = Config(equity0=50_000.0, risk_frac_hard_cap=0.15)
+    bt = RealBacktester(cfg, provider_from({d: ch}))
+    closes, ivh = seeds()
+    bt._closes, bt._iv_hist, bt._equity, bt._closed = closes, ivh, 50_000.0, []
+    pos = bt._try_enter(d, ch)
+    check("trade still possible at 50k", pos is not None)
+    check("fell back to width 2 (100pt)", pos.sizing["width_intervals"] == 2
+          and pos.buy_strike == pos.sell_strike - 100)
+    check("max loss under 15% cap",
+          pos.sizing["max_loss_per_lot"] <= 0.15 * 50_000)
+    check("1 lot", pos.lots == 1)
+
+    # default 3% cap at 50k -> nothing affordable -> no trade
+    cfg2 = Config(equity0=50_000.0)
+    bt2 = RealBacktester(cfg2, provider_from({d: ch}))
+    bt2._closes, bt2._iv_hist, bt2._equity, bt2._closed = closes, ivh, 50_000.0, []
+    check("3% cap refuses 50k account", bt2._try_enter(d, ch) is None)
+
+
 if __name__ == "__main__":
     test_delta_strike_selection()
     test_gates()
@@ -226,5 +340,8 @@ if __name__ == "__main__":
     test_take_profit_and_strike_touch()
     test_time_stop()
     test_friction_and_metrics()
+    test_iron_condor()
+    test_calendar()
+    test_adaptive_width_small_account()
     print(f"\n{'='*50}\nRESULT: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

@@ -62,7 +62,7 @@ async def main():
           f"{'DAILY 15:15 square-off (legacy)' if iso else 'T-1 time stop (validated)'}")
     try:
         from backend.app.services.regime_service import regime_service
-        allowed, reason = regime_service.evaluate(
+        allowed, reason, _sug = regime_service.evaluate(
             ticker="NIFTY", strategy_type="BULL_PUT_SPREAD", pcr=1.40,
             spot=float((await redis_service.get_json('market_snapshot:NIFTY') or {}).get('price', 0) or 0) or 24000.0)
         print(f"🌡️ [P4] Regime gate (probe bull-put @ PCR 1.4): "

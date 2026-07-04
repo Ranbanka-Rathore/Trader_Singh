@@ -68,15 +68,31 @@ class ExecutionService:
             else:
                 print(f"   ⚠️ HEURISTIC pricing fallback ({entry_pricing.get('reason')}) — synthetic premium retained")
 
-            # --- 📐 PHASE 4: credit floor + risk-based sizing (credit spreads) ---
+            # --- 📐 PHASE 4: margin feasibility for naked-leg strategies ---
+            # Short straddle / CSP / covered call carry naked-leg margin
+            # (~12% of notional per naked leg on index options). A small
+            # account physically cannot run them — refuse before routing.
             st_up = str(trade_data.get("strategy_type", "")).upper()
-            if st_up in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD"):
+            if st_up in ("DELTA_NEUTRAL", "CASH_SECURED_PUT", "COVERED_CALL"):
+                from backend.app.core import position_sizer as _ps
+                naked_legs = 2 if st_up in ("DELTA_NEUTRAL", "COVERED_CALL") else 1
+                lot_m = self.risk_shield.get_lot_size(ticker)
+                est_margin = 0.12 * spot_price * lot_m * naked_legs * max(total_lots, 1)
+                equity_m = _ps.account_equity()
+                if est_margin > 0.8 * equity_m:
+                    print(f"   🚫 MARGIN GATE: {st_up} needs ~₹{est_margin:,.0f} margin "
+                          f"(> 80% of TRADING_EQUITY ₹{equity_m:,.0f}) — trade NOT taken")
+                    return False
+
+            # --- 📐 PHASE 4: credit floor + risk-based sizing (defined-risk) ---
+            if st_up in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD", "IRON_CONDOR"):
                 from backend.app.core import position_sizer
                 from backend.app.core import regime_filters as _rf
-                from backend.app.services.options_pricing_service import CREDIT_FLOOR
+                from backend.app.services.options_pricing_service import CREDIT_FLOOR, IC_CREDIT_FLOOR
 
-                if real_net_credit is not None and float(real_net_credit) < CREDIT_FLOOR:
-                    print(f"   🚫 CREDIT FLOOR: real credit ₹{real_net_credit}/sh < ₹{CREDIT_FLOOR} "
+                floor_now = IC_CREDIT_FLOOR if st_up == "IRON_CONDOR" else CREDIT_FLOOR
+                if real_net_credit is not None and float(real_net_credit) < floor_now:
+                    print(f"   🚫 CREDIT FLOOR: real credit ₹{real_net_credit}/sh < ₹{floor_now} "
                           f"— too thin to beat friction, trade NOT taken")
                     return False
 
@@ -87,12 +103,13 @@ class ExecutionService:
                 lot_size_s = self.risk_shield.get_lot_size(ticker)
 
                 # net spread delta from live chain legs when available
-                dnet = 0.10
+                # (iron condor is delta-flat by construction)
+                dnet = 0.05 if st_up == "IRON_CONDOR" else 0.10
                 deltas = [abs(float(l.get("delta") or 0))
                           for l in entry_pricing.get("legs", [])
                           if l.get("opt_type") != "fut"]
                 deltas = [d / 100.0 if d > 1.0 else d for d in deltas if d > 0]
-                if len(deltas) == 2:
+                if st_up != "IRON_CONDOR" and len(deltas) == 2:
                     dnet = max(max(deltas) - min(deltas), 0.02)
 
                 rv = None
@@ -464,13 +481,22 @@ class ExecutionService:
             if days_left < 0 or (days_left <= 1 and is_eod):
                 return True, f"⏳ TIME STOP T-1 (expiry {expiry}) [LIVE]", pnl_per_share
 
-        if st in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD", "CASH_SECURED_PUT"):
+        if st in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD", "CASH_SECURED_PUT", "IRON_CONDOR"):
             tp, sl = credit * 0.50, -credit * 1.5
             # strike-touch stop: short strike breached by spot
             if spot is not None and spot > 0:
                 short_strike = float(getattr(pos, "leg_1_sell", 0) or 0)
                 breached = (spot <= short_strike if st != "BEAR_CALL_SPREAD"
                             else spot >= short_strike)
+                if st == "IRON_CONDOR":
+                    # call-side short lives in the entry legs (put side in leg_1_sell)
+                    ctx_ic = getattr(pos, "learning_context", None) or {}
+                    ce_shorts = [float(l.get("strike") or 0)
+                                 for l in (ctx_ic.get("entry_pricing") or {}).get("legs", [])
+                                 if str(l.get("opt_type", "")).lower() == "ce"
+                                 and str(l.get("side", "")).upper() == "SELL"]
+                    if ce_shorts and spot >= min(ce_shorts):
+                        breached = True
                 if short_strike > 0 and breached:
                     return True, f"🛑 STOP: SHORT STRIKE TOUCHED ({short_strike:.0f}) [LIVE]", pnl_per_share
         elif st == "DELTA_NEUTRAL":

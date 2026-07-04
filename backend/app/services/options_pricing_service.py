@@ -41,7 +41,9 @@ _MULTI_EXPIRY = {"CALENDAR_SPREAD", "DIAGONAL_SPREAD"}
 DELTA_TARGET = 0.18
 DELTA_BAND = (0.10, 0.28)
 WIDTH_INTERVALS = 4
-CREDIT_FLOOR = 8.0  # Rs/share — thinner credits cannot beat friction
+WIDTH_FALLBACKS = (4, 2)   # adaptive: narrower hedge when 1 lot exceeds the loss cap
+CREDIT_FLOOR = 8.0         # Rs/share — thinner credits cannot beat friction
+IC_CREDIT_FLOOR = 12.0     # 4 legs pay ~2x the friction of 2
 
 
 def _normalise(ticker: str) -> str:
@@ -49,17 +51,32 @@ def _normalise(ticker: str) -> str:
     return {"NSEI": "NIFTY", "NSEBANK": "BANKNIFTY", "BSESN": "SENSEX"}.get(t, t)
 
 
-def leg_specs(strategy_type: str, leg_1_sell: float, leg_2_buy: float) -> Optional[List[Dict[str, Any]]]:
+def leg_specs(strategy_type: str, leg_1_sell: float, leg_2_buy: float,
+              extra: Optional[Dict[str, Any]] = None) -> Optional[List[Dict[str, Any]]]:
     """Return the option legs for a strategy as [{strike, opt_type, side}], or
     None if the strategy can't be priced from a single-expiry chain.
 
     opt_type: 'ce' | 'pe' | 'fut'. side: 'BUY' | 'SELL'. leg_1_sell is the SOLD
     strike, leg_2_buy the BOUGHT strike, matching options_desk_service output.
+    extra: strategy-specific strikes (iron condor call side:
+    {'ic_call_sell', 'ic_call_buy'}).
     """
     st = (strategy_type or "").upper()
     if st in _MULTI_EXPIRY:
         return None
 
+    if st == "IRON_CONDOR":
+        ex = extra or {}
+        cs = float(ex.get("ic_call_sell") or 0)
+        cb = float(ex.get("ic_call_buy") or 0)
+        if cs <= 0 or cb <= 0:
+            return None
+        return [
+            {"strike": leg_1_sell, "opt_type": "pe", "side": "SELL"},
+            {"strike": leg_2_buy, "opt_type": "pe", "side": "BUY"},
+            {"strike": cs, "opt_type": "ce", "side": "SELL"},
+            {"strike": cb, "opt_type": "ce", "side": "BUY"},
+        ]
     if st == "BULL_PUT_SPREAD":
         return [
             {"strike": leg_1_sell, "opt_type": "pe", "side": "SELL"},
@@ -166,7 +183,7 @@ class OptionsPricingService:
         Sets spread['_chain_atm_iv'] (fraction) for the regime gate when possible.
         """
         st = str(spread.get("strategy_type", "")).upper()
-        if st not in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD"):
+        if st not in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD", "IRON_CONDOR"):
             return spread
         chain = await self.get_premium_chain(spread.get("ticker", ""))
         if chain is None:
@@ -175,55 +192,100 @@ class OptionsPricingService:
         if spot <= 0:
             return spread
 
+        from backend.app.core import position_sizer, scrip_master
         from backend.app.services.options_desk_service import options_desk_service
         interval = options_desk_service._get_strike_interval(spread.get("ticker", ""))
-        opt_type = "pe" if st == "BULL_PUT_SPREAD" else "ce"
-        step = -interval if opt_type == "pe" else interval
         atm = round(spot / interval) * interval
+        lot = scrip_master.get_lot_size(spread.get("ticker", "")) or 75
+        equity = position_sizer.account_equity()
+        cap = position_sizer.HARD_CAP * equity
 
         # ATM IV for the regime gate (Dhan IV is a percent)
-        atm_leg = self._leg_from_chain(chain, float(atm), opt_type)
+        atm_leg = (self._leg_from_chain(chain, float(atm), "pe")
+                   or self._leg_from_chain(chain, float(atm), "ce"))
         if atm_leg and float(atm_leg.get("iv") or 0) > 0:
             spread["_chain_atm_iv"] = float(atm_leg["iv"]) / 100.0
 
-        best, best_err = None, 1e9
-        for i in range(1, 40):
-            k = float(atm + i * step)
-            leg = self._leg_from_chain(chain, k, opt_type)
-            if not leg:
-                continue
-            d = abs(float(leg.get("delta") or 0))
-            if d > 1.0:
-                d /= 100.0
-            if d <= 0:
-                continue
-            if d < DELTA_BAND[0] - 0.02:
-                break  # deltas only shrink further out
-            if DELTA_BAND[0] <= d <= DELTA_BAND[1]:
-                err = abs(d - DELTA_TARGET)
-                if err < best_err:
-                    best, best_err = (k, d), err
+        def pick_short(opt_type: str):
+            step = -interval if opt_type == "pe" else interval
+            best, best_err = None, 1e9
+            for i in range(1, 40):
+                k = float(atm + i * step)
+                leg = self._leg_from_chain(chain, k, opt_type)
+                if not leg:
+                    continue
+                d = abs(float(leg.get("delta") or 0))
+                if d > 1.0:
+                    d /= 100.0
+                if d <= 0:
+                    continue
+                if d < DELTA_BAND[0] - 0.02:
+                    break  # deltas only shrink further out
+                if DELTA_BAND[0] <= d <= DELTA_BAND[1]:
+                    err = abs(d - DELTA_TARGET)
+                    if err < best_err:
+                        best, best_err = (k, d), err
+            return best
+
+        def leg_credit(sell_k, buy_k, opt_type):
+            s_leg = self._leg_from_chain(chain, sell_k, opt_type)
+            b_leg = self._leg_from_chain(chain, buy_k, opt_type)
+            if not s_leg or not b_leg or float(s_leg.get("bid") or 0) <= 0:
+                return None
+            return paper_fill_price(s_leg, "SELL") - paper_fill_price(b_leg, "BUY")
+
+        if st == "IRON_CONDOR":
+            p_pick, c_pick = pick_short("pe"), pick_short("ce")
+            if p_pick is None or c_pick is None:
+                return spread
+            (pe_s, pe_d), (ce_s, ce_d) = p_pick, c_pick
+            # adaptive width: widest structure whose 1-lot max loss fits the cap
+            for w in WIDTH_FALLBACKS:
+                off = w * interval
+                pe_credit = leg_credit(pe_s, pe_s - off, "pe")
+                ce_credit = leg_credit(ce_s, ce_s + off, "ce")
+                if pe_credit is None or ce_credit is None:
+                    continue
+                credit = round(pe_credit + ce_credit, 2)
+                if (off - credit) * lot > cap:
+                    continue  # too big for this account — try narrower
+                spread["leg_1_sell"], spread["leg_2_buy"] = pe_s, pe_s - off
+                spread["ic_call_sell"], spread["ic_call_buy"] = ce_s, ce_s + off
+                spread["net_credit_per_share"] = credit
+                spread["max_risk_per_share"] = round(off - credit, 2)
+                spread["risk_reward_ratio"] = (f"1:{round((off - credit) / credit, 1)}"
+                                               if credit > 0 else "1:0")
+                spread["strike_selection"] = f"IC_DELTA_TARGETED(p{pe_d:.2f}/c{ce_d:.2f})w{w}"
+                logger.info(f"🎯 IC refined: put {pe_s:.0f}/{pe_s-off:.0f} + "
+                            f"call {ce_s:.0f}/{ce_s+off:.0f}, credit ₹{credit}/sh")
+                return spread
+            return spread
+
+        opt_type = "pe" if st == "BULL_PUT_SPREAD" else "ce"
+        best = pick_short(opt_type)
         if best is None:
             return spread
         sell_k, sell_d = best
-        buy_k = sell_k + WIDTH_INTERVALS * step
-
-        s_leg = self._leg_from_chain(chain, sell_k, opt_type)
-        b_leg = self._leg_from_chain(chain, buy_k, opt_type)
-        if not s_leg or not b_leg or float(s_leg.get("bid") or 0) <= 0:
+        step = -interval if opt_type == "pe" else interval
+        for w in WIDTH_FALLBACKS:
+            buy_k = sell_k + w * step
+            credit_raw = leg_credit(sell_k, buy_k, opt_type)
+            if credit_raw is None:
+                continue
+            credit = round(credit_raw, 2)
+            width = abs(sell_k - buy_k)
+            if (width - credit) * lot > cap:
+                continue  # unaffordable at this width — fall narrower
+            spread["leg_1_sell"] = sell_k
+            spread["leg_2_buy"] = buy_k
+            spread["net_credit_per_share"] = credit
+            spread["max_risk_per_share"] = round(width - credit, 2)
+            spread["risk_reward_ratio"] = (f"1:{round((width - credit) / credit, 1)}"
+                                           if credit > 0 else "1:0")
+            spread["strike_selection"] = f"DELTA_TARGETED({sell_d:.2f})w{w}"
+            logger.info(f"🎯 Strikes refined from chain: {st} sell {sell_k:.0f} "
+                        f"(d {sell_d:.2f}) / buy {buy_k:.0f} (w{w}), est credit ₹{credit}/sh")
             return spread
-        credit = round(paper_fill_price(s_leg, "SELL") - paper_fill_price(b_leg, "BUY"), 2)
-        width = abs(sell_k - buy_k)
-
-        spread["leg_1_sell"] = sell_k
-        spread["leg_2_buy"] = buy_k
-        spread["net_credit_per_share"] = credit
-        spread["max_risk_per_share"] = round(width - credit, 2)
-        spread["risk_reward_ratio"] = (f"1:{round((width - credit) / credit, 1)}"
-                                       if credit > 0 else "1:0")
-        spread["strike_selection"] = f"DELTA_TARGETED({sell_d:.2f})"
-        logger.info(f"🎯 Strikes refined from chain: {st} sell {sell_k:.0f} "
-                    f"(d {sell_d:.2f}) / buy {buy_k:.0f}, est credit ₹{credit}/sh")
         return spread
 
     async def price_spread_entry(self, spread: Dict[str, Any]) -> Dict[str, Any]:
@@ -238,7 +300,9 @@ class OptionsPricingService:
         leg_2_buy = float(spread.get("leg_2_buy", 0) or 0)
         spot = float(spread.get("spot_price", 0) or 0)
 
-        specs = leg_specs(strategy, leg_1_sell, leg_2_buy)
+        specs = leg_specs(strategy, leg_1_sell, leg_2_buy,
+                          extra={"ic_call_sell": spread.get("ic_call_sell"),
+                                 "ic_call_buy": spread.get("ic_call_buy")})
         if specs is None:
             return {"pricing_source": SOURCE_FALLBACK, "reason": "unsupported_or_multi_expiry"}
 

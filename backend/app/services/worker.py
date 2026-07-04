@@ -231,7 +231,7 @@ class AutopilotWorker:
                     # --- 🌡️ PHASE 4: regime gate (VRP/trend/event/side) ---
                     try:
                         from backend.app.services.regime_service import regime_service
-                        allowed, gate_reason = await asyncio.to_thread(
+                        allowed, gate_reason, suggested = await asyncio.to_thread(
                             regime_service.evaluate,
                             ticker=ticker,
                             strategy_type=str(spread.get("strategy_type", "")),
@@ -241,10 +241,11 @@ class AutopilotWorker:
                         )
                     except Exception as e:
                         logger.error(f"regime gate error for {ticker}: {e} — refusing entry (fail-safe)")
-                        allowed, gate_reason = False, "regime_gate_error"
+                        allowed, gate_reason, suggested = False, "regime_gate_error", None
                     if not allowed:
                         logger.info(f"🌡️ [Regime Gate] {ticker} {spread.get('strategy_type')} "
-                                    f"blocked: {gate_reason}")
+                                    f"blocked: {gate_reason}"
+                                    + (f" (regime suggests {suggested})" if suggested else ""))
                         continue
 
                     # 6. AI Risk Committee Verdict

@@ -16,13 +16,28 @@ tested:
 
 Equity comes from the TRADING_EQUITY env var (the account's actual capital);
 returns 0 lots -> the trade must NOT be taken.
+
+Small-account overrides (set consciously — they raise ruin risk):
+  RISK_PER_TRADE  base risk fraction per trade   (default 0.015)
+  MAX_LOSS_FRAC   absolute per-trade cap          (default 0.03)
+A Rs 50k account running 100-pt spreads (~Rs 6k max loss) needs
+MAX_LOSS_FRAC=0.13 or higher; understand that one full loss is then 13% of
+the account and the MC drawdown numbers scale accordingly.
 """
 import math
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
-RISK_FRAC = 0.015
-HARD_CAP = 0.03
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+
+
+RISK_FRAC = _env_float("RISK_PER_TRADE", 0.015)
+HARD_CAP = _env_float("MAX_LOSS_FRAC", 0.03)
 SIGMA_TARGET = 0.004
 KELLY_FRAC = 0.25
 KELLY_LOOKBACK = 50

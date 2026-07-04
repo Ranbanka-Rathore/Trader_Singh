@@ -75,7 +75,10 @@ class OrderRouter:
 
     # ── contract resolution ────────────────────────────────────────────────
     def _resolve_leg(self, ticker: str, leg: Dict[str, Any], expiry=None) -> Optional[Dict[str, Any]]:
-        """Resolve one leg to {security_id, exchange_segment, lot_size, trading_symbol}."""
+        """Resolve one leg to {security_id, exchange_segment, lot_size, trading_symbol}.
+        A leg may carry its own 'expiry' (multi-expiry structures like
+        calendars) which overrides the basket-level expiry."""
+        expiry = leg.get("expiry") or expiry
         opt_type = str(leg.get("opt_type", "")).lower()
         if opt_type == "fut":
             broker = broker_service.get_broker()

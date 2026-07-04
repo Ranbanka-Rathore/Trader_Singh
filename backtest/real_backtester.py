@@ -52,9 +52,22 @@ class Config:
     delta_target: float = 0.18        # grid: {0.15, 0.20}
     delta_band: Tuple[float, float] = (0.10, 0.28)
     width_intervals: int = 4          # 200 pts on NIFTY
+    # adaptive width: fall back to narrower spreads when 1 lot of the wide
+    # structure exceeds the account's per-trade loss cap (small accounts)
+    width_fallbacks: Tuple[int, ...] = (4, 2)
     min_days_to_expiry: int = 4       # -> 5-8 DTE weekly entries
     credit_floor_abs: float = 8.0     # Rs/share
     credit_floor_friction_mult: float = 2.0
+    # iron condor — REJECTED by walk-forward 2026-07-04 (OOS: 18 trades,
+    # 50% win, net -4,936, friction 2x directional). Kept for research only.
+    enable_iron_condor: bool = False
+    ic_credit_floor: float = 12.0     # 4 legs pay ~2x the friction of 2
+    # calendar spread — UNVALIDATED (0 OOS trades in the same WF run; its
+    # cheap-vol regime never fired in a test month). Research only.
+    enable_calendar: bool = False
+    cal_min_debit: float = 8.0        # Rs/share
+    cal_tp_ratio: float = 0.40        # +40% of debit
+    cal_sl_ratio: float = 0.40        # -40% of debit
     # exits
     tp_ratio: float = 0.5             # grid: {0.5, 0.6}
     sl_mode: str = "strike_touch"     # grid: {"strike_touch", "mark"}
@@ -90,7 +103,7 @@ class Position:
     opt_type: str
     sell_strike: float
     buy_strike: float
-    entry_credit: float
+    entry_credit: float               # credit/share; calendars: DEBIT paid/share
     lots: int
     quantity: int
     lot_size: int
@@ -99,6 +112,11 @@ class Position:
     pcr: float
     short_delta: float
     sizing: Dict[str, Any] = field(default_factory=dict)
+    # iron condor call side (put side lives in sell/buy_strike)
+    call_sell: float = 0.0
+    call_buy: float = 0.0
+    # calendar: expiry of the LONG far leg (near short leg is `expiry`)
+    far_expiry: Optional[datetime.date] = None
 
 
 @dataclass
@@ -247,92 +265,234 @@ class RealBacktester:
             gex = 0
             if cfg.use_gex:
                 gex = rf.naive_gex_sign(spot, expiry, d, chain["options"])
-            side, reason = rf.entry_allowed(
+            strategy, reason = rf.classify_entry(
                 side_pcr=pcr, spot=spot, closes=self._closes, iv=iv_now,
-                iv_hist=self._iv_hist[:-1], on_date=d, gex_sign=gex)
-            if side is None:
+                iv_hist=self._iv_hist[:-1], on_date=d, gex_sign=gex,
+                allow_ic=cfg.enable_iron_condor,
+                allow_calendar=cfg.enable_calendar)
+            if strategy is None:
                 self._skip(reason)
                 return None
         else:
-            side = ("BULL_PUT_SPREAD" if pcr >= rf.PCR_BULL
-                    else "BEAR_CALL_SPREAD" if pcr <= rf.PCR_BEAR else None)
-            if side is None:
+            strategy = ("BULL_PUT_SPREAD" if pcr >= rf.PCR_BULL
+                        else "BEAR_CALL_SPREAD" if pcr <= rf.PCR_BEAR else None)
+            if strategy is None:
                 self._skip("no_side")
                 return None
 
+        if strategy == "IRON_CONDOR":
+            return self._enter_ic(d, chain, expiry, spot, pcr)
+        if strategy == "CALENDAR_SPREAD":
+            return self._enter_calendar(d, chain, expiry, spot, pcr)
+        return self._enter_directional(d, chain, expiry, spot, strategy, pcr)
+
+    def _leg_fills(self, chain, expiry, strike, opt_type):
+        """(sell_fill, buy_fill) at today's close with slippage, or None."""
+        close = _leg_close(chain, expiry, strike, opt_type)
+        if close is None:
+            return None
+        return (max(close - self.cfg.slippage_per_leg, 0.05),
+                close + self.cfg.slippage_per_leg)
+
+    def _enter_directional(self, d, chain, expiry, spot, side, pcr) -> Optional[Position]:
+        cfg = self.cfg
         opt_type = "PE" if side == "BULL_PUT_SPREAD" else "CE"
         picked = self._pick_short_strike(chain, expiry, spot, opt_type, d)
         if picked is None:
             self._skip("no_strike_in_delta_band")
             return None
         sell_strike, short_delta = picked
-        off = cfg.width_intervals * cfg.strike_interval
-        buy_strike = sell_strike - off if opt_type == "PE" else sell_strike + off
-
-        sell_close = _leg_close(chain, expiry, sell_strike, opt_type)
-        buy_close = _leg_close(chain, expiry, buy_strike, opt_type)
-        if sell_close is None or buy_close is None:
-            self._skip("hedge_leg_missing")
-            return None
-
-        sell_fill = max(sell_close - cfg.slippage_per_leg, 0.05)
-        buy_fill = buy_close + cfg.slippage_per_leg
-        credit = round(sell_fill - buy_fill, 2)
 
         row = chain["options"].get((expiry, sell_strike, opt_type)) or {}
         lot = int(row.get("lot") or 0) or 75
 
-        # credit floor: absolute AND friction multiple (per share, round trip)
-        fr_probe = friction_model.round_trip_friction(
-            [{"side": "SELL", "opt_type": opt_type.lower(), "price": sell_fill, "quantity": lot},
-             {"side": "BUY", "opt_type": opt_type.lower(), "price": buy_fill, "quantity": lot}],
-            [{"side": "BUY", "opt_type": opt_type.lower(), "price": sell_fill, "quantity": lot},
-             {"side": "SELL", "opt_type": opt_type.lower(), "price": buy_fill, "quantity": lot}],
-        )["total"] / lot
-        floor = max(cfg.credit_floor_abs, cfg.credit_floor_friction_mult * fr_probe)
-        if credit < floor:
-            self._skip("credit_below_floor")
+        # adaptive width: widest affordable structure wins; a small account
+        # falls back to a narrower hedge instead of not trading at all
+        last_reason = "sizing_zero"
+        for w_int in cfg.width_fallbacks:
+            off = w_int * cfg.strike_interval
+            buy_strike = sell_strike - off if opt_type == "PE" else sell_strike + off
+            sf = self._leg_fills(chain, expiry, sell_strike, opt_type)
+            bf = self._leg_fills(chain, expiry, buy_strike, opt_type)
+            if sf is None or bf is None:
+                last_reason = "hedge_leg_missing"
+                continue
+            sell_fill, _ = sf
+            _, buy_fill = bf
+            credit = round(sell_fill - buy_fill, 2)
+
+            fr_probe = friction_model.round_trip_friction(
+                [{"side": "SELL", "opt_type": opt_type.lower(), "price": sell_fill, "quantity": lot},
+                 {"side": "BUY", "opt_type": opt_type.lower(), "price": buy_fill, "quantity": lot}],
+                [{"side": "BUY", "opt_type": opt_type.lower(), "price": sell_fill, "quantity": lot},
+                 {"side": "SELL", "opt_type": opt_type.lower(), "price": buy_fill, "quantity": lot}],
+            )["total"] / lot
+            floor = max(cfg.credit_floor_abs, cfg.credit_floor_friction_mult * fr_probe)
+            if credit < floor:
+                last_reason = "credit_below_floor"
+                continue
+
+            t = max((expiry - d).days, 1) / 365.0
+            sc = _leg_close(chain, expiry, sell_strike, opt_type)
+            bc = _leg_close(chain, expiry, buy_strike, opt_type)
+            iv_s = bs_math.implied_vol(sc, spot, sell_strike, t, opt_type)
+            iv_b = bs_math.implied_vol(bc, spot, buy_strike, t, opt_type)
+            d_short = abs(bs_math.delta(spot, sell_strike, t, iv_s or 0.13, opt_type))
+            d_long = abs(bs_math.delta(spot, buy_strike, t, iv_b or 0.13, opt_type))
+            dnet = max(d_short - d_long, 0.01)
+
+            width = abs(sell_strike - buy_strike)
+            lots, sizing = self._size_lots(width=width, credit=credit, lot=lot,
+                                           spot=spot, dnet=dnet)
+            if lots < 1:
+                last_reason = "sizing_zero"
+                continue
+
+            quantity = lots * lot
+            entry_friction = friction_model.basket_friction([
+                {"side": "SELL", "opt_type": opt_type.lower(), "price": sell_fill, "quantity": quantity},
+                {"side": "BUY", "opt_type": opt_type.lower(), "price": buy_fill, "quantity": quantity},
+            ])["total"]
+            sizing["width_intervals"] = w_int
+
+            return Position(
+                entry_date=d, expiry=expiry, strategy=side, opt_type=opt_type,
+                sell_strike=sell_strike, buy_strike=buy_strike, entry_credit=credit,
+                lots=lots, quantity=quantity, lot_size=lot,
+                entry_friction=entry_friction, entry_spot=spot,
+                pcr=round(pcr, 3), short_delta=round(short_delta, 3), sizing=sizing,
+            )
+        self._skip(last_reason)
+        return None
+
+    def _enter_ic(self, d, chain, expiry, spot, pcr) -> Optional[Position]:
+        """Iron condor: delta-target shorts on BOTH sides, hedges width out.
+        Defined risk: only one side can lose -> max loss = width - total credit."""
+        cfg = self.cfg
+        p_pick = self._pick_short_strike(chain, expiry, spot, "PE", d)
+        c_pick = self._pick_short_strike(chain, expiry, spot, "CE", d)
+        if p_pick is None or c_pick is None:
+            self._skip("ic_no_strike_in_band")
+            return None
+        pe_s, pe_d = p_pick
+        ce_s, ce_d = c_pick
+
+        row = chain["options"].get((expiry, pe_s, "PE")) or {}
+        lot = int(row.get("lot") or 0) or 75
+
+        last_reason = "sizing_zero"
+        for w_int in cfg.width_fallbacks:
+            off = w_int * cfg.strike_interval
+            pe_b, ce_b = pe_s - off, ce_s + off
+            legs = []
+            fills = {}
+            ok = True
+            for strike, typ, side in ((pe_s, "PE", "SELL"), (pe_b, "PE", "BUY"),
+                                      (ce_s, "CE", "SELL"), (ce_b, "CE", "BUY")):
+                f = self._leg_fills(chain, expiry, strike, typ)
+                if f is None:
+                    ok = False
+                    break
+                fill = f[0] if side == "SELL" else f[1]
+                fills[(strike, typ)] = fill
+                legs.append({"side": side, "opt_type": typ.lower(),
+                             "price": fill, "quantity": lot})
+            if not ok:
+                last_reason = "ic_leg_missing"
+                continue
+
+            credit = round(fills[(pe_s, "PE")] - fills[(pe_b, "PE")]
+                           + fills[(ce_s, "CE")] - fills[(ce_b, "CE")], 2)
+            if credit < cfg.ic_credit_floor:
+                last_reason = "ic_credit_below_floor"
+                continue
+
+            width = off  # per side; only one side can be ITM at expiry
+            lots, sizing = self._size_lots(width=width, credit=credit, lot=lot,
+                                           spot=spot, dnet=0.05)
+            if lots < 1:
+                last_reason = "sizing_zero"
+                continue
+
+            quantity = lots * lot
+            entry_friction = friction_model.basket_friction(
+                [{**l, "quantity": quantity} for l in legs])["total"]
+            sizing["width_intervals"] = w_int
+
+            return Position(
+                entry_date=d, expiry=expiry, strategy="IRON_CONDOR", opt_type="PE",
+                sell_strike=pe_s, buy_strike=pe_b, call_sell=ce_s, call_buy=ce_b,
+                entry_credit=credit, lots=lots, quantity=quantity, lot_size=lot,
+                entry_friction=entry_friction, entry_spot=spot,
+                pcr=round(pcr, 3), short_delta=round(max(pe_d, ce_d), 3), sizing=sizing,
+            )
+        self._skip(last_reason)
+        return None
+
+    def _enter_calendar(self, d, chain, expiry, spot, pcr) -> Optional[Position]:
+        """ATM CE calendar: SELL near expiry, BUY the next expiry out.
+        Debit-defined risk (max loss = debit paid). Long vol / long term
+        structure — the structure for the days the VRP gate refuses to sell."""
+        cfg = self.cfg
+        far = next((e for e in chain["expiries"]
+                    if e > expiry and (e - expiry).days <= 35), None)
+        if far is None:
+            self._skip("cal_no_far_expiry")
+            return None
+        atm = float(round(spot / cfg.strike_interval) * cfg.strike_interval)
+
+        near_f = self._leg_fills(chain, expiry, atm, "CE")
+        far_f = self._leg_fills(chain, far, atm, "CE")
+        if near_f is None or far_f is None:
+            self._skip("cal_leg_missing")
+            return None
+        near_sell = near_f[0]     # we SELL the near leg (receive)
+        far_buy = far_f[1]        # we BUY the far leg (pay)
+        debit = round(far_buy - near_sell, 2)
+        if debit < cfg.cal_min_debit:
+            self._skip("cal_debit_below_floor")
             return None
 
-        # net spread delta per share for vol sizing
-        t = max((expiry - d).days, 1) / 365.0
-        iv_s = bs_math.implied_vol(sell_close, spot, sell_strike, t, opt_type)
-        iv_b = bs_math.implied_vol(buy_close, spot, buy_strike, t, opt_type)
-        d_short = abs(bs_math.delta(spot, sell_strike, t, iv_s or 0.13, opt_type))
-        d_long = abs(bs_math.delta(spot, buy_strike, t, iv_b or 0.13, opt_type))
-        dnet = max(d_short - d_long, 0.01)
+        row = chain["options"].get((expiry, atm, "CE")) or {}
+        lot = int(row.get("lot") or 0) or 75
 
-        width = abs(sell_strike - buy_strike)
-        lots, sizing = self._size_lots(width=width, credit=credit, lot=lot,
-                                       spot=spot, dnet=dnet)
+        # max loss = debit paid
+        lots, sizing = self._size_lots(width=debit, credit=0.0, lot=lot,
+                                       spot=spot, dnet=0.05)
         if lots < 1:
             self._skip("sizing_zero")
             return None
-
         quantity = lots * lot
         entry_friction = friction_model.basket_friction([
-            {"side": "SELL", "opt_type": opt_type.lower(), "price": sell_fill, "quantity": quantity},
-            {"side": "BUY", "opt_type": opt_type.lower(), "price": buy_fill, "quantity": quantity},
+            {"side": "SELL", "opt_type": "ce", "price": near_sell, "quantity": quantity},
+            {"side": "BUY", "opt_type": "ce", "price": far_buy, "quantity": quantity},
         ])["total"]
 
         return Position(
-            entry_date=d, expiry=expiry, strategy=side, opt_type=opt_type,
-            sell_strike=sell_strike, buy_strike=buy_strike, entry_credit=credit,
+            entry_date=d, expiry=expiry, strategy="CALENDAR_SPREAD", opt_type="CE",
+            sell_strike=atm, buy_strike=atm, far_expiry=far,
+            entry_credit=debit,  # NOTE: debit for calendars
             lots=lots, quantity=quantity, lot_size=lot,
             entry_friction=entry_friction, entry_spot=spot,
-            pcr=round(pcr, 3), short_delta=round(short_delta, 3), sizing=sizing,
+            pcr=round(pcr, 3), short_delta=0.5, sizing=sizing,
         )
 
     # ── exit ───────────────────────────────────────────────────────────────
     def _intrinsic(self, pos: Position, spot: float) -> float:
-        if pos.opt_type == "PE":
-            return max(pos.sell_strike - spot, 0.0) - max(pos.buy_strike - spot, 0.0)
-        return max(spot - pos.sell_strike, 0.0) - max(spot - pos.buy_strike, 0.0)
+        """Settlement liability per share. IC: put side + call side (only one
+        can be ITM). Calendar handled separately (far leg is not expiring)."""
+        put_side = max(pos.sell_strike - spot, 0.0) - max(pos.buy_strike - spot, 0.0)
+        call_side = max(spot - pos.sell_strike, 0.0) - max(spot - pos.buy_strike, 0.0)
+        if pos.strategy == "IRON_CONDOR":
+            put_leg = max(pos.sell_strike - spot, 0.0) - max(pos.buy_strike - spot, 0.0)
+            call_leg = max(spot - pos.call_sell, 0.0) - max(spot - pos.call_buy, 0.0)
+            return put_leg + call_leg
+        return put_side if pos.opt_type == "PE" else call_side
 
-    def _mark_exit(self, chain, pos) -> Optional[Tuple[float, float, float]]:
-        """(close_cost, buy_back_price, sell_out_price) at today's marks."""
-        sell_close = _leg_close(chain, pos.expiry, pos.sell_strike, pos.opt_type)
-        buy_close = _leg_close(chain, pos.expiry, pos.buy_strike, pos.opt_type)
+    def _side_mark(self, chain, expiry, sell_k, buy_k, opt_type):
+        """(cost_to_close, buyback, sellout) for one short spread side."""
+        sell_close = _leg_close(chain, expiry, sell_k, opt_type)
+        buy_close = _leg_close(chain, expiry, buy_k, opt_type)
         if sell_close is None:
             return None
         buy_close = buy_close or 0.05
@@ -340,55 +500,117 @@ class RealBacktester:
         sell_out = max(buy_close - self.cfg.slippage_per_leg, 0.05)
         return buy_back - sell_out, buy_back, sell_out
 
+    def _mark_exit(self, chain, pos) -> Optional[Dict[str, Any]]:
+        """{'value': per-share exit value, 'legs': friction legs} at today's
+        marks. value semantics: credit structures -> cost to close (lower is
+        better); calendars -> proceeds received on close (higher is better)."""
+        q = pos.quantity
+        if pos.strategy == "CALENDAR_SPREAD":
+            near_close = _leg_close(chain, pos.expiry, pos.sell_strike, "CE")
+            far_close = _leg_close(chain, pos.far_expiry, pos.buy_strike, "CE")
+            if near_close is None or far_close is None:
+                return None
+            near_buyback = near_close + self.cfg.slippage_per_leg
+            far_sellout = max(far_close - self.cfg.slippage_per_leg, 0.05)
+            return {"value": far_sellout - near_buyback,
+                    "legs": [{"side": "BUY", "opt_type": "ce", "price": near_buyback, "quantity": q},
+                             {"side": "SELL", "opt_type": "ce", "price": far_sellout, "quantity": q}]}
+        if pos.strategy == "IRON_CONDOR":
+            p = self._side_mark(chain, pos.expiry, pos.sell_strike, pos.buy_strike, "PE")
+            c = self._side_mark(chain, pos.expiry, pos.call_sell, pos.call_buy, "CE")
+            if p is None or c is None:
+                return None
+            return {"value": p[0] + c[0],
+                    "legs": [{"side": "BUY", "opt_type": "pe", "price": p[1], "quantity": q},
+                             {"side": "SELL", "opt_type": "pe", "price": p[2], "quantity": q},
+                             {"side": "BUY", "opt_type": "ce", "price": c[1], "quantity": q},
+                             {"side": "SELL", "opt_type": "ce", "price": c[2], "quantity": q}]}
+        m = self._side_mark(chain, pos.expiry, pos.sell_strike, pos.buy_strike, pos.opt_type)
+        if m is None:
+            return None
+        return {"value": m[0],
+                "legs": [{"side": "BUY", "opt_type": pos.opt_type.lower(), "price": m[1], "quantity": q},
+                         {"side": "SELL", "opt_type": pos.opt_type.lower(), "price": m[2], "quantity": q}]}
+
+    def _pnl_ps(self, pos: Position, mark_value: float) -> float:
+        """P&L per share from a mark. Credit: credit - cost_to_close.
+        Calendar: proceeds - debit."""
+        if pos.strategy == "CALENDAR_SPREAD":
+            return mark_value - pos.entry_credit
+        return pos.entry_credit - mark_value
+
     def _try_exit(self, d: datetime.date, chain, pos: Position) -> Optional[ClosedTrade]:
         cfg = self.cfg
         spot = float(chain["spot"] or pos.entry_spot)
 
         if d >= pos.expiry:
-            # should be rare (time stop fires at T-1); settle at intrinsic
+            # missed the T-1 stop (holiday/missing marks) — settle
+            if pos.strategy == "CALENDAR_SPREAD":
+                # near short settles at intrinsic; far long is SOLD at mark
+                near_intrinsic = max(spot - pos.sell_strike, 0.0)
+                far_close = _leg_close(chain, pos.far_expiry, pos.buy_strike, "CE")
+                far_out = max((far_close or 0.05) - cfg.slippage_per_leg, 0.05)
+                proceeds = far_out - near_intrinsic
+                xf = friction_model.basket_friction([
+                    {"side": "SELL", "opt_type": "ce", "price": far_out,
+                     "quantity": pos.quantity}])["total"]
+                return self._close(pos, d, spot, proceeds, xf, "EXPIRY_SETTLEMENT")
             exit_cost = self._intrinsic(pos, spot)
-            long_itm = (max(pos.buy_strike - spot, 0.0) if pos.opt_type == "PE"
-                        else max(spot - pos.buy_strike, 0.0))
+            if pos.strategy == "IRON_CONDOR":
+                long_itm = (max(pos.buy_strike - spot, 0.0)
+                            + max(spot - pos.call_buy, 0.0))
+            else:
+                long_itm = (max(pos.buy_strike - spot, 0.0) if pos.opt_type == "PE"
+                            else max(spot - pos.buy_strike, 0.0))
             xf = SETTLEMENT_STT_RATE * long_itm * pos.quantity
             return self._close(pos, d, spot, exit_cost, xf, "EXPIRY_SETTLEMENT")
 
         marks = self._mark_exit(chain, pos)
         days_left = (pos.expiry - d).days
-
-        # time stop at T-1 (calendar): never hold expiry-day gamma
         time_stop = days_left <= cfg.time_stop_days
-
         if marks is None:
-            if time_stop:
-                # no mark to exit on — settle next iteration
+            return None  # no mark today; settlement path catches expiry
+
+        pnl_ps = self._pnl_ps(pos, marks["value"])
+
+        if pos.strategy == "CALENDAR_SPREAD":
+            reason = None
+            if pnl_ps >= cfg.cal_tp_ratio * pos.entry_credit:
+                reason = "TAKE_PROFIT"
+            elif pnl_ps <= -cfg.cal_sl_ratio * pos.entry_credit:
+                reason = "STOP_LOSS_MARK"
+            elif time_stop:
+                reason = "TIME_STOP_T1"
+            if reason is None:
                 return None
-            return None
-        close_cost, buy_back, sell_out = marks
-        pnl_ps = pos.entry_credit - close_cost
+        else:
+            reason = None
+            if pnl_ps >= cfg.tp_ratio * pos.entry_credit:
+                reason = "TAKE_PROFIT"
+            elif cfg.sl_mode == "strike_touch":
+                if pos.strategy == "IRON_CONDOR":
+                    breached = spot <= pos.sell_strike or spot >= pos.call_sell
+                else:
+                    breached = (spot <= pos.sell_strike if pos.opt_type == "PE"
+                                else spot >= pos.sell_strike)
+                if breached:
+                    reason = "STOP_STRIKE_TOUCH"
+            elif cfg.sl_mode == "mark" and pnl_ps <= -cfg.sl_mark_mult * pos.entry_credit:
+                reason = "STOP_LOSS_MARK"
+            if reason is None and time_stop:
+                reason = "TIME_STOP_T1"
+            if reason is None:
+                return None
 
-        reason = None
-        if pnl_ps >= cfg.tp_ratio * pos.entry_credit:
-            reason = "TAKE_PROFIT"
-        elif cfg.sl_mode == "strike_touch":
-            breached = (spot <= pos.sell_strike if pos.opt_type == "PE"
-                        else spot >= pos.sell_strike)
-            if breached:
-                reason = "STOP_STRIKE_TOUCH"
-        elif cfg.sl_mode == "mark" and pnl_ps <= -cfg.sl_mark_mult * pos.entry_credit:
-            reason = "STOP_LOSS_MARK"
-        if reason is None and time_stop:
-            reason = "TIME_STOP_T1"
-        if reason is None:
-            return None
-
-        xf = friction_model.basket_friction([
-            {"side": "BUY", "opt_type": pos.opt_type.lower(), "price": buy_back, "quantity": pos.quantity},
-            {"side": "SELL", "opt_type": pos.opt_type.lower(), "price": sell_out, "quantity": pos.quantity},
-        ])["total"]
-        return self._close(pos, d, spot, close_cost, xf, reason)
+        xf = friction_model.basket_friction(marks["legs"])["total"]
+        return self._close(pos, d, spot, marks["value"], xf, reason)
 
     def _close(self, pos, d, spot, exit_cost, exit_friction, reason) -> ClosedTrade:
-        gross = (pos.entry_credit - exit_cost) * pos.quantity
+        # exit_cost: cost-to-close for credit structures; PROCEEDS for calendars
+        if pos.strategy == "CALENDAR_SPREAD":
+            gross = (exit_cost - pos.entry_credit) * pos.quantity
+        else:
+            gross = (pos.entry_credit - exit_cost) * pos.quantity
         friction = round(pos.entry_friction + exit_friction, 2)
         return ClosedTrade(
             entry_date=pos.entry_date.isoformat(), exit_date=d.isoformat(),
@@ -465,8 +687,13 @@ class RealBacktester:
                 continue
             spot = float(last_chain["spot"] or pos.entry_spot)
             marks = self._mark_exit(last_chain, pos)
-            cost = marks[0] if marks else self._intrinsic(pos, spot)
-            closed = self._close(pos, last_chain["date"], spot, cost, 0.0, "WINDOW_END_MARK")
+            if marks is not None:
+                value = marks["value"]
+            elif pos.strategy == "CALENDAR_SPREAD":
+                value = pos.entry_credit  # no mark: assume flat (debit back)
+            else:
+                value = self._intrinsic(pos, spot)
+            closed = self._close(pos, last_chain["date"], spot, value, 0.0, "WINDOW_END_MARK")
             self._closed.append(closed)
             self._equity += closed.net_pnl
             daily_pnl[last_chain["date"]] = daily_pnl.get(last_chain["date"], 0.0) + closed.net_pnl

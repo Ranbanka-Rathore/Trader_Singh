@@ -21,7 +21,7 @@ logger = logging.getLogger("RegimeService")
 HISTORY_SESSIONS = 90          # enough for EMA20/ER/RV + a real IV-rank window
 MIN_DAYS_TO_EXPIRY = 4         # IV tenor matches the traded 5-8 DTE structure
 
-_GATED_STRATEGIES = {"BULL_PUT_SPREAD", "BEAR_CALL_SPREAD"}
+_GATED_STRATEGIES = {"BULL_PUT_SPREAD", "BEAR_CALL_SPREAD", "IRON_CONDOR"}
 
 
 def _normalise(ticker: str) -> str:
@@ -93,40 +93,49 @@ class RegimeService:
     # ── the gate ───────────────────────────────────────────────────────────
     def evaluate(self, *, ticker: str, strategy_type: str, pcr: float,
                  spot: float, live_iv: Optional[float] = None,
-                 gex_sign: int = 0) -> Tuple[bool, str]:
-        """(allowed, reason) for a candidate spread.
+                 gex_sign: int = 0) -> Tuple[bool, str, Optional[str]]:
+        """(allowed, reason, suggested_strategy) for a candidate spread.
 
-        Only directional credit spreads are regime-gated; other structures
-        pass through the event gate only. live_iv as a fraction (0.13) —
-        falls back to yesterday's bhavcopy ATM IV.
+        Premium-selling structures are fully regime-gated; other structures
+        pass through the event gate only. When the regime licenses a
+        DIFFERENT structure than the candidate (e.g. middle PCR -> iron
+        condor), it is returned as `suggested` so the worker can convert.
+        Calendar is classified but NOT live-wired yet (multi-expiry chain
+        fetch pending validation), so it comes back as a suggestion the
+        worker logs and skips. live_iv as a fraction (0.13) — falls back to
+        yesterday's bhavcopy ATM IV.
         """
         st = (strategy_type or "").upper()
         today = datetime.date.today()
 
         if st not in _GATED_STRATEGIES:
             ok, why = rf.event_gate(today)
-            return (True, "ok") if ok else (False, why)
+            return (True, "ok", None) if ok else (False, why, None)
 
         try:
             self._ensure_state(_normalise(ticker))
         except Exception as e:
             # No regime state -> refuse to sell premium blind (fail-safe)
             logger.error(f"regime state unavailable: {e}")
-            return False, "regime_state_unavailable"
+            return False, "regime_state_unavailable", None
 
         iv = live_iv if (live_iv and live_iv > 0) else (
             self._iv_hist[-1] if self._iv_hist else 0.0)
         closes = self._closes + ([spot] if spot > 0 else [])
 
-        side, reason = rf.entry_allowed(
+        # allow_ic/allow_calendar False: iron condor was REJECTED by the
+        # 2026-07-04 walk-forward (negative OOS, 2x friction) and calendar is
+        # UNVALIDATED (0 OOS trades). Flip only after a passing revalidation.
+        suggested, reason = rf.classify_entry(
             side_pcr=pcr, spot=spot, closes=closes, iv=iv,
-            iv_hist=self._iv_hist, on_date=today, gex_sign=gex_sign)
+            iv_hist=self._iv_hist, on_date=today, gex_sign=gex_sign,
+            allow_ic=False, allow_calendar=False)
 
-        if side is None:
-            return False, reason
-        if side != st:
-            return False, f"regime_side_{side}_vs_{st}"
-        return True, "ok"
+        if suggested is None:
+            return False, reason, None
+        if suggested == st:
+            return True, "ok", suggested
+        return False, f"regime_suggests_{suggested}", suggested
 
 
 regime_service = RegimeService()
