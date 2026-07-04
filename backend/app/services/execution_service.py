@@ -288,11 +288,14 @@ class ExecutionService:
         price-less order (a paper MARKET would 'fill' at 0), so we fall back to
         the entry fill if no mark exists. use_market=True (panic path) sends true
         MARKET orders only in LIVE mode.
-        Returns {pnl_per_share, basket} from ACTUAL exit fills, or None if the
-        basket could not be routed/filled — in LIVE that means the position is
-        still open at the broker and the DB row must NOT be closed.
+        Returns {pnl_per_share, basket, friction} from ACTUAL exit fills, or
+        None if the basket could not be routed/filled — in LIVE that means the
+        position is still open at the broker and the DB row must NOT be closed.
+        friction is the round-trip (entry+exit) cost breakdown in Rs; callers
+        subtract friction['total'] from the gross realized P&L.
         """
         from trading_mode import is_live
+        from backend.app.core import friction_model
         from backend.app.services.order_router import order_router
 
         ctx = getattr(pos, "learning_context", None) or {}
@@ -345,7 +348,17 @@ class ExecutionService:
                 continue
             sign = 1 if str(e["side"]).upper() == "BUY" else -1
             pnl += sign * (float(x["entry_fill"]) - float(e["entry_fill"]))
-        return {"pnl_per_share": round(pnl, 2), "basket": basket}
+
+        # Round-trip friction (Rs): entry legs may predate the router and lack
+        # a quantity — fall back to lots x lot_size for those.
+        default_qty = int(pos.lots_sized or 1) * int(self.risk_shield.get_lot_size(pos.ticker))
+        try:
+            friction = friction_model.round_trip_friction(
+                entry_legs, basket["legs"], default_quantity=default_qty)
+        except Exception as e:
+            print(f"   ⚠️ Friction computation failed (using zero): {e}")
+            friction = {"entry": {}, "exit": {}, "total": 0.0}
+        return {"pnl_per_share": round(pnl, 2), "basket": basket, "friction": friction}
 
     def _real_exit_decision(self, pos, pnl_per_share: float, is_eod: bool):
         """Decide exit from REAL mark-to-market P&L (per share).
@@ -420,6 +433,14 @@ class ExecutionService:
                     if routed is not None:
                         lot_size = self.risk_shield.get_lot_size(pos.ticker)
                         pnl = float(routed["pnl_per_share"]) * int(pos.lots_sized or 1) * lot_size
+                        friction = routed.get("friction") or {}
+                        friction_total = float(friction.get("total") or 0.0)
+                        if friction_total > 0:
+                            pnl -= friction_total
+                            ctx = dict(pos.learning_context or {})
+                            ctx["friction_costs"] = friction
+                            pos.learning_context = ctx
+                            session.add(pos)
                         exit_reason = f"{reason} [ROUTED]"
                     else:
                         from trading_mode import is_live
@@ -564,9 +585,17 @@ class ExecutionService:
                         if exit_now:
                             # --- 🧺 PHASE 2: route the exit through the broker ---
                             routed = await self._route_exit_basket(session, pos, real_mark)
+                            friction_total_r = 0.0
                             if routed is not None:
                                 realized_ps = float(routed["pnl_per_share"])
                                 exit_reason_r += " [ROUTED]"
+                                friction_r = routed.get("friction") or {}
+                                friction_total_r = float(friction_r.get("total") or 0.0)
+                                if friction_total_r > 0:
+                                    ctx_r = dict(pos.learning_context or {})
+                                    ctx_r["friction_costs"] = friction_r
+                                    pos.learning_context = ctx_r
+                                    session.add(pos)
                             else:
                                 from trading_mode import is_live
                                 if is_live():
@@ -575,16 +604,18 @@ class ExecutionService:
                                     print(f"   🚨 EXIT BASKET FAILED for {ticker} (pos {pos.id}) — "
                                           f"position NOT closed, will retry next cycle")
                                     continue
+                            net_realized = realized_ps * total_mult_r - friction_total_r
                             exit_data = {
                                 "exit_date": now,
                                 "exit_price": Decimal(str(round(current_price, 2))),
                                 "exit_reason": exit_reason_r,
-                                "realized_pnl": Decimal(str(round(realized_ps * total_mult_r, 2))),
+                                "realized_pnl": Decimal(str(round(net_realized, 2))),
                             }
                             closed_trade = await database_service.close_position(session, pos.id, exit_data)
                             if closed_trade:
                                 closed_trades_report.append(closed_trade.model_dump())
-                                print(f"   -> EXIT [LIVE]: {ticker} | {exit_reason_r} | PnL: ₹{realized_ps*total_mult_r:.2f}")
+                                print(f"   -> EXIT [LIVE]: {ticker} | {exit_reason_r} | "
+                                      f"PnL: ₹{net_realized:.2f} (friction ₹{friction_total_r:.2f})")
                         else:
                             session.add(pos)
                             await session.commit()

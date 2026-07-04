@@ -121,6 +121,9 @@ async def init_db() -> bool:
                 await conn.execute(text("ALTER TABLE open_positions ADD COLUMN IF NOT EXISTS adjustment_count INTEGER DEFAULT 0;"))
                 await conn.execute(text("ALTER TABLE open_positions ADD COLUMN IF NOT EXISTS original_net_credit NUMERIC(15, 2);"))
                 await conn.execute(text("ALTER TABLE open_positions ADD COLUMN IF NOT EXISTS adjusted_net_credit NUMERIC(15, 2);"))
+                # Phase 3: signal -> trade -> outcome attribution columns
+                await conn.execute(text("ALTER TABLE signal_audit ADD COLUMN IF NOT EXISTS position_id INTEGER;"))
+                await conn.execute(text("ALTER TABLE signal_audit ADD COLUMN IF NOT EXISTS realized_pnl NUMERIC(15, 2);"))
             logger.info(f"[DB] Connected & tables verified. (host={DB_HOST})")
             return True
         except Exception as e:

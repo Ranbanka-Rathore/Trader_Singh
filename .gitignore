@@ -21,6 +21,7 @@ heartbeat.txt
 *.db
 api-scrip-master.csv
 *.csv.gz
+data/bhavcopy/
 
 # --- Runtime state / control files ---
 PANIC_BUTTON.txt

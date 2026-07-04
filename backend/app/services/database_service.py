@@ -74,6 +74,18 @@ class DatabaseService:
         
         trade = Trade(**trade_data)
         session.add(trade)
+
+        # Phase 3 attribution: write the outcome back onto the SignalAudit row
+        # that spawned this position (same transaction as the close).
+        audit_id = (pos_dict.get("learning_context") or {}).get("signal_audit_id")
+        if audit_id:
+            res_a = await session.execute(select(SignalAudit).where(SignalAudit.id == int(audit_id)))
+            audit = res_a.scalar_one_or_none()
+            if audit:
+                audit.position_id = position_id
+                audit.realized_pnl = trade_data.get("realized_pnl")
+                session.add(audit)
+
         await session.delete(pos)
         await session.commit()
         await session.refresh(trade)

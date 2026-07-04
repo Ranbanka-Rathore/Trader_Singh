@@ -90,6 +90,10 @@ class SignalAudit(SQLModel, table=True):
     committee_verdict: str = Field(max_length=20)
     committee_reasoning: Optional[str] = Field(default=None, sa_column=Column(Text))
     backtester_rule_match: Optional[str] = Field(default=None, max_length=100)
+    # Phase 3 attribution: which position this signal became and how it ended.
+    # Closes the loop signal -> trade -> outcome so signal quality is measurable.
+    position_id: Optional[int] = Field(default=None)
+    realized_pnl: Optional[Decimal] = Field(default=None, sa_column=Column(Numeric(15, 2)))
 
 class MarketIndicator(SQLModel, table=True):
     __tablename__ = "market_indicators"

@@ -235,7 +235,7 @@ class AutopilotWorker:
                         "committee_verdict": verdict,
                         "committee_reasoning": reasoning
                     }
-                    await database_service.add_signal_audit(session, audit_record)
+                    audit = await database_service.add_signal_audit(session, audit_record)
                     
                     # Publish live audit results
                     await redis_service.publish("market_updates", {
@@ -245,6 +245,9 @@ class AutopilotWorker:
                     })
                     
                     if verdict == "APPROVED":
+                        # Phase 3 attribution: carry the audit id into the position's
+                        # learning_context so close_position can write the outcome back.
+                        spread.setdefault("learning_context", {})["signal_audit_id"] = audit.id
                         # 7. Execute Spread Trade via Execution Service
                         spread["execution_algo"] = "ICEBERG" if spread["lots_sized"] > 2 else "MARKET"
                         success = await execution_service.execute_trade(session, spread)
