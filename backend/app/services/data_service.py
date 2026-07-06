@@ -16,6 +16,25 @@ from sqlalchemy import select
 
 logger = logging.getLogger("DataService")
 
+
+def oi_pcr(df_chain) -> float:
+    """Put-Call Ratio from open interest: Σ(Put OI) / Σ(Call OI) over the chain.
+
+    Matches the validated backtest's ``real_backtester.chain_pcr`` exactly (raw OI,
+    all strikes at the expiry). MUST use OI, not change-in-OI (``*_COI``): COI ratios
+    explode toward garbage (observed live 7.74, 14.81) whenever one side's OI change
+    is near zero, which then corrupts the ladder's PCR-based side selection.
+    Falls back to 1.0 (neutral) when Call OI is unavailable/zero.
+    """
+    try:
+        call_oi = float(df_chain['Call_OI'].sum())
+        put_oi = float(df_chain['Put_OI'].sum())
+    except (KeyError, TypeError):
+        # Chain lacks raw-OI columns (older publisher) — neutral, never COI garbage.
+        return 1.0
+    return (put_oi / call_oi) if call_oi > 0 else 1.0
+
+
 class DataService:
     def __init__(self):
         self.broker = broker_service.get_broker()
@@ -344,7 +363,7 @@ class DataService:
             
             gex_matrix = self.edge_engine.calculate_gex_matrix(spot, df_chain, expiry)
             total_gex = gex_matrix['Total_GEX'].sum() if not gex_matrix.empty else 0.0
-            pcr = df_chain['Put_COI'].sum() / df_chain['Call_COI'].sum() if df_chain['Call_COI'].sum() > 0 else 1.0
+            pcr = oi_pcr(df_chain)   # OI-based PCR, matches backtest chain_pcr (was buggy Put_COI/Call_COI)
             
             # --- INSTITUTIONAL GAMMA LEVELS ---
             gamma_levels = self.edge_engine.identify_gamma_levels(gex_matrix)

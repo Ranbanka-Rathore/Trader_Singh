@@ -291,6 +291,11 @@ class DhanBroker:
                         'Strike': strike,
                         'Call_COI': call_coi,
                         'Put_COI': put_coi,
+                        # Raw open interest — PCR must use OI, not change-in-OI (COI
+                        # ratios explode when one side's OI change ≈ 0). Matches the
+                        # validated backtest's chain_pcr (Put OI / Call OI).
+                        'Call_OI': ce_data.get('oi', 0) or 0,
+                        'Put_OI': pe_data.get('oi', 0) or 0,
                         # Real premiums preserved alongside OI (additive — existing
                         # consumers that read only Strike/Call_COI/Put_COI are unaffected)
                         'Call_LTP': ce_leg['ltp'], 'Call_Bid': ce_leg['bid'], 'Call_Ask': ce_leg['ask'], 'Call_IV': ce_leg['iv'],
