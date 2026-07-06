@@ -159,22 +159,9 @@ class AutopilotWorker:
         """
         from trading_mode import ladder_enabled
         if ladder_enabled():
-            snap = await redis_service.get_json("market_snapshot:NIFTY")
-            spot = float((snap or {}).get("price", 0) or 0)
-            if not snap or spot <= 0:
-                logger.info("🪜 [Ladder] no NIFTY snapshot yet — skipping cycle")
-                return []
-            pcr = float(snap.get("coi_pcr", snap.get("pcr", 1.0)) or 1.0)
-            logger.info(f"🪜 [Ladder] cadence candidate built | spot {spot} | pcr {pcr}")
-            return [{
-                "ticker": "NIFTY",
-                "spot_price": spot,
-                "coi_pcr": pcr,
-                "ml_score": 0.5,   # ladder does not use a directional ML gate
-                "pa_status": "LADDER_CADENCE",
-                "learning_context": {"PA_Status": "LADDER_CADENCE"},
-                "recommended_lots": 1,   # evaluate_ladder IVR mult + position_sizer set final size
-            }]
+            # Canonical source-of-truth shared with the live services (run_quant.py).
+            from backend.app.services.ladder_entry import source_ladder_candidate
+            return await source_ladder_candidate()
         # Sniper path: Quantitative Reversals & Crossovers scan.
         return await self.engine.analyze_universe(self.universe)
 

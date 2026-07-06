@@ -65,18 +65,32 @@ async def main():
                 # 1. Build Options Spreads
                 structured_spreads = options_desk_service.process_approved_assets(passed_assets, strategy_mode=strategy_mode)
 
+                from trading_mode import ladder_enabled
+                is_ladder = ladder_enabled()
+
                 async with async_session() as session:
                     for spread in structured_spreads:
                         ticker = spread.get("ticker", "UNKNOWN")
                         bias = spread.get("bias", "NEUTRAL")
 
+                        # --- 🪜 PHASE 7: income-ladder gate (validated e1bbdc4) ---
+                        # cadence + max-open + evaluate_ladder side/IVR sizing + chain
+                        # refine, all in the shared source-of-truth module. The ladder
+                        # NEVER runs the sniper's directional gauntlet.
+                        if is_ladder:
+                            from backend.app.services.ladder_entry import apply_ladder_gate
+                            proceed_gate, gate_reason = await apply_ladder_gate(session, spread)
+                            if not proceed_gate:
+                                logger.info(f"🪜 [Ladder] {ticker} blocked: {gate_reason}")
+                                continue
+
                         # --- V8 UPGRADE: PARALLEL EXECUTION PIPELINE ---
                         import time
                         start_time = time.perf_counter()
-                        
+
                         # Evaluate trade using AI Committee
                         verdict, reasoning = await risk_committee.evaluate_trade(spread)
-                        
+
                         elapsed = time.perf_counter() - start_time
                         logger.info(f"⏱️ Committee Evaluation for {ticker} completed in {elapsed:.2f}s")
 
@@ -85,19 +99,32 @@ async def main():
                             "ticker": ticker,
                             "pa_status": spread["learning_context"].get("PA_Status", "UNKNOWN"),
                             "pcr": Decimal(str(spread["coi_pcr"])),
-                            "gex_mn": Decimal("1450.00"), 
+                            "gex_mn": Decimal("1450.00"),
                             "ml_score": Decimal(str(spread["ml_score"])),
                             "committee_verdict": verdict,
                             "committee_reasoning": reasoning
                         }
-                        await database_service.add_signal_audit(session, audit_record)
-                        
-                        if verdict == "APPROVED":
+                        audit = await database_service.add_signal_audit(session, audit_record)
+
+                        # For the ladder the committee is ADVISORY (the quantitative
+                        # ladder gate already approved the entry); COMMITTEE_MODE=blocking
+                        # restores its veto. The sniper path stays strictly gated on APPROVED.
+                        committee_mode = os.getenv("COMMITTEE_MODE", "advisory").lower()
+                        proceed = (verdict == "APPROVED") or (is_ladder and committee_mode != "blocking")
+                        if proceed and verdict != "APPROVED":
+                            logger.info(f"⚖️ Committee said {verdict} (advisory mode) — proceeding on the ladder gate")
+
+                        if proceed:
                             logger.info(f"Trade APPROVED for {ticker}. Executing...")
+                            if audit is not None and getattr(audit, "id", None) is not None:
+                                spread.setdefault("learning_context", {})["signal_audit_id"] = audit.id
                             spread["execution_algo"] = "ICEBERG" if spread["lots_sized"] > 2 else "MARKET"
                             success = await execution_service.execute_trade(session, spread)
                             if success:
                                 logger.info(f"Execution success for {ticker}")
+                                if is_ladder:
+                                    from backend.app.services.ladder_entry import mark_ladder_entered
+                                    await mark_ladder_entered()
             
             except Exception as e:
                 logger.error(f"Error in Risk Committee processing: {e}")

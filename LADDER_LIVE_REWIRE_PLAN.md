@@ -10,8 +10,11 @@ status: ready
 autonomous: false          # touches live order-creation path — human verifies paper fills
 trading_mode_required: PAPER
 files_modified:
-  - backend/app/services/worker.py
-  - tests/test_ladder_live_entry.py   # new
+  - backend/app/services/ladder_entry.py   # new — shared source-of-truth
+  - run_quant.py                           # live: source ladder candidate
+  - run_risk_committee.py                  # live: ladder gate + advisory committee + execute
+  - backend/app/services/worker.py         # monolith: delegate to shared module
+  - tests/test_ladder_live_entry.py        # new
 depends_on:
   - Phase 6 (commit b03016a — ladder wired behind LADDER_MODE, never fired live)
 requirements:
@@ -22,6 +25,24 @@ requirements:
 ---
 
 # Phase 7 — Ladder Live Entry Path
+
+## ⚠ CORRECTION (2026-07-06 ~12:00 IST) — re-targeted to the LIVE services
+
+The first cut of this plan (commit 1bccec4) targeted `worker.py::AutopilotWorker`,
+assuming it was the live entry path. **It is not.** `start_v8.bat` launches a
+microservice split and never launches `run_worker.py`, so `worker.py` is dead code
+for this deployment. The live entry path is:
+
+- **`run_quant.py`** — loops `analyze_universe(['NIFTY'])`, publishes survivors to
+  Redis `quant_signals`.
+- **`run_risk_committee.py`** — subscribes `quant_signals` → options desk → committee
+  → `execute_trade`.
+- **`run_oms.py`** — exits only.
+
+None of these referenced `evaluate_ladder`/`ladder_enabled`/`regime_service` before
+this phase. The ladder logic is now in a **shared module** (`ladder_entry.py`) used by
+both the live services and `worker.py`, so the two can never drift again — which is
+what hid the ladder from the live deployment through Phase 6.
 
 ## Root cause (found live 2026-07-06 ~09:30 IST paper session)
 

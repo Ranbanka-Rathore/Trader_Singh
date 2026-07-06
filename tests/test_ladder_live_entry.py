@@ -128,12 +128,102 @@ def test_candidate_feeds_desk_and_ladder_gate():
     check(f"ladder gate returns a size mult ({mult})", isinstance(mult, float) and mult > 0)
 
 
+class _FakeResult:
+    def __init__(self, val):
+        self._val = val
+
+    def scalar(self):
+        return self._val
+
+
+class _FakeSession:
+    """Returns the supplied count for each .execute() in order (n_open, n_week_pos,
+    n_week_trade)."""
+    def __init__(self, counts):
+        self._counts = list(counts)
+        self._i = 0
+
+    async def execute(self, *a, **k):
+        v = self._counts[self._i] if self._i < len(self._counts) else 0
+        self._i += 1
+        return _FakeResult(v)
+
+
+def _install_redis(ladder_week=None):
+    async def fake_get_json(key):
+        if key == "ladder_last_entry_week":
+            return ladder_week
+        return None   # no option chain -> refine skips; no snapshot needed here
+    async def fake_set_json(key, val, **k):
+        return True
+    redis_service.get_json = fake_get_json
+    redis_service.set_json = fake_set_json
+
+
+def _inject_regime_state():
+    n = 30
+    regime_service._closes = [24000.0 / (1.0005 ** (n - i)) for i in range(n)]
+    regime_service._iv_hist = [0.13] * 80
+    regime_service._built_for = datetime.date.today()
+    regime_service._underlying = "NIFTY"
+
+
+def _built_spread():
+    cand = [{"ticker": "NIFTY", "spot_price": 24000.0, "coi_pcr": 1.40,
+             "ml_score": 0.5, "pa_status": "LADDER_CADENCE",
+             "learning_context": {"PA_Status": "LADDER_CADENCE"}, "recommended_lots": 1}]
+    return options_desk_service.process_approved_assets(cand, strategy_mode="CREDIT_SPREAD")[0]
+
+
+def test_shared_source_module():
+    print("\n[5] ladder_entry.source_ladder_candidate (shared live source)")
+    from backend.app.services.ladder_entry import source_ladder_candidate
+    _install_snapshot({"ticker": "NIFTY", "price": 24111.0, "coi_pcr": 1.33})
+    out = asyncio.run(source_ladder_candidate())
+    check("builds one candidate from snapshot", len(out) == 1 and out[0]["ticker"] == "NIFTY")
+    check("pcr from snapshot", abs(out[0]["coi_pcr"] - 1.33) < 1e-6)
+    _install_snapshot(None)
+    check("no snapshot -> []", asyncio.run(source_ladder_candidate()) == [])
+
+
+def test_apply_ladder_gate():
+    print("\n[6] ladder_entry.apply_ladder_gate (shared live gate)")
+    from backend.app.services import ladder_entry
+    _inject_regime_state()
+
+    # pass: no prior week, no open positions
+    _install_redis(ladder_week=None)
+    sp = _built_spread()
+    ok, reason = asyncio.run(ladder_entry.apply_ladder_gate(_FakeSession([0, 0, 0]), sp))
+    check(f"clean gate -> proceed ({reason})", ok is True)
+    check("side assigned by evaluate_ladder", sp.get("strategy_type") in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD"))
+    check("IVR size mult attached", "_ivr_size_mult" in sp)
+
+    # cadence guard: this ISO week already entered (Redis)
+    _install_redis(ladder_week=ladder_entry._week_key())
+    ok2, r2 = asyncio.run(ladder_entry.apply_ladder_gate(_FakeSession([0, 0, 0]), _built_spread()))
+    check(f"same-week Redis guard blocks ({r2})", ok2 is False and "this week" in r2)
+
+    # DB cadence guard: an entry already exists this week
+    _install_redis(ladder_week=None)
+    ok3, r3 = asyncio.run(ladder_entry.apply_ladder_gate(_FakeSession([0, 1, 0]), _built_spread()))
+    check(f"DB entries-this-week blocks ({r3})", ok3 is False and "cadence guard" in r3)
+
+    # max-open guard: already at LADDER_MAX_OPEN concurrent
+    from trading_mode import LADDER_MAX_OPEN
+    _install_redis(ladder_week=None)
+    ok4, r4 = asyncio.run(ladder_entry.apply_ladder_gate(_FakeSession([LADDER_MAX_OPEN, 0, 0]), _built_spread()))
+    check(f"max-open blocks ({r4})", ok4 is False and "max" in r4)
+
+
 if __name__ == "__main__":
     try:
         test_ladder_on_uses_snapshot_not_scan()
         test_ladder_off_uses_sniper_scan()
         test_ladder_on_no_snapshot_skips()
         test_candidate_feeds_desk_and_ladder_gate()
+        test_shared_source_module()
+        test_apply_ladder_gate()
     finally:
         os.environ["LADDER_MODE"] = ""
     print(f"\n{'=' * 50}\nRESULT: {PASS} passed, {FAIL} failed")
