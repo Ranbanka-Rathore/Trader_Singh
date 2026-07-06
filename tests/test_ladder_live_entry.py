@@ -216,6 +216,33 @@ def test_apply_ladder_gate():
     check(f"max-open blocks ({r4})", ok4 is False and "max" in r4)
 
 
+def test_select_ladder_expiry():
+    print("\n[7] trading_mode.select_ladder_expiry (30-45 DTE with gap fallback)")
+    from trading_mode import select_ladder_expiry
+    today = datetime.date(2026, 7, 6)
+
+    # real NIFTY list on 2026-07-06 — NOTE the 30-45 DTE gap (29 then 50)
+    real = ["2026-07-07", "2026-07-14", "2026-07-21", "2026-07-28", "2026-08-04",
+            "2026-08-25", "2026-09-29", "2026-12-29"]
+    exp, dte, why = select_ladder_expiry(real, today=today)
+    check(f"gap -> closest holdable 2026-08-04/29DTE not 1DTE ({exp} {dte} {why})",
+          exp == "2026-08-04" and dte == 29 and why == "closest_holdable")
+    check("never the instantly-managed near weekly", exp != "2026-07-07")
+
+    # when a real 30-45 expiry exists, prefer it
+    win = ["2026-07-07", "2026-08-11", "2026-08-25"]   # 08-11 = 36 DTE
+    exp2, dte2, why2 = select_ladder_expiry(win, today=today)
+    check(f"in-window preferred ({exp2} {dte2} {why2})",
+          exp2 == "2026-08-11" and dte2 == 36 and why2 == "in_window")
+
+    # only near weeklies (all <= manage 21) -> last-resort nearest
+    near = ["2026-07-07", "2026-07-14", "2026-07-21"]
+    exp3, dte3, why3 = select_ladder_expiry(near, today=today)
+    check(f"all <=manageDTE -> fallback_nearest ({exp3} {why3})", why3 == "fallback_nearest")
+
+    check("empty list -> no_expiries", select_ladder_expiry([], today=today)[2] == "no_expiries")
+
+
 if __name__ == "__main__":
     try:
         test_ladder_on_uses_snapshot_not_scan()
@@ -224,6 +251,7 @@ if __name__ == "__main__":
         test_candidate_feeds_desk_and_ladder_gate()
         test_shared_source_module()
         test_apply_ladder_gate()
+        test_select_ladder_expiry()
     finally:
         os.environ["LADDER_MODE"] = ""
     print(f"\n{'=' * 50}\nRESULT: {PASS} passed, {FAIL} failed")

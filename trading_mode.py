@@ -70,6 +70,55 @@ def ladder_manage_dte() -> int:
         return 21
 
 
+def select_ladder_expiry(exp_list, today=None):
+    """Pick the ladder entry expiry from a broker expiry list.
+
+    Prefers an expiry inside [LADDER_DTE_MIN, LADDER_DTE_MAX]. NIFTY lists only
+    weeklies + monthlies, so that window is EMPTY for much of each month (between
+    monthlies); in that case return the tradeable expiry CLOSEST to the window that
+    can still be held (DTE > management DTE) — never the near weekly, which the
+    {manage}-DTE management rule would force-close instantly (friction churn).
+
+    Returns (expiry, dte, reason). reason ∈ {in_window, closest_holdable,
+    fallback_nearest, no_expiries}. expiry is None only when no date parses.
+    """
+    import datetime as _dt
+    today = today or _dt.date.today()
+    manage_dte = ladder_manage_dte()
+    dated = []
+    for e in (exp_list or []):
+        try:
+            d = (_dt.date.fromisoformat(str(e)[:10]) - today).days
+        except (ValueError, TypeError):
+            continue
+        dated.append((d, e))
+    if not dated:
+        return None, None, "no_expiries"
+
+    in_window = [(d, e) for d, e in dated if LADDER_DTE_MIN <= d <= LADDER_DTE_MAX]
+    if in_window:
+        d, e = min(in_window, key=lambda t: t[0])
+        return e, d, "in_window"
+
+    def _dist(d):
+        if d < LADDER_DTE_MIN:
+            return LADDER_DTE_MIN - d
+        if d > LADDER_DTE_MAX:
+            return d - LADDER_DTE_MAX
+        return 0
+
+    holdable = [(d, e) for d, e in dated if d > manage_dte]
+    if holdable:
+        # closest to the window; tie-break toward the longer hold
+        d, e = min(holdable, key=lambda t: (_dist(t[0]), -t[0]))
+        return e, d, "closest_holdable"
+
+    # last resort: everything is <= manage_dte — keep the nearest (will be managed
+    # out quickly, but there is no holdable alternative)
+    d, e = min(dated, key=lambda t: t[0])
+    return e, d, "fallback_nearest"
+
+
 def banner() -> str:
     m = _resolve_mode()
     if m == "LIVE":
