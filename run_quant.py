@@ -47,9 +47,19 @@ async def main():
                 await asyncio.sleep(5)
                 continue
 
-            # Surgical Session Management: analyze_universe now manages its own sessions
-            passed = await engine.analyze_universe(universe)
-            
+            # 🪜 PHASE 7: in LADDER_MODE the income ladder runs on cadence, not on
+            # the sniper's directional scan. Source the NIFTY candidate straight from
+            # the live snapshot so it is gated ONLY by evaluate_ladder + validated hard
+            # gates downstream (in run_risk_committee), never by analyze_universe's
+            # directional gauntlet. See backend/app/services/ladder_entry.py.
+            from trading_mode import ladder_enabled
+            if ladder_enabled():
+                from backend.app.services.ladder_entry import source_ladder_candidate
+                passed = await source_ladder_candidate()
+            else:
+                # Surgical Session Management: analyze_universe now manages its own sessions
+                passed = await engine.analyze_universe(universe)
+
             if passed:
                 logger.info(f"Found {len(passed)} assets passing scan. Publishing to Redis...")
                 await redis_service.publish("quant_signals", passed)

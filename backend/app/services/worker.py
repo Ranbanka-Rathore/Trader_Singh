@@ -143,6 +143,28 @@ class AutopilotWorker:
         except Exception as e:
             logger.error(f"Error in command listener: {e}")
 
+    async def _source_entry_candidates(self):
+        """Return the list of entry candidates for this cycle.
+
+        🪜 PHASE 7: the income ladder runs on a weekly CADENCE, not on the sniper's
+        directional scan. When LADDER_MODE is on, build the NIFTY candidate straight
+        from the live market snapshot so the ladder is gated ONLY by
+        regime_service.evaluate_ladder + the validated hard gates downstream (risk
+        audit, event blackout, credit floor, cadence, max-open, portfolio max-loss).
+        It must NOT inherit analyze_universe's directional gauntlet (PA trigger / OBI
+        / PCR band / GEX vol / directional ML win-prob guard) — that gauntlet is what
+        kept LADDER_MODE from ever firing live. See LADDER_LIVE_REWIRE_PLAN.md.
+
+        When LADDER_MODE is off, this is the unchanged sniper path.
+        """
+        from trading_mode import ladder_enabled
+        if ladder_enabled():
+            # Canonical source-of-truth shared with the live services (run_quant.py).
+            from backend.app.services.ladder_entry import source_ladder_candidate
+            return await source_ladder_candidate()
+        # Sniper path: Quantitative Reversals & Crossovers scan.
+        return await self.engine.analyze_universe(self.universe)
+
     async def run_cycle(self):
         logger.info("Pulsing the Matrix (Autopilot Cycle)...")
         
@@ -207,8 +229,8 @@ class AutopilotWorker:
                 logger.info(f"⏳ [Time Guard] Skipping entry scans (outside 09:15 AM - 03:00 PM IST on weekday). Active positions and exits will still be evaluated.")
                 passed = []
             else:
-                # 4. Run Scan Logic (Quantitative Reversals & Crossovers)
-                passed = await self.engine.analyze_universe(self.universe)
+                # 4. Source entry candidates (ladder cadence vs sniper scan).
+                passed = await self._source_entry_candidates()
             
             if passed:
                 logger.info(f"Found {len(passed)} assets passing initial scan. Routing to Options Desk...")

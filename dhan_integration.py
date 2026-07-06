@@ -199,22 +199,18 @@ class DhanBroker:
                 # Ladder mode trades the 30-45 DTE expiry, not the nearest
                 # weekly — the whole chain (premiums, strikes, IV) must come
                 # from the expiry the ladder actually sells.
-                from trading_mode import ladder_enabled, LADDER_DTE_MIN, LADDER_DTE_MAX
+                from trading_mode import ladder_enabled, select_ladder_expiry
                 if ladder_enabled():
-                    import datetime as _dt
-                    today = _dt.date.today()
-                    for _e in exp_list:
-                        try:
-                            _days = (_dt.date.fromisoformat(str(_e)[:10]) - today).days
-                        except ValueError:
-                            continue
-                        if LADDER_DTE_MIN <= _days <= LADDER_DTE_MAX:
-                            nearest_expiry = _e
-                            break
+                    _sel, _dte, _why = select_ladder_expiry(exp_list)
+                    if _sel is not None:
+                        nearest_expiry = _sel
+                    if _why == "in_window":
+                        logger.info(f"   ↳ LADDER expiry selected: {nearest_expiry} ({_dte} DTE)")
+                    elif _why == "closest_holdable":
+                        logger.warning(f"   ↳ LADDER: no 30-45 DTE expiry available; using closest "
+                                       f"holdable {nearest_expiry} ({_dte} DTE)")
                     else:
-                        logger.warning(f"   ↳ LADDER: no expiry in {LADDER_DTE_MIN}-"
-                                       f"{LADDER_DTE_MAX} DTE window; keeping nearest")
-                    logger.info(f"   ↳ LADDER expiry selected: {nearest_expiry}")
+                        logger.warning(f"   ↳ LADDER: no holdable expiry; keeping nearest {nearest_expiry}")
                 else:
                     logger.info(f"   ↳ Locked onto nearest expiry: {nearest_expiry}")
             else:

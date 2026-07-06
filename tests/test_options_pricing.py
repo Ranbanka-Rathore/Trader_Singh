@@ -92,6 +92,11 @@ async def main():
     passed += 1
 
     # --- 3. Exit decisions (Phase 4 stack: TP 0.5x, touch stop, backstop, T-1) ---
+    # This section tests the SNIPER exit stack, which only applies when
+    # LADDER_MODE is off. Pin it off explicitly so the suite is isolated from
+    # the .env LADDER_MODE flag (ladder uses a MANAGE @21DTE exit instead).
+    _prev_ladder = os.environ.get("LADDER_MODE")
+    os.environ["LADDER_MODE"] = ""
     import datetime as _dt
     # keep the test stable as real time passes: expiry 5 days out
     pos.learning_context["entry_pricing"]["expiry"] = (
@@ -122,6 +127,11 @@ async def main():
         _dt.date.today() + _dt.timedelta(days=5)).isoformat()
     print(f"[3] exits: hold/TP/backstop/SL/touch/T-1 all correct  OK")
     passed += 1
+    # restore whatever LADDER_MODE the environment had before section 3
+    if _prev_ladder is None:
+        os.environ.pop("LADDER_MODE", None)
+    else:
+        os.environ["LADDER_MODE"] = _prev_ladder
 
     # --- 4. Fallback: calendar spread cannot be priced (multi-expiry) ---
     cal = await PS.price_spread_entry({"ticker": "NIFTY", "strategy_type": "CALENDAR_SPREAD",
