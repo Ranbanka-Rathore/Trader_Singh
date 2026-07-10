@@ -18,7 +18,7 @@ echo.
 
 echo [1/3] Starting WSL Infrastructure (PostgreSQL + Redis)...
 :: Starts WSL services in a minimized window
-start /min "WSL Services" wsl -d Ubuntu -u root bash /mnt/c/Users/ST/Desktop/Agentic_Trader/wsl_services.sh
+start /min "WSL Services" wsl -d Ubuntu -u root bash /mnt/d/Projects/Agentic_Trader/wsl_services.sh
 
 :: Wait a few seconds for DB and Redis to accept connections
 echo Waiting for databases to initialize...
