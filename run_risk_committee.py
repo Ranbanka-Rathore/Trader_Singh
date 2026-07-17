@@ -74,9 +74,9 @@ async def main():
                         bias = spread.get("bias", "NEUTRAL")
 
                         # --- 🪜 PHASE 7: income-ladder gate (validated e1bbdc4) ---
-                        # cadence + max-open + evaluate_ladder side/IVR sizing + chain
-                        # refine, all in the shared source-of-truth module. The ladder
-                        # NEVER runs the sniper's directional gauntlet.
+                        # single-position-at-a-time guard + evaluate_ladder side/IVR
+                        # sizing + chain refine, all in the shared source-of-truth
+                        # module. The ladder NEVER runs the sniper's directional gauntlet.
                         if is_ladder:
                             from backend.app.services.ladder_entry import apply_ladder_gate
                             proceed_gate, gate_reason = await apply_ladder_gate(session, spread)
@@ -122,9 +122,6 @@ async def main():
                             success = await execution_service.execute_trade(session, spread)
                             if success:
                                 logger.info(f"Execution success for {ticker}")
-                                if is_ladder:
-                                    from backend.app.services.ladder_entry import mark_ladder_entered
-                                    await mark_ladder_entered()
             
             except Exception as e:
                 logger.error(f"Error in Risk Committee processing: {e}")

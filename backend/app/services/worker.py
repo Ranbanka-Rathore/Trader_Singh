@@ -239,35 +239,21 @@ class AutopilotWorker:
                 strategy_mode = await redis_service.get("execution_strategy_mode") or "CREDIT_SPREAD"
                 structured_spreads = options_desk_service.process_approved_assets(passed, strategy_mode=strategy_mode)
                 
-                from trading_mode import ladder_enabled, LADDER_MAX_OPEN
+                from trading_mode import ladder_enabled
                 for spread in structured_spreads:
                     ml_score = spread.get("ml_score", 0.5)
                     ticker = spread.get("ticker", "UNKNOWN")
 
                     if ladder_enabled():
                         # ── 🪜 PHASE 6: income-ladder entry path (validated e1bbdc4) ──
-                        # one tranche per ISO week, max 6 concurrent, side from
-                        # the ladder gate (overrides the desk's bias), IVR mult
-                        # carried into sizing. Gated path is skipped entirely.
-                        week_key = f"{now_ist_naive.isocalendar()[0]}-W{now_ist_naive.isocalendar()[1]:02d}"
-                        if await redis_service.get_json("ladder_last_entry_week") == week_key:
-                            logger.info(f"🪜 [Ladder] tranche already entered this week ({week_key})")
-                            continue
-                        week_start = now_ist_naive.replace(hour=0, minute=0, second=0, microsecond=0) \
-                            - dt_timedelta(days=now_ist_naive.weekday())
+                        # Signal-driven: enter on any favorable regime read, gated
+                        # only by "no position already open" (single position at a
+                        # time). Side comes from the ladder gate (overrides the
+                        # desk's bias), IVR mult carried into sizing.
                         n_open = (await session.execute(
                             select(func.count()).select_from(OpenPosition))).scalar() or 0
-                        n_week = ((await session.execute(
-                            select(func.count()).select_from(OpenPosition)
-                            .where(OpenPosition.entry_date >= week_start))).scalar() or 0) \
-                            + ((await session.execute(
-                                select(func.count()).select_from(Trade)
-                                .where(Trade.entry_date >= week_start))).scalar() or 0)
-                        if n_week > 0:
-                            logger.info(f"🪜 [Ladder] DB shows an entry this week — cadence guard")
-                            continue
-                        if n_open >= LADDER_MAX_OPEN:
-                            logger.info(f"🪜 [Ladder] {n_open} tranches open (max {LADDER_MAX_OPEN})")
+                        if n_open >= 1:
+                            logger.info(f"🪜 [Ladder] {n_open} position(s) already open — skipping entry")
                             continue
 
                         try:
@@ -363,10 +349,6 @@ class AutopilotWorker:
                         success = await execution_service.execute_trade(session, spread)
                         if success:
                             logger.info(f"Execution success for spread trade on {ticker}")
-                            if ladder_enabled():
-                                wk_done = (f"{now_ist_naive.isocalendar()[0]}-"
-                                           f"W{now_ist_naive.isocalendar()[1]:02d}")
-                                await redis_service.set_json("ladder_last_entry_week", wk_done)
             
             # Update heartbeats in Redis
             await redis_service.set_json("autopilot_status", {
