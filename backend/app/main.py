@@ -307,11 +307,37 @@ async def run_market_scan(session: AsyncSession = Depends(get_session)):
     passed = await engine.analyze_universe(universe)
     return {"status": "SUCCESS", "passed_assets": passed}
 
-@app.get("/api/v1/positions", response_model=List[OpenPosition])
+@app.get("/api/v1/positions", response_model=List[Dict[str, Any]])
 async def get_active_positions(session: AsyncSession = Depends(get_session)):
-    """Returns all currently open trades."""
+    """Returns all currently open trades, each annotated with live unrealized P&L."""
+    from backend.app.services.options_pricing_service import options_pricing_service
+    from backend.app.services.execution_service import execution_service
+
     result = await session.execute(select(OpenPosition))
-    return result.scalars().all()
+    positions = result.scalars().all()
+
+    enriched = []
+    for pos in positions:
+        data = pos.model_dump(mode="json")
+        snap = await redis_service.get_json(f"market_snapshot:{pos.ticker}")
+        current_price = float(snap["price"]) if snap and "price" in snap else float(pos.spot_price or 0)
+
+        mark = await options_pricing_service.mark_position_pnl(pos, current_spot=current_price)
+        if mark:
+            lot_size = execution_service.risk_shield.get_lot_size(pos.ticker)
+            qty = int(pos.lots_sized or 1) * lot_size
+            data["unrealized_pnl"] = round(mark["pnl_per_share"] * qty, 2)
+            data["unrealized_pnl_source"] = "LIVE"
+        else:
+            import datetime as _dt
+            ist_now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=5, minutes=30))).replace(tzinfo=None)
+            data["unrealized_pnl"] = round(
+                execution_service._calculate_strategy_pnl(pos, current_price, ist_now), 2
+            )
+            data["unrealized_pnl_source"] = "HEURISTIC_FALLBACK"
+        enriched.append(data)
+
+    return enriched
 
 @app.get("/api/v1/trades", response_model=List[Trade])
 async def get_historical_trades(limit: int = 50, session: AsyncSession = Depends(get_session)):

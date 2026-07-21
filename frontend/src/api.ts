@@ -30,6 +30,8 @@ export interface OpenPosition {
   net_delta: number;
   net_gamma: number;
   net_theta: number;
+  unrealized_pnl?: number;
+  unrealized_pnl_source?: 'LIVE' | 'HEURISTIC_FALLBACK';
 }
 
 export interface PortfolioStats {

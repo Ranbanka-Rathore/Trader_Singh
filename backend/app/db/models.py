@@ -63,8 +63,9 @@ class OpenPosition(SQLModel, table=True):
     entry_date: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
     entry_spot_price: Optional[Decimal] = Field(default=None, sa_column=Column(Numeric(15, 2)))
     highest_seen: Optional[Decimal] = Field(default=None, sa_column=Column(Numeric(15, 2)))
+    lowest_seen: Optional[Decimal] = Field(default=None, sa_column=Column(Numeric(15, 2)))
     dynamic_sl: Optional[Decimal] = Field(default=None, sa_column=Column(Numeric(15, 2)))
-    
+
     # Firefighting
     is_adjusted: Optional[bool] = Field(default=False)
     adjustment_count: Optional[int] = Field(default=0)

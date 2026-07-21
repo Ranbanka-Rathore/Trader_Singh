@@ -1414,8 +1414,18 @@ function WarRoomView({ positions }: { positions: OpenPosition[] }) {
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-500 font-bold uppercase">Entry</p>
-                <p className="text-sm font-black text-white">₹{Number(pos.spot_price || 0).toLocaleString()}</p>
+                <p className="text-xs text-gray-500 font-bold uppercase">Running P&L</p>
+                <p className={cn(
+                  "text-sm font-black",
+                  (pos.unrealized_pnl ?? 0) > 0 ? "text-success" : (pos.unrealized_pnl ?? 0) < 0 ? "text-danger" : "text-white"
+                )}>
+                  {pos.unrealized_pnl !== undefined
+                    ? `${pos.unrealized_pnl >= 0 ? '+' : ''}₹${pos.unrealized_pnl.toLocaleString()}`
+                    : '—'}
+                </p>
+                {pos.unrealized_pnl_source === 'HEURISTIC_FALLBACK' && (
+                  <p className="text-[9px] text-gray-600 font-bold uppercase">est.</p>
+                )}
               </div>
             </div>
 
