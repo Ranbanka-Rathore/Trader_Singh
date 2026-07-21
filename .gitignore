@@ -38,3 +38,7 @@ node_modules/
 Thumbs.db
 .idea/
 .vscode/
+
+# --- Local tooling / scratch ---
+.claude/settings.local.json
+trade_dump.json
