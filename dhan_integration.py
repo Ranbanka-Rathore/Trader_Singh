@@ -191,6 +191,43 @@ class DhanBroker:
             logger.error(f"Expiry API Exception: {e}")
             return None
 
+    @staticmethod
+    def _log_chain_quality(ticker, expiry, payload, spot):
+        """Log how much of a published chain is actually priceable.
+
+        Near-spot coverage is the number that matters — a liquid monthly quotes
+        100% of the strikes we trade, while a freshly-listed weekly can drop a
+        third of them behind stub markets like bid 71.90 / ask 189.10.
+        """
+        try:
+            from backend.app.services.options_pricing_service import (
+                arbitrage_violations, spread_is_tradeable)
+            strikes = payload.get("strikes") or {}
+            viol = arbitrage_violations(payload)
+            near_ok = near_tot = 0
+            for k, node in strikes.items():
+                try:
+                    if abs(float(k) - float(spot or 0)) > 1000:
+                        continue
+                except (TypeError, ValueError):
+                    continue
+                for typ in ("ce", "pe"):
+                    q = (node or {}).get(typ) or {}
+                    if float(q.get("bid") or 0) <= 0 and float(q.get("ask") or 0) <= 0:
+                        continue
+                    near_tot += 1
+                    near_ok += bool(spread_is_tradeable(q.get("bid"), q.get("ask")))
+            n_viol = len(viol["ce"]) + len(viol["pe"])
+            pct = (100.0 * near_ok / near_tot) if near_tot else 0.0
+            msg = (f"   ↳ chain quality {ticker} {expiry}: near-spot priceable "
+                   f"{near_ok}/{near_tot} ({pct:.0f}%), {n_viol} arb-flagged strikes")
+            if pct < 80.0 or n_viol > 0:
+                logger.warning(msg)
+            else:
+                logger.info(msg)
+        except Exception as e:
+            logger.debug(f"chain quality check failed: {e}")
+
     async def _publish_held_expiry_chains(self, underlying_security_id, segment, primary_expiry):
         """Top up per-expiry premium maps for expiries we still hold.
 
@@ -401,6 +438,14 @@ class DhanBroker:
                                 "source": "DHAN_LIVE",
                                 "strikes": premium_strikes,
                             }
+                            # Chain health, logged so a junk feed is visible
+                            # rather than silently priced off. Enforcement is at
+                            # point of use (options_pricing_service refuses the
+                            # bad strikes) — publishing the whole chain still
+                            # matters because the OI/GEX/PCR analytics need it.
+                            self._log_chain_quality(ticker, nearest_expiry,
+                                                    premium_payload, spot_price)
+
                             # Per-expiry map: the ONLY safe thing to mark a held
                             # position against, since it is addressed by the
                             # contract's own expiry rather than by "whatever is

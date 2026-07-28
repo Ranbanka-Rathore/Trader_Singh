@@ -336,7 +336,86 @@ async def main():
     print("[11] held expiries published deduped/normalised for the harvester  OK")
     passed += 1
 
-    print(f"\n✅ ALL {passed}/11 PRICING TESTS PASSED")
+    # --- 12. BOOK WIDTH: a stub market is not a price ------------------------
+    # Calibrated on real chains: the liquid Aug-25 monthly quotes 100% of
+    # near-spot strikes inside these bounds, while the illiquid Sep-01 weekly
+    # (bid 71.90 / ask 189.10 on trade 48's own strike) fails.
+    assert ps_mod.spread_is_tradeable(48.75, 49.20) is True     # liquid monthly
+    assert ps_mod.spread_is_tradeable(71.90, 189.10) is False   # stub market
+    assert ps_mod.spread_is_tradeable(0.50, 2.00) is True       # cheap OTM, wide %
+    assert ps_mod.spread_is_tradeable(0.0, 49.20) is False      # one-sided
+    assert ps_mod.spread_is_tradeable(49.20, 48.75) is False    # crossed
+    # boundary: abs floor wins under Rs8 mid, relative cap above it
+    assert ps_mod.spread_is_tradeable(4.0, 6.0) is True         # 2.00 == abs floor
+    assert ps_mod.spread_is_tradeable(100.0, 130.0) is False    # 30 > 0.25*115
+    assert ps_mod.spread_is_tradeable(100.0, 120.0) is True     # 20 < 0.25*110
+    print("[12] book width: liquid passes, stub/one-sided/crossed refused  OK")
+    passed += 1
+
+    # --- 13. NO-ARBITRAGE SHAPE: calls fall, puts rise, in strike ------------
+    # This is what catches the 2026-07-28 exit outright: it marked a 24950 call
+    # ABOVE a 25150 call, which no coherent market can produce.
+    inverted = _chain(24000, {
+        24950: {"ce": (208.0, 208.2, 12.0)},
+        25150: {"ce": (253.6, 253.8, 12.0)},   # higher strike worth MORE
+    })
+    v = ps_mod.arbitrage_violations(inverted)
+    assert v["ce"] == {24950.0, 25150.0}, v      # cannot tell which — refuse both
+    assert v["pe"] == set(), v
+
+    clean = _chain(24000, {
+        24950: {"ce": (52.5, 52.9, 12.0)},
+        25150: {"ce": (31.3, 31.6, 12.0)},
+    })
+    assert ps_mod.arbitrage_violations(clean)["ce"] == set()
+
+    puts_inverted = _chain(24000, {
+        23750: {"pe": (60.0, 61.0, 12.0)},      # lower strike worth MORE
+        23800: {"pe": (48.0, 49.0, 12.0)},
+    })
+    assert ps_mod.arbitrage_violations(puts_inverted)["pe"] == {23750.0, 23800.0}
+    # untradeable books are skipped, not compared (no spurious violations)
+    assert ps_mod.arbitrage_violations(_chain(24000, {
+        24950: {"ce": (0.0, 0.0, 12.0, 208.10)},
+        25150: {"ce": (0.0, 0.0, 12.0, 253.70)},
+    }))["ce"] == set()
+
+    # end-to-end: an inverted pair blocks both marking and entry
+    _FAKE_CHAIN = _chain(24000, {
+        23800: {"pe": (60.0, 62.0, 13.5)},
+        23750: {"pe": (48.0, 50.0, 14.0)},
+    }, expiry="2026-07-07")
+    entry13 = await PS.price_spread_entry(spread)
+    assert entry13["pricing_source"] == "DHAN_LIVE"
+    pos13 = Pos(strategy_type="BULL_PUT_SPREAD", net_credit_per_share=9.80,
+                lots_sized=1, learning_context={"entry_pricing": entry13})
+    _FAKE_BY_EXPIRY = {"2026-07-07": _chain(24000, {
+        23800: {"pe": (48.0, 49.0, 13.5)},     # inverted vs 23750 below
+        23750: {"pe": (60.0, 61.0, 14.0)},
+    }, expiry="2026-07-07")}
+    assert await PS.mark_position_pnl(pos13, current_spot=24000) is None, \
+        "arb-violating strike must not be marked"
+
+    # entry refuses a stub book and an arb violation, with distinct reasons
+    _FAKE_CHAIN = _chain(24000, {
+        23800: {"pe": (71.90, 189.10, 13.5)},
+        23750: {"pe": (48.0, 50.0, 14.0)},
+    })
+    bad_entry = await PS.price_spread_entry(spread)
+    assert bad_entry["pricing_source"] == "HEURISTIC_FALLBACK"
+    assert bad_entry["reason"].startswith("untradeable_book"), bad_entry
+    _FAKE_CHAIN = _chain(24000, {
+        23800: {"pe": (48.0, 49.0, 13.5)},
+        23750: {"pe": (60.0, 61.0, 14.0)},
+    })
+    arb_entry = await PS.price_spread_entry(spread)
+    assert arb_entry["pricing_source"] == "HEURISTIC_FALLBACK"
+    assert arb_entry["reason"].startswith("arb_violation"), arb_entry
+    _FAKE_BY_EXPIRY = {}
+    print("[13] no-arbitrage shape: inversions refused for both mark and entry  OK")
+    passed += 1
+
+    print(f"\n✅ ALL {passed}/13 PRICING TESTS PASSED")
 
 
 if __name__ == "__main__":

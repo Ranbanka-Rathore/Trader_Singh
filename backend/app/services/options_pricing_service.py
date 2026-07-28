@@ -126,6 +126,24 @@ def expiry_key(value: Any) -> str:
     return s if len(s) == 10 else ""
 
 
+# A book this wide is a stub market, not a price: on a freshly-listed illiquid
+# expiry Dhan will quote 73.75 / 127.60 on a strike worth ~52, and a mid taken
+# from it is fiction. The ABSOLUTE floor is checked first so genuinely cheap
+# options (0.50 / 2.00 — normal for deep OTM) survive despite a wide *relative*
+# spread, while the relative cap catches wide books on expensive strikes.
+MAX_SPREAD_ABS = 2.00
+MAX_SPREAD_REL = 0.25
+
+
+def spread_is_tradeable(bid: float, ask: float) -> bool:
+    """True if the book is two-sided, uncrossed, and tight enough to price off."""
+    bid, ask = float(bid or 0.0), float(ask or 0.0)
+    if bid <= 0 or ask <= 0 or bid > ask:
+        return False
+    mid = (bid + ask) / 2.0
+    return (ask - bid) <= max(MAX_SPREAD_ABS, MAX_SPREAD_REL * mid)
+
+
 def mark_from_quote(quote: Dict[str, Any]) -> Optional[float]:
     """Mid of a genuine two-sided book, or None if the quote can't be trusted.
 
@@ -134,13 +152,51 @@ def mark_from_quote(quote: Dict[str, Any]) -> Optional[float]:
     illiquid strikes all day, that ltp is a stale print from an earlier session.
     Marking off it fabricated both a take-profit and a stop-loss in the paper
     record (2026-07-09 and 2026-07-28), so require a real two-sided, uncrossed
-    book and let the caller fall back rather than invent a price.
+    book — and one tight enough to be a market at all — and let the caller fall
+    back rather than invent a price.
     """
     bid = float(quote.get("bid") or 0.0)
     ask = float(quote.get("ask") or 0.0)
-    if bid <= 0 or ask <= 0 or bid > ask:
+    if not spread_is_tradeable(bid, ask):
         return None
     return round((bid + ask) / 2.0, 2)
+
+
+def arbitrage_violations(chain: Dict[str, Any]) -> Dict[str, set]:
+    """Strikes whose marks break the no-arbitrage shape of the chain.
+
+    A call's value must be non-increasing in strike and a put's non-decreasing —
+    the right to buy at a higher price is never worth more. A break means at
+    least one of the two neighbours is a stale or bogus print, and there is no
+    way to tell which, so BOTH are refused. This is what would have caught the
+    2026-07-28 exit outright: it marked a 24950 call at 208.10 against a 25150
+    call at 253.70, which no coherent market can produce.
+
+    Returns {'ce': {strike, ...}, 'pe': {strike, ...}} of untrustworthy strikes.
+    """
+    out = {"ce": set(), "pe": set()}
+    parsed = []
+    for k, node in (chain.get("strikes") or {}).items():
+        try:
+            parsed.append((round(float(k), 2), node or {}))
+        except (TypeError, ValueError):
+            continue
+    parsed.sort(key=lambda t: t[0])
+
+    # ce: value falls as strike rises. pe: value rises as strike rises.
+    for opt_type, falling in (("ce", True), ("pe", False)):
+        prev_k = prev_v = None
+        for strike, node in parsed:
+            v = mark_from_quote(node.get(opt_type) or {})
+            if v is None:
+                continue  # untradeable books are already refused elsewhere
+            if prev_v is not None:
+                broken = (v > prev_v + TICK_SIZE) if falling else (v < prev_v - TICK_SIZE)
+                if broken:
+                    out[opt_type].add(prev_k)
+                    out[opt_type].add(strike)
+            prev_k, prev_v = strike, v
+    return out
 
 
 def paper_fill_price(leg: Dict[str, float], side: str) -> float:
@@ -347,6 +403,8 @@ class OptionsPricingService:
         if chain is None:
             return {"pricing_source": SOURCE_FALLBACK, "reason": "no_premium_chain"}
 
+        suspect = arbitrage_violations(chain)
+
         legs: List[Dict[str, Any]] = []
         net = 0.0  # + = we pay (debit), - = we receive (credit)
         for spec in specs:
@@ -364,6 +422,14 @@ class OptionsPricingService:
             leg = self._leg_from_chain(chain, spec["strike"], spec["opt_type"])
             if not leg or (float(leg.get("bid") or 0) <= 0 and float(leg.get("ltp") or 0) <= 0):
                 return {"pricing_source": SOURCE_FALLBACK, "reason": f"no_quote_{spec['opt_type']}_{spec['strike']}"}
+            # Don't open a position priced off a book we wouldn't trust to close
+            # it: a stub market makes the entry credit fiction in both directions.
+            if round(float(spec["strike"]), 2) in suspect.get(spec["opt_type"], set()):
+                return {"pricing_source": SOURCE_FALLBACK,
+                        "reason": f"arb_violation_{spec['opt_type']}_{spec['strike']}"}
+            if not spread_is_tradeable(leg.get("bid"), leg.get("ask")):
+                return {"pricing_source": SOURCE_FALLBACK,
+                        "reason": f"untradeable_book_{spec['opt_type']}_{spec['strike']}"}
             fill = paper_fill_price(leg, side)
             net += sgn * fill
             legs.append({
@@ -425,6 +491,7 @@ class OptionsPricingService:
             return None
 
         spot = current_spot if current_spot is not None else float(chain.get("spot", 0) or 0)
+        suspect = arbitrage_violations(chain)
 
         pnl_per_share = 0.0
         marked_legs = []
@@ -442,13 +509,19 @@ class OptionsPricingService:
                         f"MTM refused for {pos.ticker}: leg {leg.get('strike')} "
                         f"{leg.get('opt_type')} is {leg_expiry}, chain is {chain_expiry}")
                     return None
+                if round(float(leg["strike"]), 2) in suspect.get(leg["opt_type"], set()):
+                    logger.warning(
+                        f"MTM refused for {pos.ticker}: {leg.get('strike')} "
+                        f"{leg.get('opt_type')} breaks chain monotonicity — the "
+                        f"quote is stale or bogus, not a price to exit on")
+                    return None
                 q = self._leg_from_chain(chain, leg["strike"], leg["opt_type"])
                 if not q:
                     return None
                 current_mark = mark_from_quote(q)
                 if current_mark is None:
                     logger.debug(
-                        f"MTM refused for {pos.ticker}: no two-sided book on "
+                        f"MTM refused for {pos.ticker}: untradeable book on "
                         f"{leg.get('strike')} {leg.get('opt_type')} "
                         f"(bid {q.get('bid')} / ask {q.get('ask')})")
                     return None
