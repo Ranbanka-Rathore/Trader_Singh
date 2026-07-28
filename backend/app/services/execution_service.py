@@ -13,6 +13,26 @@ from backend.app.core.rl_oms import rl_oms
 from backend.app.services.database_service import database_service
 from backend.app.services.redis_service import redis_service
 
+# Option order books are empty or crossed for the first minutes after the 09:15
+# open — the quotes there are stale prints from the previous session, not prices
+# anyone will trade at. Both routed exits in the paper record fired at 09:15:0x
+# on the first OMS tick of the day and booked fabricated P&L (2026-07-09 and
+# 2026-07-28), so hold off on exit decisions until the book has formed. Spot is
+# reliable at the open but the exit still has to be PRICED off option marks, so
+# suppressing the whole evaluation is the safe move. Set 0 to disable.
+MARKET_OPEN_WARMUP_MIN = int(os.getenv("MARKET_OPEN_WARMUP_MIN", "5") or 0)
+_MARKET_OPEN_HOUR, _MARKET_OPEN_MINUTE = 9, 15
+
+
+def _in_open_warmup(now: datetime.datetime) -> bool:
+    """True while `now` (IST, naive) sits inside the post-open warm-up window."""
+    if MARKET_OPEN_WARMUP_MIN <= 0:
+        return False
+    opened = now.replace(hour=_MARKET_OPEN_HOUR, minute=_MARKET_OPEN_MINUTE,
+                         second=0, microsecond=0)
+    return opened <= now < opened + datetime.timedelta(minutes=MARKET_OPEN_WARMUP_MIN)
+
+
 class ExecutionService:
     def __init__(self):
         self.risk_shield = RiskShield()
@@ -466,6 +486,32 @@ class ExecutionService:
             friction = {"entry": {}, "exit": {}, "total": 0.0}
         return {"pnl_per_share": round(pnl, 2), "basket": basket, "friction": friction}
 
+    async def _publish_held_expiries(self, open_positions) -> List[str]:
+        """Tell the harvester which expiries still need a live chain.
+
+        The entry selector rolls forward as positions age, so without this the
+        only published chain stops covering anything we already hold and MTM has
+        nothing legitimate to mark against. Keyed per ticker; TTL outlives a few
+        harvester cycles so a slow cycle doesn't drop the chain.
+        """
+        by_ticker: Dict[str, set] = {}
+        for pos in open_positions:
+            exp = self._position_expiry(pos)
+            if exp is None:
+                continue
+            lookup = {"NSEBANK": "BANKNIFTY", "NSEI": "NIFTY"}.get(pos.ticker, pos.ticker)
+            by_ticker.setdefault(lookup, set()).add(exp.isoformat())
+
+        published: List[str] = []
+        for ticker, expiries in by_ticker.items():
+            try:
+                await redis_service.set_json(f"held_expiries:{ticker}",
+                                             sorted(expiries), expire=300)
+                published.extend(sorted(expiries))
+            except Exception as e:
+                print(f"   ⚠️ could not publish held expiries for {ticker}: {e}")
+        return published
+
     def _position_expiry(self, pos):
         """Expiry date of the position's priced legs, or None."""
         try:
@@ -626,6 +672,16 @@ class ExecutionService:
         IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
         now = datetime.datetime.now(IST).replace(tzinfo=None)
         is_eod = (now.hour == 15 and now.minute >= 15) or (now.hour > 15)
+
+        # Publish BEFORE the warm-up return so the harvester is already fetching
+        # our held expiries while exits are suppressed — the chain is then warm
+        # the moment evaluation resumes.
+        await self._publish_held_expiries(open_positions)
+
+        if _in_open_warmup(now):
+            print(f"   ⏸️  OPEN WARM-UP ({MARKET_OPEN_WARMUP_MIN}m): option books not formed "
+                  f"yet — holding {len(open_positions)} position(s), no exit checks")
+            return []
 
         for pos in open_positions:
             ticker = pos.ticker

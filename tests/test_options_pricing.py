@@ -17,30 +17,47 @@ from backend.app.services.options_pricing_service import options_pricing_service
 from backend.app.services.redis_service import redis_service
 from backend.app.services.execution_service import execution_service
 
-_FAKE_CHAIN = {}  # mutated per scenario
+_FAKE_CHAIN = {}      # served for the primary `option_premiums:{ticker}` key
+_FAKE_BY_EXPIRY = {}  # {expiry: payload} served for `option_premiums:{ticker}:{exp}`
+_SET_JSON = {}        # captures redis_service.set_json writes
 
 
 async def _fake_get_json(key):
     if key.startswith("option_premiums:"):
+        parts = key.split(":")
+        if len(parts) == 3:                     # per-expiry key
+            return _FAKE_BY_EXPIRY.get(parts[2])
         return _FAKE_CHAIN
     return None
 
 
+async def _fake_set_json(key, value, expire=None):
+    _SET_JSON[key] = value
+
+
 redis_service.get_json = _fake_get_json  # monkeypatch
+redis_service.set_json = _fake_set_json
 
 
-def _chain(spot, legs):
-    """legs: {strike: {'ce'|'pe': (bid, ask, iv)}} -> premium payload."""
+def _chain(spot, legs, expiry="2026-07-07"):
+    """legs: {strike: {'ce'|'pe': (bid, ask, iv)}} -> premium payload.
+
+    Mirrors dhan_integration._extract_leg_premium: mid falls back to ltp when a
+    book side is empty, which is precisely the trap mark_from_quote must avoid.
+    """
     import time
     strikes = {}
     for strike, sides in legs.items():
         node = {}
-        for typ, (bid, ask, iv) in sides.items():
-            node[typ] = {"ltp": round((bid + ask) / 2, 2), "bid": bid, "ask": ask,
-                         "mid": round((bid + ask) / 2, 2), "iv": iv, "oi": 1000,
+        for typ, spec in sides.items():
+            bid, ask, iv = spec[0], spec[1], spec[2]
+            ltp = spec[3] if len(spec) > 3 else round((bid + ask) / 2, 2)
+            mid = round((bid + ask) / 2, 2) if (bid > 0 and ask > 0) else ltp
+            node[typ] = {"ltp": ltp, "bid": bid, "ask": ask,
+                         "mid": mid, "iv": iv, "oi": 1000,
                          "delta": 0.3, "gamma": 0.001, "theta": -5.0, "vega": 4.0}
         strikes[f"{float(strike):.2f}"] = node
-    return {"underlying": "NIFTY", "spot": spot, "expiry": "2026-07-07",
+    return {"underlying": "NIFTY", "spot": spot, "expiry": expiry,
             "timestamp": time.time(), "source": "DHAN_LIVE", "strikes": strikes}
 
 
@@ -162,7 +179,164 @@ async def main():
     print(f"[6] debit spread net = ₹{deb['net_premium_per_share']}/sh  OK")
     passed += 1
 
-    print(f"\n✅ ALL {passed}/6 PRICING TESTS PASSED")
+    # --- 7. EXPIRY GUARD: never mark a position off a different expiry -------
+    # Regression for the 2026-07-28 fabricated take-profit: the ladder's chain
+    # publisher rolls to a new expiry as the held one ages out of the 30-45 DTE
+    # window, and the same strikes exist there, so the lookup silently succeeded.
+    _FAKE_CHAIN = _chain(24000, {
+        23800: {"pe": (60.0, 62.0, 13.5)},
+        23750: {"pe": (48.0, 50.0, 14.0)},
+    }, expiry="2026-07-07")
+    entry7 = await PS.price_spread_entry(spread)
+    assert entry7["pricing_source"] == "DHAN_LIVE" and entry7["expiry"] == "2026-07-07"
+    pos7 = Pos(strategy_type="BULL_PUT_SPREAD", net_credit_per_share=entry7["net_credit_per_share"],
+               lots_sized=1, learning_context={"entry_pricing": entry7})
+
+    # same expiry -> marks fine
+    _FAKE_CHAIN = _chain(24050, {
+        23800: {"pe": (30.0, 32.0, 12.0)},
+        23750: {"pe": (24.0, 26.0, 12.5)},
+    }, expiry="2026-07-07")
+    assert await PS.mark_position_pnl(pos7, current_spot=24050) is not None
+
+    # chain rolled to a LATER expiry, same strikes present, richer premiums:
+    # this is the exact shape that booked +₹4,577 on a ₹1,745-max spread.
+    _FAKE_CHAIN = _chain(24050, {
+        23800: {"pe": (208.0, 210.0, 12.0)},
+        23750: {"pe": (252.0, 254.0, 12.5)},
+    }, expiry="2026-07-14")
+    assert await PS.mark_position_pnl(pos7, current_spot=24050) is None, \
+        "wrong-expiry chain must refuse to mark"
+
+    # a routed leg carrying its own mismatched expiry is refused too
+    _FAKE_CHAIN = _chain(24050, {
+        23800: {"pe": (30.0, 32.0, 12.0)},
+        23750: {"pe": (24.0, 26.0, 12.5)},
+    }, expiry="2026-07-07")
+    entry7b = dict(entry7)
+    entry7b["legs"] = [dict(l) for l in entry7["legs"]]
+    entry7b["legs"][0]["expiry"] = "2026-07-14"   # router override drifted
+    pos7b = Pos(strategy_type="BULL_PUT_SPREAD", net_credit_per_share=9.80,
+                lots_sized=1, learning_context={"entry_pricing": entry7b})
+    assert await PS.mark_position_pnl(pos7b, current_spot=24050) is None, \
+        "per-leg expiry mismatch must refuse to mark"
+
+    # an entry with no recorded expiry cannot be verified -> refuse
+    entry7c = {k: v for k, v in entry7.items() if k != "expiry"}
+    pos7c = Pos(strategy_type="BULL_PUT_SPREAD", net_credit_per_share=9.80,
+                lots_sized=1, learning_context={"entry_pricing": entry7c})
+    assert await PS.mark_position_pnl(pos7c, current_spot=24050) is None, \
+        "unverifiable expiry must refuse to mark"
+    print("[7] expiry guard: match marks / rolled chain, leg drift, missing expiry all refused  OK")
+    passed += 1
+
+    # --- 8. QUOTE QUALITY: never mark off a stale ltp with an empty book -----
+    # At 09:15 the book is empty, _extract_leg_premium sets mid = ltp, and that
+    # ltp is the previous session's print. Both fabricated exits marked off it.
+    assert ps_mod.mark_from_quote({"bid": 30.0, "ask": 32.0, "ltp": 31.0}) == 31.0
+    assert ps_mod.mark_from_quote({"bid": 0.0, "ask": 0.0, "ltp": 253.70}) is None
+    assert ps_mod.mark_from_quote({"bid": 30.0, "ask": 0.0, "ltp": 253.70}) is None
+    assert ps_mod.mark_from_quote({"bid": 0.0, "ask": 32.0, "ltp": 253.70}) is None
+    assert ps_mod.mark_from_quote({"bid": 40.0, "ask": 32.0, "ltp": 36.0}) is None  # crossed
+
+    # end-to-end: empty book on ONE leg is enough to refuse the whole mark
+    _FAKE_CHAIN = _chain(24050, {
+        23800: {"pe": (30.0, 32.0, 12.0)},
+        23750: {"pe": (0.0, 0.0, 12.5, 253.70)},   # no book, stale ltp
+    }, expiry="2026-07-07")
+    assert await PS.mark_position_pnl(pos7, current_spot=24050) is None, \
+        "empty book must refuse to mark, not fall back to ltp"
+    print("[8] quote quality: empty/one-sided/crossed books refused, no ltp fallback  OK")
+    passed += 1
+
+    # --- 9. OPEN WARM-UP: no exit decisions in the first minutes after 09:15 --
+    import datetime as _dt2
+    from backend.app.services import execution_service as ex_mod
+    assert ex_mod.MARKET_OPEN_WARMUP_MIN > 0, "warm-up should be on by default"
+    d = _dt2.date(2026, 7, 28)
+    assert ex_mod._in_open_warmup(_dt2.datetime.combine(d, _dt2.time(9, 15, 8))) is True
+    assert ex_mod._in_open_warmup(_dt2.datetime.combine(d, _dt2.time(9, 19, 59))) is True
+    assert ex_mod._in_open_warmup(_dt2.datetime.combine(d, _dt2.time(9, 20, 0))) is False
+    assert ex_mod._in_open_warmup(_dt2.datetime.combine(d, _dt2.time(9, 14, 59))) is False
+    assert ex_mod._in_open_warmup(_dt2.datetime.combine(d, _dt2.time(15, 15, 0))) is False
+    _prev_warm = ex_mod.MARKET_OPEN_WARMUP_MIN
+    ex_mod.MARKET_OPEN_WARMUP_MIN = 0   # opt-out knob
+    assert ex_mod._in_open_warmup(_dt2.datetime.combine(d, _dt2.time(9, 15, 8))) is False
+    ex_mod.MARKET_OPEN_WARMUP_MIN = _prev_warm
+    print("[9] open warm-up: 09:15-09:19 suppressed, 09:20 live, knob disables  OK")
+    passed += 1
+
+    # --- 10. PER-EXPIRY CHAIN: an aged position marks off its OWN contracts ---
+    # The real fix: the harvester publishes option_premiums:{ticker}:{expiry} for
+    # every HELD expiry, so a position stays markable after the entry selector
+    # has rolled on. Primary key = Sep-01 (rolled), held key = Aug-25.
+    global _FAKE_BY_EXPIRY
+    held = _chain(24000, {
+        23800: {"pe": (60.0, 62.0, 13.5)},
+        23750: {"pe": (48.0, 50.0, 14.0)},
+    }, expiry="2026-08-25")
+    _FAKE_CHAIN = held
+    entry10 = await PS.price_spread_entry(spread)
+    assert entry10["expiry"] == "2026-08-25"
+    pos10 = Pos(strategy_type="BULL_PUT_SPREAD", net_credit_per_share=entry10["net_credit_per_share"],
+                lots_sized=1, learning_context={"entry_pricing": entry10})
+
+    # entry selector has rolled: primary is now Sep-01 with much richer premiums
+    _FAKE_CHAIN = _chain(24000, {
+        23800: {"pe": (208.0, 210.0, 13.5)},
+        23750: {"pe": (252.0, 254.0, 14.0)},
+    }, expiry="2026-09-01")
+
+    # ...and with no per-expiry chain published yet, we must still refuse
+    _FAKE_BY_EXPIRY = {}
+    assert await PS.mark_position_pnl(pos10, current_spot=24000) is None, \
+        "rolled primary must not be substituted for the held expiry"
+
+    # ...once the harvester publishes the held expiry, marking works again
+    _FAKE_BY_EXPIRY = {"2026-08-25": _chain(24050, {
+        23800: {"pe": (30.0, 32.0, 12.0)},
+        23750: {"pe": (24.0, 26.0, 12.5)},
+    }, expiry="2026-08-25")}
+    mark10 = await PS.mark_position_pnl(pos10, current_spot=24050)
+    assert mark10 is not None and approx(mark10["pnl_per_share"], 3.80), mark10
+    assert await PS.get_premium_chain("NIFTY", expiry="2026-08-25") is not None
+    # a per-expiry key that somehow holds a different expiry is still rejected
+    _FAKE_BY_EXPIRY = {"2026-08-25": _chain(24050, {
+        23800: {"pe": (30.0, 32.0, 12.0)},
+        23750: {"pe": (24.0, 26.0, 12.5)},
+    }, expiry="2026-09-01")}
+    assert await PS.mark_position_pnl(pos10, current_spot=24050) is None, \
+        "mislabelled per-expiry chain must still be rejected"
+    _FAKE_BY_EXPIRY = {}
+    print(f"[10] per-expiry chain: held expiry marks at ₹{mark10['pnl_per_share']}/sh, "
+          f"rolled primary refused  OK")
+    passed += 1
+
+    # --- 11. held-expiry publication (what the harvester consumes) -----------
+    import datetime as _dt3
+
+    class _P:
+        def __init__(self, ticker, exp):
+            self.ticker = ticker
+            self.learning_context = {"entry_pricing": {"expiry": exp}}
+
+    _SET_JSON.clear()
+    out = await execution_service._publish_held_expiries([
+        _P("NIFTY", "2026-08-25"),
+        _P("NIFTY", "2026-09-01"),
+        _P("NIFTY", "2026-08-25"),   # dedup
+        _P("NSEI", "2026-08-25"),    # ticker normalised to NIFTY
+        _P("NIFTY", None),           # unpriced position ignored
+    ])
+    assert _SET_JSON["held_expiries:NIFTY"] == ["2026-08-25", "2026-09-01"], _SET_JSON
+    assert out == ["2026-08-25", "2026-09-01"], out
+    _SET_JSON.clear()
+    assert await execution_service._publish_held_expiries([]) == []
+    assert "held_expiries:NIFTY" not in _SET_JSON
+    print("[11] held expiries published deduped/normalised for the harvester  OK")
+    passed += 1
+
+    print(f"\n✅ ALL {passed}/11 PRICING TESTS PASSED")
 
 
 if __name__ == "__main__":

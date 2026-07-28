@@ -120,6 +120,29 @@ def sign_of(side: str) -> int:
     return 1 if str(side).upper() == "BUY" else -1
 
 
+def expiry_key(value: Any) -> str:
+    """Normalise an expiry to 'YYYY-MM-DD' for comparison; '' if unusable."""
+    s = str(value or "")[:10].strip()
+    return s if len(s) == 10 else ""
+
+
+def mark_from_quote(quote: Dict[str, Any]) -> Optional[float]:
+    """Mid of a genuine two-sided book, or None if the quote can't be trusted.
+
+    `_extract_leg_premium` sets mid = ltp whenever either book side is empty, so
+    `mid` on its own is NOT evidence of a tradeable price: at the open, and on
+    illiquid strikes all day, that ltp is a stale print from an earlier session.
+    Marking off it fabricated both a take-profit and a stop-loss in the paper
+    record (2026-07-09 and 2026-07-28), so require a real two-sided, uncrossed
+    book and let the caller fall back rather than invent a price.
+    """
+    bid = float(quote.get("bid") or 0.0)
+    ask = float(quote.get("ask") or 0.0)
+    if bid <= 0 or ask <= 0 or bid > ask:
+        return None
+    return round((bid + ask) / 2.0, 2)
+
+
 def paper_fill_price(leg: Dict[str, float], side: str) -> float:
     """Simulated fill using real quotes: sells hit the bid, buys lift the ask,
     each worsened by SLIPPAGE. Falls back to mid/ltp if a book side is empty."""
@@ -138,22 +161,36 @@ def paper_fill_price(leg: Dict[str, float], side: str) -> float:
 
 
 class OptionsPricingService:
-    async def get_premium_chain(self, ticker: str) -> Optional[Dict[str, Any]]:
+    async def get_premium_chain(self, ticker: str,
+                                expiry: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Fetch the fresh per-strike premium map for a ticker, or None if
-        missing/stale."""
-        key = f"option_premiums:{_normalise(ticker)}"
-        try:
-            payload = await redis_service.get_json(key)
-        except Exception as e:
-            logger.debug(f"premium chain read failed for {ticker}: {e}")
-            return None
-        if not payload or "strikes" not in payload:
-            return None
-        ts = float(payload.get("timestamp", 0) or 0)
-        if ts and (time.time() - ts) > MAX_PREMIUM_AGE_SEC:
-            logger.debug(f"premium chain for {ticker} is stale ({time.time()-ts:.0f}s)")
-            return None
-        return payload
+        missing/stale.
+
+        With `expiry`, resolve that contract's OWN chain
+        (`option_premiums:{ticker}:{expiry}`, published for every expiry we hold)
+        and never substitute a different one — the primary key is only accepted
+        when it happens to be that same expiry.
+        """
+        base = f"option_premiums:{_normalise(ticker)}"
+        want = expiry_key(expiry)
+        keys = [f"{base}:{want}", base] if want else [base]
+
+        for key in keys:
+            try:
+                payload = await redis_service.get_json(key)
+            except Exception as e:
+                logger.debug(f"premium chain read failed for {key}: {e}")
+                continue
+            if not payload or "strikes" not in payload:
+                continue
+            ts = float(payload.get("timestamp", 0) or 0)
+            if ts and (time.time() - ts) > MAX_PREMIUM_AGE_SEC:
+                logger.debug(f"premium chain {key} is stale ({time.time()-ts:.0f}s)")
+                continue
+            if want and expiry_key(payload.get("expiry")) != want:
+                continue  # primary chain has rolled past the expiry we asked for
+            return payload
+        return None
 
     def _leg_from_chain(self, chain: Dict[str, Any], strike: float, opt_type: str) -> Optional[Dict[str, float]]:
         """Look up a single leg's premium dict from a premium chain, matching the
@@ -360,9 +397,33 @@ class OptionsPricingService:
         if not legs or entry.get("pricing_source") != SOURCE_LIVE:
             return None
 
-        chain = await self.get_premium_chain(pos.ticker)
+        # --- EXPIRY GUARD ---------------------------------------------------
+        # Ask for the position's OWN expiry: the harvester publishes a chain per
+        # held expiry precisely so an aged position is never marked against
+        # whatever the entry selector points at today. The equality check below
+        # is defence in depth — the same strikes are listed in every expiry, so a
+        # lookup by (strike, opt_type) against the wrong chain silently succeeds,
+        # which is how the Aug-04 position got marked off Aug-11 quotes on
+        # 2026-07-09 and the Aug-25 position off Sep-01 quotes on 2026-07-28.
+        pos_expiry = expiry_key(entry.get("expiry"))
+        if not pos_expiry:
+            logger.warning(
+                f"MTM refused for {pos.ticker} pos {getattr(pos, 'id', '?')}: "
+                f"position has no recorded expiry to verify against")
+            return None
+
+        chain = await self.get_premium_chain(pos.ticker, expiry=pos_expiry)
         if chain is None:
             return None
+
+        chain_expiry = expiry_key(chain.get("expiry"))
+        if not chain_expiry or pos_expiry != chain_expiry:
+            logger.warning(
+                f"MTM refused for {pos.ticker} pos {getattr(pos, 'id', '?')}: position "
+                f"expiry {pos_expiry or '?'} but published chain is {chain_expiry or '?'} "
+                f"— cannot mark against a different expiry")
+            return None
+
         spot = current_spot if current_spot is not None else float(chain.get("spot", 0) or 0)
 
         pnl_per_share = 0.0
@@ -373,11 +434,23 @@ class OptionsPricingService:
             if leg["opt_type"] == "fut":
                 current_mark = round(spot, 2)
             else:
+                # Routed legs carry their own expiry (order_router can override
+                # per leg) — a mismatch here means the same silent substitution.
+                leg_expiry = expiry_key(leg.get("expiry"))
+                if leg_expiry and leg_expiry != chain_expiry:
+                    logger.warning(
+                        f"MTM refused for {pos.ticker}: leg {leg.get('strike')} "
+                        f"{leg.get('opt_type')} is {leg_expiry}, chain is {chain_expiry}")
+                    return None
                 q = self._leg_from_chain(chain, leg["strike"], leg["opt_type"])
                 if not q:
                     return None
-                current_mark = float(q.get("mid") or q.get("ltp") or 0.0)
-                if current_mark <= 0:
+                current_mark = mark_from_quote(q)
+                if current_mark is None:
+                    logger.debug(
+                        f"MTM refused for {pos.ticker}: no two-sided book on "
+                        f"{leg.get('strike')} {leg.get('opt_type')} "
+                        f"(bid {q.get('bid')} / ask {q.get('ask')})")
                     return None
             pnl_per_share += sgn * (current_mark - entry_fill)
             marked_legs.append({**leg, "current_mark": current_mark})

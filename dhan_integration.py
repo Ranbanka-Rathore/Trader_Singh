@@ -128,14 +128,119 @@ class DhanBroker:
             "vega": float(greeks.get("vega", 0.0) or 0.0),
         }
 
-    async def get_clean_option_chain(self, underlying_security_id, segment):
+    async def _select_trading_expiry(self, underlying_security_id, dhan_segment):
+        """Fetch Dhan's expiry list and pick the expiry we ENTER on.
+
+        Ladder mode trades the 30-45 DTE expiry, not the nearest weekly — the
+        whole chain (premiums, strikes, IV) must come from the expiry the ladder
+        actually sells. Returns the expiry string, or None on API failure.
         """
-        Uses Dhan's Expiry List API to find the exact target date, 
+        try:
+            exp_response = await asyncio.to_thread(
+                self.dhan.expiry_list,
+                under_security_id=int(underlying_security_id),
+                under_exchange_segment=dhan_segment
+            )
+
+            if not (isinstance(exp_response, dict) and 'data' in exp_response):
+                logger.error(f"Dhan API Rejected Request. Raw Server Response: {exp_response}")
+                return None
+
+            inner_payload = exp_response['data']
+
+            # Check for Rate Limiting in Expiry List
+            if isinstance(inner_payload, dict) and '805' in str(inner_payload):
+                logger.error(f"🛑 DHAN RATE LIMIT (Expiry): Too many requests for {underlying_security_id}")
+                return None
+
+            # Unpack the double 'data' folder
+            if isinstance(inner_payload, dict) and 'data' in inner_payload:
+                exp_list = inner_payload['data']
+            else:
+                exp_list = inner_payload
+
+            if not exp_list or not isinstance(exp_list, list) or len(exp_list) == 0:
+                logger.warning(f"No active expiries found for {underlying_security_id}. Dhan returned: {exp_response}")
+                return None
+
+            logger.info(f"   ↳ Found {len(exp_list)} expiries: {exp_list[:3]}...")
+            # Ensure expiries are sorted by date
+            try:
+                exp_list.sort()
+            except Exception:
+                pass
+
+            nearest_expiry = exp_list[0]
+            from trading_mode import ladder_enabled, select_ladder_expiry
+            if ladder_enabled():
+                _sel, _dte, _why = select_ladder_expiry(exp_list)
+                if _sel is not None:
+                    nearest_expiry = _sel
+                if _why == "in_window":
+                    logger.info(f"   ↳ LADDER expiry selected: {nearest_expiry} ({_dte} DTE)")
+                elif _why == "closest_holdable":
+                    logger.warning(f"   ↳ LADDER: no 30-45 DTE expiry available; using closest "
+                                   f"holdable {nearest_expiry} ({_dte} DTE)")
+                else:
+                    logger.warning(f"   ↳ LADDER: no holdable expiry; keeping nearest {nearest_expiry}")
+            else:
+                logger.info(f"   ↳ Locked onto nearest expiry: {nearest_expiry}")
+            return nearest_expiry
+
+        except Exception as e:
+            logger.error(f"Expiry API Exception: {e}")
+            return None
+
+    async def _publish_held_expiry_chains(self, underlying_security_id, segment, primary_expiry):
+        """Top up per-expiry premium maps for expiries we still hold.
+
+        The entry selector moves as positions age (Aug-25 -> Sep-01 on
+        2026-07-28), so the primary chain stops covering older open positions.
+        `held_expiries:{ticker}` is published by the execution service; anything
+        in it other than the primary gets its own chain fetched here so
+        mark-to-market always has the real contract to price against.
+        """
+        ticker = self._underlying_ticker(underlying_security_id)
+        try:
+            raw = await self.redis.get(f"held_expiries:{ticker}")
+            held = json.loads(raw) if raw else []
+        except Exception as e:
+            logger.debug(f"held expiry read failed for {ticker}: {e}")
+            return
+
+        wanted = {str(e)[:10] for e in (held or []) if e} - {str(primary_expiry)[:10]}
+        for exp in sorted(wanted):
+            try:
+                spot, df = await self.get_clean_option_chain(
+                    underlying_security_id, segment, expiry=exp)
+                if df is None or df.empty:
+                    logger.warning(f"   ↳ HELD expiry {exp}: no chain returned — "
+                                   f"positions on it cannot be marked this cycle")
+                else:
+                    logger.info(f"   ↳ HELD expiry {exp}: chain published ({len(df)} strikes)")
+            except Exception as e:
+                logger.warning(f"   ↳ HELD expiry {exp} fetch failed: {e}")
+
+    async def get_clean_option_chain(self, underlying_security_id, segment, expiry=None):
+        """
+        Uses Dhan's Expiry List API to find the exact target date,
         then fetches the Option Chain for live OI data.
+
+        expiry=None (default) selects the trading expiry (ladder window or
+        nearest), publishes it as the PRIMARY `option_premiums:{ticker}` map and
+        then tops up chains for any expiry we still hold. Passing an explicit
+        expiry fetches exactly that one and publishes only its per-expiry map —
+        held positions must be marked against their OWN contracts, never against
+        whatever expiry the entry selector happens to be pointing at today.
         """
+        explicit_expiry = expiry is not None
+
         # --- CACHE CHECK (REDIS or LOCAL) ---
         cache_key = f"oc_cache:{underlying_security_id}"
-        if self.redis:
+        if explicit_expiry:
+            pass  # oc_cache is keyed by underlying only, so it cannot answer
+                  # "give me THIS expiry" — go straight to the API.
+        elif self.redis:
             try:
                 cached_data = await self.redis.get(cache_key)
                 if cached_data:
@@ -162,64 +267,15 @@ class DhanBroker:
         else:
             dhan_segment = "NSE_EQ"
             
-        # 1. Dynamically fetch the valid expiry dates
-        try:
-            exp_response = await asyncio.to_thread(
-                self.dhan.expiry_list,
-                under_security_id=int(underlying_security_id), 
-                under_exchange_segment=dhan_segment
-            )
-            
-            if isinstance(exp_response, dict) and 'data' in exp_response:
-                inner_payload = exp_response['data']
-                
-                # Check for Rate Limiting in Expiry List
-                if isinstance(inner_payload, dict) and '805' in str(inner_payload):
-                    logger.error(f"🛑 DHAN RATE LIMIT (Expiry): Too many requests for {underlying_security_id}")
-                    return None, None
-                
-                # Unpack the double 'data' folder
-                if isinstance(inner_payload, dict) and 'data' in inner_payload:
-                    exp_list = inner_payload['data']
-                else:
-                    exp_list = inner_payload
-                
-                if not exp_list or not isinstance(exp_list, list) or len(exp_list) == 0:
-                    logger.warning(f"No active expiries found for {underlying_security_id}. Dhan returned: {exp_response}")
-                    return None, None
-                
-                logger.info(f"   ↳ Found {len(exp_list)} expiries: {exp_list[:3]}...")
-                # Ensure expiries are sorted by date
-                try:
-                    exp_list.sort() 
-                except:
-                    pass
-                    
-                nearest_expiry = exp_list[0]
-                # Ladder mode trades the 30-45 DTE expiry, not the nearest
-                # weekly — the whole chain (premiums, strikes, IV) must come
-                # from the expiry the ladder actually sells.
-                from trading_mode import ladder_enabled, select_ladder_expiry
-                if ladder_enabled():
-                    _sel, _dte, _why = select_ladder_expiry(exp_list)
-                    if _sel is not None:
-                        nearest_expiry = _sel
-                    if _why == "in_window":
-                        logger.info(f"   ↳ LADDER expiry selected: {nearest_expiry} ({_dte} DTE)")
-                    elif _why == "closest_holdable":
-                        logger.warning(f"   ↳ LADDER: no 30-45 DTE expiry available; using closest "
-                                       f"holdable {nearest_expiry} ({_dte} DTE)")
-                    else:
-                        logger.warning(f"   ↳ LADDER: no holdable expiry; keeping nearest {nearest_expiry}")
-                else:
-                    logger.info(f"   ↳ Locked onto nearest expiry: {nearest_expiry}")
-            else:
-                logger.error(f"Dhan API Rejected Request. Raw Server Response: {exp_response}")
+        # 1. Which expiry? An explicit one skips the selector entirely (and its
+        #    expiry-list API call) — the caller is asking for a specific contract.
+        if explicit_expiry:
+            nearest_expiry = str(expiry)[:10]
+        else:
+            nearest_expiry = await self._select_trading_expiry(
+                underlying_security_id, dhan_segment)
+            if nearest_expiry is None:
                 return None, None
-                
-        except Exception as e:
-            logger.error(f"Expiry API Exception: {e}")
-            return None, None
             
         # 2. Fetch the actual option chain using the exact date
         try:
@@ -333,12 +389,6 @@ class DhanBroker:
                     # --- UPDATE CACHE (REDIS or LOCAL) ---
                     if self.redis:
                         try:
-                            cache_payload = {
-                                "spot": spot_price,
-                                "chain": df_chain.to_dict(orient='records')
-                            }
-                            await self.redis.set(cache_key, json.dumps(cache_payload), ex=60)
-
                             # Publish the real per-strike premium map for the pricing service.
                             ticker = self._underlying_ticker(underlying_security_id)
                             premium_payload = {
@@ -351,13 +401,37 @@ class DhanBroker:
                                 "source": "DHAN_LIVE",
                                 "strikes": premium_strikes,
                             }
+                            # Per-expiry map: the ONLY safe thing to mark a held
+                            # position against, since it is addressed by the
+                            # contract's own expiry rather than by "whatever is
+                            # current". Always written, for every expiry fetched.
                             await self.redis.set(
-                                f"option_premiums:{ticker}", json.dumps(premium_payload), ex=90
+                                f"option_premiums:{ticker}:{str(nearest_expiry)[:10]}",
+                                json.dumps(premium_payload), ex=90
                             )
+
+                            # The primary key + the expiry-agnostic oc_cache stay
+                            # the ENTRY/analytics view and are only refreshed by
+                            # the primary call, never by a held-expiry top-up.
+                            if not explicit_expiry:
+                                cache_payload = {
+                                    "spot": spot_price,
+                                    "chain": df_chain.to_dict(orient='records')
+                                }
+                                await self.redis.set(cache_key, json.dumps(cache_payload), ex=60)
+                                await self.redis.set(
+                                    f"option_premiums:{ticker}", json.dumps(premium_payload), ex=90
+                                )
                         except Exception as re:
                             logger.warning(f"Redis cache write error: {re}")
-                    else:
+                    elif not explicit_expiry:
                         self._oc_cache[underlying_security_id] = (time.time(), spot_price, df_chain)
+
+                    # Top up chains for expiries we hold but no longer enter on.
+                    # Guarded by explicit_expiry so a top-up never recurses.
+                    if self.redis and not explicit_expiry:
+                        await self._publish_held_expiry_chains(
+                            underlying_security_id, segment, nearest_expiry)
 
                     return spot_price, df_chain
                     
