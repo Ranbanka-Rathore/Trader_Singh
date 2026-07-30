@@ -45,17 +45,75 @@ class DhanBroker:
                     file_exists = False
             
             if not file_exists:
-                logger.info("Downloading live Instrument Master CSV...")
-                response = requests.get(url)
-                with open(self.instrument_master_path, 'wb') as f:
-                    f.write(response.content)
-            
+                self._download_instrument_master(url)
+
             # Load into a lightning-fast Pandas DataFrame
             self.df_master = pd.read_csv(self.instrument_master_path, low_memory=False)
             logger.info("Instrument Master Loaded Successfully!")
             
         except Exception as e:
             logger.error(f"CRITICAL ERROR: Could not load Instrument Master. {e}")
+
+    # All six microservices boot within ~2s of each other and every one of them
+    # races for this 25MB file. A bare requests.get() with no timeout means a
+    # stalled transfer wedges the service forever, at import time, before its
+    # logging is configured -- so it hangs silently with no trace anywhere.
+    _MASTER_TIMEOUT = (10, 90)  # (connect, read) seconds
+    _MASTER_RETRIES = 3
+
+    def _download_instrument_master(self, url):
+        """Fetches the scrip master with timeouts, retries and an atomic swap."""
+        last_error = None
+
+        for attempt in range(1, self._MASTER_RETRIES + 1):
+            tmp_path = f"{self.instrument_master_path}.{os.getpid()}.tmp"
+            try:
+                logger.info(f"Downloading live Instrument Master CSV "
+                            f"(attempt {attempt}/{self._MASTER_RETRIES})...")
+                response = requests.get(url, timeout=self._MASTER_TIMEOUT)
+                response.raise_for_status()
+                if not response.content:
+                    raise ValueError("empty response body")
+
+                # Write to a per-process temp file and swap it in, so a sibling
+                # service never reads a half-written CSV out from under us.
+                with open(tmp_path, 'wb') as f:
+                    f.write(response.content)
+                for _ in range(5):
+                    try:
+                        os.replace(tmp_path, self.instrument_master_path)
+                        break
+                    except PermissionError:
+                        # A sibling is mid-read of the target; give it a moment.
+                        time.sleep(0.5)
+                else:
+                    raise PermissionError(
+                        f"could not swap in {self.instrument_master_path}")
+
+                logger.info("Instrument Master downloaded.")
+                return
+
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Instrument Master download failed "
+                               f"(attempt {attempt}/{self._MASTER_RETRIES}): {e}")
+                if os.path.exists(tmp_path):
+                    try:
+                        os.remove(tmp_path)
+                    except OSError:
+                        pass
+                if attempt < self._MASTER_RETRIES:
+                    time.sleep(2 * attempt)
+
+        # A stale scrip master beats no scrip master: yesterday's contracts are
+        # mostly still valid, whereas df_master=None disables the whole service.
+        if os.path.exists(self.instrument_master_path):
+            logger.warning(f"Falling back to the stale Instrument Master on disk "
+                           f"after {self._MASTER_RETRIES} failed downloads "
+                           f"(last error: {last_error})")
+            return
+
+        raise RuntimeError(f"Could not download Instrument Master: {last_error}")
 
     def get_equity_security_id(self, trading_symbol):
         """Translates a human ticker into the NSE/BSE Security ID."""
