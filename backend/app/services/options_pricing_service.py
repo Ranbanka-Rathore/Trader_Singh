@@ -480,6 +480,9 @@ class OptionsPricingService:
 
         chain = await self.get_premium_chain(pos.ticker, expiry=pos_expiry)
         if chain is None:
+            logger.debug(
+                f"MTM refused for {pos.ticker} pos {getattr(pos, 'id', '?')}: no fresh "
+                f"chain published for expiry {pos_expiry}")
             return None
 
         chain_expiry = expiry_key(chain.get("expiry"))
@@ -517,6 +520,9 @@ class OptionsPricingService:
                     return None
                 q = self._leg_from_chain(chain, leg["strike"], leg["opt_type"])
                 if not q:
+                    logger.debug(
+                        f"MTM refused for {pos.ticker}: {leg.get('strike')} "
+                        f"{leg.get('opt_type')} not listed in the {chain_expiry} chain")
                     return None
                 current_mark = mark_from_quote(q)
                 if current_mark is None:

@@ -1,6 +1,7 @@
 import os
 import asyncio
 import datetime
+import logging
 import random
 import pandas as pd
 from typing import List, Dict, Any, Optional
@@ -12,6 +13,11 @@ from backend.app.core.risk_shield import RiskShield
 from backend.app.core.rl_oms import rl_oms
 from backend.app.services.database_service import database_service
 from backend.app.services.redis_service import redis_service
+
+# Entry/exit decisions were print()-only, so they went to a minimized console
+# window and were absent from every log file — which is why a whole day of
+# fabricated fills left no trace. Route the decisions that matter here too.
+logger = logging.getLogger("ExecutionService")
 
 # Option order books are empty or crossed for the first minutes after the 09:15
 # open — the quotes there are stale prints from the previous session, not prices
@@ -36,6 +42,10 @@ def _in_open_warmup(now: datetime.datetime) -> bool:
 class ExecutionService:
     def __init__(self):
         self.risk_shield = RiskShield()
+        # Position ids currently held because their book won't quote. Tracked so
+        # the "holding, unmarkable" notice logs on the state change instead of
+        # once every 10s cycle.
+        self._unmarkable: set = set()
 
     def _load_brain_config(self) -> Dict[str, Any]:
         import json
@@ -87,6 +97,9 @@ class ExecutionService:
                 print(f"   💰 REAL PRICING: net credit ₹{real_net_credit}/sh from live chain (IV~{entry_iv:.3f})")
             else:
                 print(f"   ⚠️ HEURISTIC pricing fallback ({entry_pricing.get('reason')}) — synthetic premium retained")
+                logger.warning(f"entry pricing fell back to heuristic for {ticker} "
+                               f"{trade_data.get('strategy_type')}: "
+                               f"{entry_pricing.get('reason')}")
 
             # --- 📐 PHASE 4: margin feasibility for naked-leg strategies ---
             # Short straddle / CSP / covered call carry naked-leg margin
@@ -110,8 +123,25 @@ class ExecutionService:
                 from backend.app.core import regime_filters as _rf
                 from backend.app.services.options_pricing_service import CREDIT_FLOOR, IC_CREDIT_FLOOR
 
+                # A fallback price means we never read the real book. Everything
+                # downstream then runs on fiction: the credit floor below is
+                # skipped (it only tests a real credit), sizing keys off the
+                # synthetic estimate, and no entry legs get stored — so the
+                # position can never be marked to market and every exit for the
+                # rest of its life falls to the synthetic path. That is exactly
+                # how trade 50 was opened on a made-up ₹26/sh credit on
+                # 2026-07-30 and then squared off at 15:15 on heuristic math.
+                # Refuse: a defined-risk credit spread we cannot price is a
+                # spread we cannot close.
+                if real_net_credit is None:
+                    reason_np = entry_pricing.get("reason")
+                    print(f"   🚫 NO REAL PRICING ({reason_np}) — {st_up} needs a live "
+                          f"book to size and mark, trade NOT taken")
+                    logger.warning(f"{ticker} {st_up} refused: no live pricing ({reason_np})")
+                    return False
+
                 floor_now = IC_CREDIT_FLOOR if st_up == "IRON_CONDOR" else CREDIT_FLOOR
-                if real_net_credit is not None and float(real_net_credit) < floor_now:
+                if float(real_net_credit) < floor_now:
                     print(f"   🚫 CREDIT FLOOR: real credit ₹{real_net_credit}/sh < ₹{floor_now} "
                           f"— too thin to beat friction, trade NOT taken")
                     return False
@@ -521,6 +551,24 @@ class ExecutionService:
         except ValueError:
             return None
 
+    def _time_stop_reason(self, pos, is_eod: bool) -> Optional[str]:
+        """Expiry-driven exits, shared by the real-mark and heuristic paths.
+
+        Both paths have to agree about when time forces us out. When they drifted
+        the heuristic path still carried a legacy unconditional 15:15 square-off,
+        which flattened 30-45 DTE ladder positions every single afternoon.
+        """
+        expiry = self._position_expiry(pos)
+        if expiry is None:
+            return None
+        days_left = (expiry - datetime.date.today()).days
+        from trading_mode import ladder_enabled, ladder_manage_dte
+        if ladder_enabled() and days_left <= ladder_manage_dte():
+            return f"⏳ MANAGE @{ladder_manage_dte()}DTE (expiry {expiry})"
+        if days_left < 0 or (days_left <= 1 and is_eod):
+            return f"⏳ TIME STOP T-1 (expiry {expiry})"
+        return None
+
     def _real_exit_decision(self, pos, pnl_per_share: float, is_eod: bool,
                             spot: Optional[float] = None):
         """Decide exit from REAL mark-to-market P&L (per share).
@@ -548,14 +596,9 @@ class ExecutionService:
         # time stop: T-1 before the priced expiry (or past expiry = fail-safe);
         # ladder mode manages much earlier — at 21 DTE, per the validated
         # income structure (never hold the gamma half of an option's life)
-        expiry = self._position_expiry(pos)
-        if expiry is not None:
-            days_left = (expiry - datetime.date.today()).days
-            from trading_mode import ladder_enabled, ladder_manage_dte
-            if ladder_enabled() and days_left <= ladder_manage_dte():
-                return True, f"⏳ MANAGE @{ladder_manage_dte()}DTE (expiry {expiry}) [LIVE]", pnl_per_share
-            if days_left < 0 or (days_left <= 1 and is_eod):
-                return True, f"⏳ TIME STOP T-1 (expiry {expiry}) [LIVE]", pnl_per_share
+        time_stop = self._time_stop_reason(pos, is_eod)
+        if time_stop:
+            return True, f"{time_stop} [LIVE]", pnl_per_share
 
         if st in ("BULL_PUT_SPREAD", "BEAR_CALL_SPREAD", "CASH_SECURED_PUT", "IRON_CONDOR"):
             tp, sl = credit * 0.50, -credit * 1.5
@@ -772,6 +815,27 @@ class ExecutionService:
                 # premiums. Falls through to the synthetic heuristic otherwise.
                 from backend.app.services.options_pricing_service import options_pricing_service
                 real_mark = await options_pricing_service.mark_position_pnl(pos, current_price)
+
+                # A position opened on real legs has to be closed on real marks.
+                # When the book is momentarily unquotable, hold and retry next
+                # cycle instead of dropping to the synthetic path — that path
+                # invents a P&L, which is how trade 49 booked a "🎯 TAKE PROFIT
+                # +₹470.60" on 2026-07-30 that no real book ever offered. Same
+                # stance the open warm-up and the failed-exit-basket retry take.
+                entry_ctx = (getattr(pos, "learning_context", None) or {}).get("entry_pricing") or {}
+                if real_mark is None and entry_ctx.get("pricing_source") == "DHAN_LIVE":
+                    if pos.id not in self._unmarkable:
+                        self._unmarkable.add(pos.id)
+                        msg = (f"position {pos.id} ({ticker} {pos.strategy_type}, expiry "
+                               f"{entry_ctx.get('expiry')}) has real entry legs but cannot be "
+                               f"marked — holding, no exit checks until the book quotes again")
+                        print(f"   ⏸️  UNMARKABLE: {msg}")
+                        logger.warning(msg)
+                    continue
+                if pos.id in self._unmarkable:
+                    self._unmarkable.discard(pos.id)
+                    logger.info(f"position {pos.id} is markable again — exit checks resumed")
+
                 if real_mark and real_mark.get("pricing_source") == "DHAN_LIVE":
                     lots_r = int(pos.lots_sized or 1)
                     lot_size_r = self.risk_shield.get_lot_size(ticker)
@@ -1057,9 +1121,22 @@ class ExecutionService:
                             realized_pnl_per_share = current_option_value - premium_paid
 
                 # Exit logic
-                if is_eod:
+                # This used to be a bare `if is_eod:` that flattened everything at
+                # 15:15 — legacy intraday-scalper behavior. Under LADDER_MODE the
+                # book is 30-45 DTE credit spreads, so it closed positions the
+                # strategy meant to hold for weeks, and the entry gate (which only
+                # asks "is a position already open?") re-armed seconds later. Honor
+                # the same INTRADAY_SQUARE_OFF flag the real-mark path checks, and
+                # otherwise fall back to the shared expiry time stop.
+                eod_squareoff = is_eod and os.getenv("INTRADAY_SQUARE_OFF", "").lower() == "true"
+                time_stop = None if eod_squareoff else self._time_stop_reason(pos, is_eod)
+                if eod_squareoff:
                     exit_triggered = True
-                    exit_reason = "⏰ EOD SQUARE OFF (Time Stop at 3:15 PM)"
+                    exit_reason = "⏰ EOD SQUARE OFF (INTRADAY_SQUARE_OFF)"
+                    realized_pnl = realized_pnl_per_share * total_multiplier
+                elif time_stop:
+                    exit_triggered = True
+                    exit_reason = time_stop
                     realized_pnl = realized_pnl_per_share * total_multiplier
                 elif is_tp:
                     exit_triggered = True
