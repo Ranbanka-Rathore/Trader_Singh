@@ -461,8 +461,249 @@
    "supersedes": "evol-earnings-modern",
    "note": "Pre-UDiFF window. The legacy NSE schema has no trade-count column, so gate=strict refuses every leg as txns_unknown; strict_legacy is the strongest rule evaluable here (traded + volume + open interest). Window spans three liquidity eras, so read the per-era table, not the pooled headline.",
    "registered_at": "2026-08-08T23:51:42",
-   "status": "registered",
-   "events": [],
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-09T00:07:26",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 601,
+        "net_pnl": 636508.86,
+        "expectancy": 1059.08,
+        "profit_factor": 1.12,
+        "win_rate": 0.3,
+        "sharpe": 0.14,
+        "max_drawdown": 1438980.71,
+        "t": 0.388,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 1833,
+         "events_traded": 601,
+         "dropped_no_notice": 66,
+         "dropped_unfillable": 1158,
+         "capacity_fill_rate_pct": 32.8,
+         "symbols_traded": 57
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 89,
+        "net_pnl": -515086.54,
+        "expectancy": -5787.49,
+        "profit_factor": 0.12,
+        "win_rate": 0.225,
+        "sharpe": -1.96,
+        "max_drawdown": 515086.54,
+        "t": -7.291,
+        "fill_pass_rate_pct": 91.31,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 1833,
+         "events_traded": 89,
+         "dropped_no_notice": 66,
+         "dropped_unfillable": 1678,
+         "capacity_fill_rate_pct": 4.9,
+         "symbols_traded": 40
+        }
+       }
+      },
+      "by_era": {
+       "early": {
+        "n_trades": 64,
+        "net_pnl": -427279.33,
+        "expectancy": -6676.24,
+        "win_rate": 0.219,
+        "profit_factor": 0.11,
+        "t": -6.535
+       },
+       "ramp": {
+        "n_trades": 22,
+        "net_pnl": -86034.87,
+        "expectancy": -3910.68,
+        "win_rate": 0.227,
+        "profit_factor": 0.11,
+        "t": -3.783
+       },
+       "modern": {
+        "n_trades": 3,
+        "net_pnl": -1772.34,
+        "expectancy": -590.78,
+        "win_rate": 0.333,
+        "profit_factor": 0.64,
+        "t": -0.295
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "89 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "89 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.12 on 89 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": false,
+        "detail": "expectancy sign flips: +1,059 -> -5,787"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -7.291 vs threshold 1.18 for 2 configuration(s) (includes 1 carried from superseded attempts)"
+       },
+       {
+        "check": "require_capacity_fill_rate_pct_ge_25",
+        "passed": false,
+        "detail": "capacity_fill_rate_pct = 4.9, required >=25 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 515,087, required <=100,000 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "fill_model_stable",
+       "clears_noise_threshold",
+       "require_capacity_fill_rate_pct_ge_25",
+       "require_max_drawdown_le_100000"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 2
+     }
+    },
+    {
+     "at": "2026-08-09T00:07:26",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 601,
+        "net_pnl": 636685.9,
+        "expectancy": 1059.38,
+        "profit_factor": 1.12,
+        "win_rate": 0.3,
+        "sharpe": 0.14,
+        "max_drawdown": 1438803.67,
+        "t": 0.388,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 1833,
+         "events_traded": 601,
+         "dropped_no_notice": 66,
+         "dropped_unfillable": 1158,
+         "capacity_fill_rate_pct": 32.8,
+         "symbols_traded": 57
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 89,
+        "net_pnl": -515086.54,
+        "expectancy": -5787.49,
+        "profit_factor": 0.12,
+        "win_rate": 0.225,
+        "sharpe": -1.96,
+        "max_drawdown": 515086.54,
+        "t": -7.291,
+        "fill_pass_rate_pct": 91.31,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 1833,
+         "events_traded": 89,
+         "dropped_no_notice": 66,
+         "dropped_unfillable": 1678,
+         "capacity_fill_rate_pct": 4.9,
+         "symbols_traded": 40
+        }
+       }
+      },
+      "by_era": {
+       "early": {
+        "n_trades": 64,
+        "net_pnl": -427279.33,
+        "expectancy": -6676.24,
+        "win_rate": 0.219,
+        "profit_factor": 0.11,
+        "t": -6.535
+       },
+       "ramp": {
+        "n_trades": 22,
+        "net_pnl": -86034.87,
+        "expectancy": -3910.68,
+        "win_rate": 0.227,
+        "profit_factor": 0.11,
+        "t": -3.783
+       },
+       "modern": {
+        "n_trades": 3,
+        "net_pnl": -1772.34,
+        "expectancy": -590.78,
+        "win_rate": 0.333,
+        "profit_factor": 0.64,
+        "t": -0.295
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "89 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "89 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.12 on 89 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": false,
+        "detail": "expectancy sign flips: +1,059 -> -5,787"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -7.291 vs threshold 1.18 for 2 configuration(s) (includes 1 carried from superseded attempts)"
+       },
+       {
+        "check": "require_capacity_fill_rate_pct_ge_25",
+        "passed": false,
+        "detail": "capacity_fill_rate_pct = 4.9, required >=25 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 515,087, required <=100,000 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "fill_model_stable",
+       "clears_noise_threshold",
+       "require_capacity_fill_rate_pct_ge_25",
+       "require_max_drawdown_le_100000"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 2
+     }
+    }
+   ],
    "fingerprint": "sha256:ab1d46ae7e33ee35f55f05a12b949970"
   }
  ]
