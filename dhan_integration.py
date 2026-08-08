@@ -231,11 +231,24 @@ class DhanBroker:
             nearest_expiry = exp_list[0]
             from trading_mode import ladder_enabled, select_ladder_expiry
             if ladder_enabled():
-                _sel, _dte, _why = select_ladder_expiry(exp_list)
+                _ticker = self._underlying_ticker(underlying_security_id)
+                _q = await self._chain_quality_scores(_ticker)
+                _sel, _dte, _why = select_ladder_expiry(exp_list, quality=_q)
                 if _sel is not None:
                     nearest_expiry = _sel
+                _bad = sorted(k for k, v in _q.items()
+                              if v < self.MIN_CHAIN_QUALITY_PCT)
+                if _bad:
+                    logger.info(f"   ↳ LADDER skipping unpriceable expiries: {_bad}")
                 if _why == "in_window":
-                    logger.info(f"   ↳ LADDER expiry selected: {nearest_expiry} ({_dte} DTE)")
+                    logger.info(f"   ↳ LADDER expiry selected: {nearest_expiry} "
+                                f"({_dte} DTE, {_q.get(str(nearest_expiry)[:10], '?')}% priceable)")
+                elif str(_why).endswith("_degraded"):
+                    logger.error(f"   ↳ LADDER: NO tradeable expiry — every candidate "
+                                 f"is below {self.MIN_CHAIN_QUALITY_PCT}% priceable. "
+                                 f"Using {nearest_expiry} ({_dte} DTE); entries will "
+                                 f"be refused by the live-pricing guard until a "
+                                 f"quotable expiry appears or the DTE window moves.")
                 elif _why == "closest_holdable":
                     logger.warning(f"   ↳ LADDER: no 30-45 DTE expiry available; using closest "
                                    f"holdable {nearest_expiry} ({_dte} DTE)")
@@ -249,13 +262,21 @@ class DhanBroker:
             logger.error(f"Expiry API Exception: {e}")
             return None
 
-    @staticmethod
-    def _log_chain_quality(ticker, expiry, payload, spot):
-        """Log how much of a published chain is actually priceable.
+    # Near-spot priceable share below which an expiry is treated as untradeable
+    # by the entry selector. A liquid monthly sits at ~100%; the 2026-09-08
+    # weekly that blocked every trade on 2026-08-07 ran 50-57%.
+    MIN_CHAIN_QUALITY_PCT = 80.0
+
+    async def _log_chain_quality(self, ticker, expiry, payload, spot):
+        """Log how much of a published chain is actually priceable, and record it.
 
         Near-spot coverage is the number that matters — a liquid monthly quotes
         100% of the strikes we trade, while a freshly-listed weekly can drop a
         third of them behind stub markets like bid 71.90 / ask 189.10.
+
+        The score is written to `chain_quality:{ticker}` so expiry selection can
+        avoid an expiry the feed has already shown it cannot price, instead of
+        re-picking it every cycle and refusing every trade downstream.
         """
         try:
             from backend.app.services.options_pricing_service import (
@@ -279,12 +300,44 @@ class DhanBroker:
             pct = (100.0 * near_ok / near_tot) if near_tot else 0.0
             msg = (f"   ↳ chain quality {ticker} {expiry}: near-spot priceable "
                    f"{near_ok}/{near_tot} ({pct:.0f}%), {n_viol} arb-flagged strikes")
-            if pct < 80.0 or n_viol > 0:
+            if pct < self.MIN_CHAIN_QUALITY_PCT or n_viol > 0:
                 logger.warning(msg)
             else:
                 logger.info(msg)
+
+            # Only a chain with enough near-spot strikes to judge is worth
+            # recording — a handful of quotes says nothing about liquidity.
+            if self.redis and near_tot >= 10:
+                try:
+                    raw = await self.redis.get(f"chain_quality:{ticker}")
+                    scores = json.loads(raw) if raw else {}
+                except (ValueError, TypeError, AttributeError):
+                    scores = {}
+                scores[str(expiry)[:10]] = {"pct": round(pct, 1),
+                                            "arb": n_viol,
+                                            "ts": time.time()}
+                # Bound the map and let it lapse, so a stale reading can never
+                # keep an expiry blacklisted after its book fills out.
+                fresh = {k: v for k, v in scores.items()
+                         if time.time() - float(v.get("ts", 0)) < 86400}
+                await self.redis.set(f"chain_quality:{ticker}",
+                                     json.dumps(fresh), ex=86400)
         except Exception as e:
             logger.debug(f"chain quality check failed: {e}")
+
+    async def _chain_quality_scores(self, ticker):
+        """Recent near-spot priceable percent per expiry, for entry selection.
+
+        Failures here are non-fatal: an empty map just means selection falls
+        back to its DTE ordering and measures as it goes.
+        """
+        try:
+            raw = await self.redis.get(f"chain_quality:{ticker}")
+            scores = json.loads(raw) if raw else {}
+            return {k: float(v.get("pct", 100.0)) for k, v in scores.items()}
+        except Exception as e:
+            logger.debug(f"chain quality read failed for {ticker}: {e}")
+            return {}
 
     async def _publish_held_expiry_chains(self, underlying_security_id, segment, primary_expiry):
         """Top up per-expiry premium maps for expiries we still hold.
@@ -501,8 +554,8 @@ class DhanBroker:
                             # point of use (options_pricing_service refuses the
                             # bad strikes) — publishing the whole chain still
                             # matters because the OI/GEX/PCR analytics need it.
-                            self._log_chain_quality(ticker, nearest_expiry,
-                                                    premium_payload, spot_price)
+                            await self._log_chain_quality(ticker, nearest_expiry,
+                                                          premium_payload, spot_price)
 
                             # Per-expiry map: the ONLY safe thing to mark a held
                             # position against, since it is addressed by the

@@ -203,7 +203,7 @@ def test_apply_ladder_gate():
 
 
 def test_select_ladder_expiry():
-    print("\n[7] trading_mode.select_ladder_expiry (30-45 DTE with gap fallback)")
+    print("\n[7] trading_mode.select_ladder_expiry (DTE window, unmeasured feed)")
     from trading_mode import select_ladder_expiry
     today = datetime.date(2026, 7, 6)
 
@@ -215,10 +215,10 @@ def test_select_ladder_expiry():
           exp == "2026-08-04" and dte == 29 and why == "closest_holdable")
     check("never the instantly-managed near weekly", exp != "2026-07-07")
 
-    # when a real 30-45 expiry exists, prefer it
+    # with no quality data, the nearest in-window expiry is taken (and measured)
     win = ["2026-07-07", "2026-08-11", "2026-08-25"]   # 08-11 = 36 DTE
     exp2, dte2, why2 = select_ladder_expiry(win, today=today)
-    check(f"in-window preferred ({exp2} {dte2} {why2})",
+    check(f"in-window preferred when unmeasured ({exp2} {dte2} {why2})",
           exp2 == "2026-08-11" and dte2 == 36 and why2 == "in_window")
 
     # only near weeklies (all <= manage 21) -> last-resort nearest
@@ -227,6 +227,47 @@ def test_select_ladder_expiry():
     check(f"all <=manageDTE -> fallback_nearest ({exp3} {why3})", why3 == "fallback_nearest")
 
     check("empty list -> no_expiries", select_ladder_expiry([], today=today)[2] == "no_expiries")
+
+
+def test_select_ladder_expiry_uses_measured_quality():
+    print("\n[8] select_ladder_expiry ranks on measured chain quality")
+    from trading_mode import select_ladder_expiry
+    today = datetime.date(2026, 7, 6)
+    # 08-11 (36 DTE) and 08-18 (43 DTE) are in window; 08-25 (50 DTE) is not
+    exps = ["2026-07-07", "2026-08-11", "2026-08-18", "2026-08-25"]
+
+    # nearest-in-window is only the default; a measured-bad book is skipped even
+    # though it is nearest. This is the 2026-08-07 failure: the chosen expiry
+    # quoted ~50% of near-spot strikes and every entry was refused downstream.
+    exp, dte, why = select_ladder_expiry(
+        exps, today=today, quality={"2026-08-11": 50.0})
+    check(f"unpriceable nearest is skipped ({exp} {dte} {why})",
+          exp == "2026-08-18" and why == "in_window")
+
+    # the better book wins even though both clear the floor and the other is nearer
+    exp2, dte2, why2 = select_ladder_expiry(
+        exps, today=today, quality={"2026-08-11": 90.0, "2026-08-18": 100.0})
+    check(f"best measured book beats the nearer one ({exp2} {dte2} {why2})",
+          exp2 == "2026-08-18" and why2 == "in_window")
+
+    # unmeasured expiries are still tried ahead of merely-mediocre ones, so the
+    # feed keeps learning instead of locking onto one contract
+    exp3, _, _ = select_ladder_expiry(
+        exps, today=today, quality={"2026-08-11": 85.0})
+    check(f"unmeasured tried ahead of mediocre ({exp3})", exp3 == "2026-08-18")
+
+    # every candidate unpriceable -> still returns one, flagged _degraded, so the
+    # operator sees WHY nothing trades instead of silent refusals
+    allbad = {e: 40.0 for e in exps}
+    exp4, dte4, why4 = select_ladder_expiry(exps, today=today, quality=allbad)
+    check(f"all-unpriceable -> degraded, not halted ({exp4} {dte4} {why4})",
+          exp4 is not None and str(why4).endswith("_degraded"))
+
+    # scores for expiries we do not list are inert
+    exp5, _, why5 = select_ladder_expiry(
+        exps, today=today, quality={"2027-01-01": 10.0})
+    check(f"irrelevant scores are inert ({exp5} {why5})",
+          exp5 == "2026-08-11" and why5 == "in_window")
 
 
 if __name__ == "__main__":
@@ -238,6 +279,7 @@ if __name__ == "__main__":
         test_shared_source_module()
         test_apply_ladder_gate()
         test_select_ladder_expiry()
+        test_select_ladder_expiry_uses_measured_quality()
     finally:
         os.environ["LADDER_MODE"] = ""
     print(f"\n{'=' * 50}\nRESULT: {PASS} passed, {FAIL} failed")
