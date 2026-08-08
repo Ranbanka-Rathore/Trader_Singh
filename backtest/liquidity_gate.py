@@ -41,8 +41,26 @@ USAGE
     ok, why = gate.leg_ok(chain["options"].get(key))
     ok, why = gate.spread_ok([row_short, row_long])   # every leg must pass
 """
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional, Tuple
+
+
+def _num(v: Any) -> Optional[float]:
+    """Float, or None when the value is absent or not a number.
+
+    NaN has to be caught explicitly. It arrives from pandas wherever a column
+    does not exist in that era's schema, and every comparison against it is
+    False — so `nan < floor` reads as "meets the floor" and a missing column
+    becomes a silently disabled check.
+    """
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return None if math.isnan(f) else f
 
 
 @dataclass(frozen=True)
@@ -72,6 +90,12 @@ class LiquidityGate:
     # What a real desk would want before working a spread in size.
     DESK = GateConfig(require_traded=True, min_volume=50.0, min_txns=25.0,
                       min_oi=500.0, name="desk")
+    # The strongest gate that can be EVALUATED before 2024. The legacy NSE
+    # schema has no trade-count column, so `txns` is NaN for every pre-UDiFF row
+    # and any floor on it is unenforceable rather than merely unmet. Use this on
+    # a legacy window; `strict` there will refuse everything as txns_unknown.
+    STRICT_LEGACY = GateConfig(require_traded=True, min_volume=1.0, min_txns=0.0,
+                               min_oi=1.0, name="strict_legacy")
 
     def __init__(self, cfg: GateConfig = None):
         self.cfg = cfg or self.TRADED
@@ -87,8 +111,8 @@ class LiquidityGate:
         if not row:
             return self._no("absent")
 
-        price = float(row.get("close") or 0.0)
-        if price <= 0:
+        price = _num(row.get("close"))
+        if price is None or price <= 0:
             return self._no("no_price")
 
         # A row loaded from a source that predates the `traded` flag would
@@ -101,12 +125,22 @@ class LiquidityGate:
             if not traded:
                 return self._no("settle_only")
 
-        if float(row.get("volume") or 0.0) < cfg.min_volume:
-            return self._no("thin_volume")
-        if float(row.get("txns") or 0.0) < cfg.min_txns:
-            return self._no("thin_txns")
-        if float(row.get("oi") or 0.0) < cfg.min_oi:
-            return self._no("no_oi")
+        for field, floor, thin in (("volume", cfg.min_volume, "thin_volume"),
+                                   ("txns", cfg.min_txns, "thin_txns"),
+                                   ("oi", cfg.min_oi, "no_oi")):
+            if floor <= 0:
+                continue                      # nothing asked of this field
+            v = _num(row.get(field))
+            if v is None:
+                # The field is absent or NaN. A threshold that CANNOT BE
+                # EVALUATED must not pass: `float('nan') < 5.0` is False in
+                # Python, so the original comparison silently waved through
+                # every pre-2024 row, where the legacy schema leaves `txns`
+                # NaN. Refused under its own reason so it reads as "this era
+                # cannot answer the question" rather than as illiquidity.
+                return self._no(f"{field}_unknown")
+            if v < floor:
+                return self._no(thin)
 
         self.passed += 1
         return True, None
@@ -151,7 +185,8 @@ class LiquidityGate:
 def gate_by_name(name: str) -> GateConfig:
     """Look up a preset by name for CLI use."""
     presets = {c.name: c for c in (LiquidityGate.OFF, LiquidityGate.TRADED,
-                                   LiquidityGate.STRICT, LiquidityGate.DESK)}
+                                   LiquidityGate.STRICT, LiquidityGate.DESK,
+                                   LiquidityGate.STRICT_LEGACY)}
     if name not in presets:
         raise ValueError(f"unknown gate '{name}'; choose from {sorted(presets)}")
     return presets[name]

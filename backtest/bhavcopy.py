@@ -478,6 +478,28 @@ _LEGACY_INSTR = {"OPTIDX": "IDO", "OPTSTK": "STO", "FUTIDX": "IDF", "FUTSTK": "S
 _LEGACY_USECOLS = list(_LEGACY_COLS) + ["INSTRUMENT"]
 
 
+_DF_CACHE: Dict[datetime.date, Any] = {}
+_DF_CACHE_MAX = 4
+
+
+def read_df_cached(d: datetime.date) -> Optional[pd.DataFrame]:
+    """`_read_df` with a tiny bounded cache, for callers that want many symbols.
+
+    One session file holds every underlying, so pulling chains for 40 stocks on
+    the same date parsed the same 35,000-row file 40 times. The cache is
+    deliberately small — a handful of DataFrames, not an archive — because the
+    access pattern that needs it is "all symbols on one date", not "one symbol
+    across all dates".
+    """
+    if d in _DF_CACHE:
+        return _DF_CACHE[d]
+    df = _read_df(d)
+    if len(_DF_CACHE) >= _DF_CACHE_MAX:
+        _DF_CACHE.pop(next(iter(_DF_CACHE)))
+    _DF_CACHE[d] = df
+    return df
+
+
 def _read_df(d: datetime.date) -> Optional[pd.DataFrame]:
     """Read a cached bhavcopy into UDiFF-shaped columns, whichever era it is from."""
     zp = zip_path(d)
@@ -527,7 +549,7 @@ def load_chain(d: datetime.date, underlying: str = "NIFTY") -> Optional[Dict[str
     `spot_source` and `era` are recorded rather than inferred so the quality
     report can audit where every number came from.
     """
-    df = _read_df(d)
+    df = read_df_cached(d)
     if df is None:
         return None
 
