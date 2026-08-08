@@ -48,10 +48,11 @@ from backtest import walkforward as wf
 from research import charter, paper_gate, promotion, registry, screen
 from research.stats import daily_series, pearson
 
-# One chain cache for the process, shared by the screen and every walk-forward
-# fold. walkforward owns it because its folds re-read the same sessions dozens
-# of times; using a second cache here would double a ~1GB working set.
-PROVIDER = wf.cached_load_chain
+# Data sources are the engine's business, not the loop's: the option arena reads
+# chains (through walkforward's process-wide cache, so the screen and every fold
+# parse each session once between them) while the futures arenas read the same
+# bhavcopy as a price panel. Passing one of those to the other would be silently
+# wrong, so the loop passes nothing and each engine uses its own.
 
 
 # ── stage 2: out of sample ───────────────────────────────────────────────────
@@ -59,12 +60,33 @@ def walk_forward_stage(h: Dict[str, Any]) -> Dict[str, Any]:
     """Anchored walk-forward + Monte Carlo, judged against Section 5 and Amendment A."""
     start = datetime.date.fromisoformat(h["window"][0])
     end = datetime.date.fromisoformat(h["window"][1])
-    base = screen.config_from(h)
+    eng = screen.engine_for(h)
+    base = eng.build(h)
 
-    result = wf.walk_forward(start, end, base)
+    def runner(cfg, s, e):
+        """One fold, with the warmup the engine's signals need before `s`.
+
+        Warmup is asked of the engine, not fixed: a 20-day breakout needs weeks
+        of history and a 12-1 momentum rank needs more than a year. Using the
+        option engine's 45 days for all of them would silently give the
+        cross-sectional arena no signal at all for its first several folds.
+
+        Only trades ENTERED inside the window count, so the warmup can inform
+        indicators without leaking result trades into an adjacent fold.
+        """
+        dates = screen.trading_dates(
+            s - datetime.timedelta(days=eng.warmup_days(cfg)), e)
+        res = eng.run(cfg, dates)
+        return {"trades": [t for t in res["trades"]
+                           if t["entry_date"] >= s.isoformat()],
+                "skip_reasons": res.get("skip_reasons", {})}
+
+    result = wf.walk_forward(start, end, base, runner=runner, grid=eng.grid(),
+                             apply_params=eng.with_params)
     oos = result["oos_metrics"]
     boot = wf.mc_bootstrap_dd(result["oos_trades"])
-    stress = wf.mc_cost_stress(result, base)
+    stress = wf.mc_cost_stress(result, base, runner=runner,
+                               apply_params=eng.with_params, stress=eng.stress)
     jack = wf.mc_jackknife(result["oos_trades"])
 
     checks: List[Dict[str, Any]] = []
@@ -216,7 +238,8 @@ def print_wf(rep: Dict[str, Any]):
 def run_one(hid: str) -> str:
     h = registry.open_for_running(hid)
     print("\n" + "=" * 78)
-    print(f"HYPOTHESIS {h['id']}  [{h['arena']}]  gate '{h['gate']}'")
+    print(f"HYPOTHESIS {h['id']}  [{h['arena']}]  gate '{h['gate']}'  "
+          f"engine '{h.get('engine', 'real_backtester')}'")
     print("=" * 78)
     print(f"  claim: {h['claim']}")
     print(f"  kills it: {h['kill_criterion']}")
@@ -233,7 +256,7 @@ def run_one(hid: str) -> str:
             f"no cached bhavcopy between {start} and {end}; "
             f"run backtest.bhavcopy download_range first")
 
-    scr = screen.screen(h, dates, PROVIDER)
+    scr = screen.screen(h, dates)
     print_screen(scr)
 
     if scr["verdict"] == "kill":
@@ -293,12 +316,34 @@ def cmd_register(a) -> int:
         s = datetime.date.fromisoformat(a.start)
         e = datetime.date.fromisoformat(a.end)
 
+    # Overrides are validated against the ENGINE'S config, not the option
+    # backtester's — `entry_lookback` is meaningless to one and `delta_target`
+    # to the other, and a typo silently ignored is a hypothesis that does not
+    # test what it says it tests.
+    from research import engines
+    try:
+        eng = engines.get(a.engine)
+    except KeyError as exc:
+        raise registry.RegistryError(str(exc))
+    if getattr(eng, "arena", None) and eng.arena != a.arena:
+        # A trend engine filed under index_structures would make the arena kill
+        # rules in Section 7 meaningless — closing an arena has to actually close
+        # what was tested in it.
+        raise registry.RegistryError(
+            f"engine '{a.engine}' belongs to arena '{eng.arena}', but this was "
+            f"registered under '{a.arena}'. Section 7 closes arenas, so the "
+            f"label has to match what actually ran.")
+
     config = {}
     for kv in a.set or []:
         if "=" not in kv:
             raise registry.RegistryError(f"--set expects key=value, got '{kv}'")
         k, v = kv.split("=", 1)
-        config[k.strip()] = screen.coerce(k.strip(), v)
+        try:
+            config[k.strip()] = eng.coerce(k.strip(), v)
+        except (KeyError, ValueError, screen.ScreenError) as exc:
+            raise registry.RegistryError(
+                f"--set {kv}: {str(exc).strip(chr(39))}")
 
     sweep = None
     n_configs = a.configs
@@ -306,7 +351,10 @@ def cmd_register(a) -> int:
         if "=" not in a.sweep:
             raise registry.RegistryError("--sweep expects axis=v1,v2,v3")
         axis, vals = a.sweep.split("=", 1)
-        values = [screen.coerce(axis.strip(), v) for v in vals.split(",") if v.strip()]
+        try:
+            values = [eng.coerce(axis.strip(), v) for v in vals.split(",") if v.strip()]
+        except (KeyError, ValueError, screen.ScreenError) as exc:
+            raise registry.RegistryError(f"--sweep {a.sweep}: {exc}")
         sweep = {"axis": axis.strip(), "values": values}
         # The budget is the size of the search unless the operator declares a
         # larger one; understating it is how a sweep becomes a "finding".
@@ -317,8 +365,9 @@ def cmd_register(a) -> int:
         window=[s.isoformat(), e.isoformat()], gate=a.gate,
         n_configs=n_configs or 1, config=config, sweep=sweep,
         underlying=a.underlying, equity=a.equity, era=a.era,
-        supersedes=a.supersedes, note=a.note or "")
-    print(f"registered '{h['id']}' [{h['arena']}]  {h['window'][0]} -> {h['window'][1]}")
+        engine=a.engine, supersedes=a.supersedes, note=a.note or "")
+    print(f"registered '{h['id']}' [{h['arena']}] engine '{h['engine']}'  "
+          f"{h['window'][0]} -> {h['window'][1]}")
     print(f"  gate '{h['gate']}'  budget {registry.effective_configs(h)} config(s) "
           f"-> noise threshold t >= "
           f"{charter.noise_threshold(registry.effective_configs(h)):.2f}")
@@ -549,6 +598,10 @@ def main(argv=None) -> int:
                         f"'{charter.DEFAULT_ERA}' is the current regime)")
     r.add_argument("--start", default=None)
     r.add_argument("--end", default=None)
+    r.add_argument("--engine", default="real_backtester",
+                   help="arena engine to run this on; 'python -m research.loop "
+                        "list' shows what is registered. An arena with no engine "
+                        "cannot have a hypothesis (see research/ARENAS.md)")
     r.add_argument("--gate", default="strict", choices=("traded", "strict", "desk"))
     r.add_argument("--configs", type=int, default=1,
                    help="how many configurations this hypothesis tries; sets the "

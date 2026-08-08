@@ -519,12 +519,16 @@ def test_cli_guards():
     check("throughput works", loop.main(["throughput"]) == 0)
     rc = loop.main(["run", "no-such-hypothesis"])
     check(f"running an unregistered id is a non-zero exit ({rc})", rc != 0)
+    # The arena and the engine must agree — registering a futures claim against
+    # the option backtester is refused, so the pairing is named explicitly here.
     rc = loop.main(["register", "--id", "cli-1", "--arena", "futures_trend",
+                    "--engine", "futures_trend",
                     "--claim", "trend on NIFTY futures is positive-expectancy",
                     "--kill", "OOS expectancy <= 0", "--era", "modern"])
     check("register via CLI works", rc == 0)
     check("...and it landed in the log", registry.get("cli-1") is not None)
     rc = loop.main(["register", "--id", "cli-1", "--arena", "futures_trend",
+                    "--engine", "futures_trend",
                     "--claim", "same id again", "--kill", "x", "--era", "modern"])
     check(f"a duplicate id exits non-zero ({rc})", rc == 2)
 

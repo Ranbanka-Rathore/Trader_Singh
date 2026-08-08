@@ -146,14 +146,23 @@ def by_era(trades: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
 
 
 # ── the screen ───────────────────────────────────────────────────────────────
+def engine_for(h: Dict[str, Any]):
+    """The engine a hypothesis names, refusing an unknown one by name."""
+    from research import engines
+    try:
+        return engines.get(h.get("engine") or "real_backtester")
+    except KeyError as exc:
+        raise ScreenError(str(exc))
+
+
 def run_gates(h: Dict[str, Any], dates: List[datetime.date],
-              provider: Callable) -> Dict[str, Dict[str, Any]]:
+              provider: Optional[Callable] = None) -> Dict[str, Dict[str, Any]]:
     """Run the hypothesis under each gate; returns {gate: {metrics, trades}}."""
+    eng = engine_for(h)
     gates = list(dict.fromkeys(list(AB_GATES) + [h.get("gate", "strict")]))
     out = {}
     for g in gates:
-        bt = RealBacktester(config_from(h, gate=g), provider)
-        res = bt.run(dates)
+        res = eng.run(eng.build(h, gate=g), dates, provider)
         out[g] = {"metrics": metrics(res), "trades": res["trades"],
                   "skip_reasons": res["skip_reasons"],
                   "gate_detail": res["liquidity_gate"]}
@@ -161,19 +170,19 @@ def run_gates(h: Dict[str, Any], dates: List[datetime.date],
 
 
 def run_sweep(h: Dict[str, Any], dates: List[datetime.date],
-              provider: Callable) -> List[Dict[str, Any]]:
+              provider: Optional[Callable] = None) -> List[Dict[str, Any]]:
     """Run a one-axis sweep declared at registration, in declared order.
 
     Order is preserved, not sorted by P&L: Section 6.7 is about the SHAPE of the
     surface, and a ranked table invites reading the top row as the answer.
     """
+    eng = engine_for(h)
     sweep = h["sweep"]
     axis, values = sweep["axis"], sweep["values"]
     rows = []
     for v in values:
-        cfg = replace(config_from(h), **{axis: coerce(axis, v)})
-        bt = RealBacktester(cfg, provider)
-        res = bt.run(dates)
+        cfg = eng.with_params(eng.build(h), **{axis: v})
+        res = eng.run(cfg, dates, provider)
         m = metrics(res)
         m[axis] = v
         rows.append(m)
@@ -200,8 +209,14 @@ def plateau_check(rows: List[Dict[str, Any]], axis: str) -> Tuple[bool, str]:
 
 
 def screen(h: Dict[str, Any], dates: List[datetime.date],
-           provider: Callable) -> Dict[str, Any]:
-    """Stage 1. Returns a report whose `verdict` is 'kill' or 'advance'."""
+           provider: Optional[Callable] = None) -> Dict[str, Any]:
+    """Stage 1. Returns a report whose `verdict` is 'kill' or 'advance'.
+
+    `provider` is an optional data-source override, and it is engine-specific —
+    a chain loader for the option arena, a futures day-loader for the others.
+    Left None, each engine uses its own default, which is what production runs
+    do; tests inject synthetic data through it.
+    """
     from research import registry
 
     gate = h.get("gate", "strict")
