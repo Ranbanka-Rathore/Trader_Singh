@@ -2,7 +2,6 @@ import asyncio
 import json
 import random
 import time
-import logging
 from datetime import datetime
 import redis.asyncio as redis
 import os
@@ -16,14 +15,10 @@ from sqlalchemy import text
 from sqlmodel import SQLModel
 from backend.app.db.models import SignalAudit, Trade, OpenPosition, MarketIndicator # Import models to register them with SQLModel
 
-# Configure Logging
-log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
-file_handler = logging.FileHandler("logs/trader_singh.log", encoding='utf-8')
-file_handler.setFormatter(log_formatter)
-root_logger.addHandler(file_handler)
-logger = logging.getLogger("MarketSimulator")
+from backend.app.core.logging_setup import setup_logging
+
+# Own file so simulated runs never interleave with a live service's log.
+logger = setup_logging("MarketSimulator", "simulate_market.log")
 
 DATABASE_URL = "postgresql+psycopg://trader:institutional_grade_password@localhost:5432/agentic_trader"
 

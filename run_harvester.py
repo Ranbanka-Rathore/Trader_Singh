@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import selectors
 import warnings
@@ -15,14 +14,14 @@ from backend.app.services.market_data_service import market_data_service
 from backend.app.services.data_service import data_service
 from backend.app.services.redis_service import redis_service
 
-logging.basicConfig(level=logging.INFO)
-# Configure root logger to catch all library logs
-log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler = logging.FileHandler("logs/harvester.log", encoding='utf-8')
-file_handler.setFormatter(log_formatter)
-logging.getLogger().addHandler(file_handler)
+from backend.app.core.logging_setup import setup_logging
 
-logger = logging.getLogger("DataHarvester")
+# This service logs a line per tick — roughly 55MB/hour, ~350MB over a session.
+# 50MB x 8 caps it at 400MB while still retaining a full trading day.
+logger = setup_logging(
+    "DataHarvester", "harvester.log",
+    max_bytes=50 * 1024 * 1024, backup_count=8,
+)
 
 async def main():
     logger.info("Starting Institutional Data Harvester...")

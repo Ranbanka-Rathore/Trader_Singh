@@ -1,16 +1,17 @@
 import asyncio
-import logging
 import os
 import selectors
 from datetime import datetime
+from backend.app.core.logging_setup import setup_logging
 from backend.app.services.execution_service import execution_service
 from backend.app.services.redis_service import redis_service
 from backend.app.db.database import engine as db_engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("OMS")
+# The OMS closes positions and books P&L, so its cycle errors are the ones most
+# worth keeping. Until now they went only to a console window and died with it.
+logger = setup_logging("OMS", "oms.log")
 
 # --- WINDOWS ASYNC COMPATIBILITY FIX ---
 if os.name == 'nt':
@@ -47,7 +48,7 @@ async def main():
             
             await asyncio.sleep(5) # Fast evaluation every 5s
         except Exception as e:
-            logger.error(f"Error in OMS cycle: {e}")
+            logger.error(f"Error in OMS cycle: {e}", exc_info=True)
             await asyncio.sleep(5)
 
 if __name__ == "__main__":

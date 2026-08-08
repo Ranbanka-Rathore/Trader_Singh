@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 import os
 import selectors
 from datetime import datetime, time as dt_time, timedelta, timezone
@@ -9,14 +8,11 @@ from backend.app.services.redis_service import redis_service
 # IST is UTC+5:30
 IST = timezone(timedelta(hours=5, minutes=30))
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("SystemControl")
+from backend.app.core.logging_setup import setup_logging
 
-# Configure shared file logging
-log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler = logging.FileHandler("logs/trader_singh.log", encoding='utf-8')
-file_handler.setFormatter(log_formatter)
-logging.getLogger().addHandler(file_handler)
+# Own file, not the shared trader_singh.log: rotation needs a single writer, and
+# this service's 5s heartbeat was drowning the risk committee's decision log.
+logger = setup_logging("SystemControl", "system_control.log")
 
 # --- WINDOWS ASYNC COMPATIBILITY FIX ---
 if os.name == 'nt':

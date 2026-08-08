@@ -26,21 +26,15 @@ from ai_market_analyst import AIMarketAnalyst
 import uvicorn
 import json
 import os
-import logging
 from datetime import datetime
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("CoreAPI")
+from backend.app.core.logging_setup import setup_logging
 
-# Configure shared file logging
-log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler = logging.FileHandler("logs/trader_singh.log")
-file_handler.setFormatter(log_formatter)
-logging.getLogger().addHandler(file_handler)
+logger = setup_logging("CoreAPI", "api.log")
 
 
 @asynccontextmanager
