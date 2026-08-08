@@ -39,6 +39,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from backend.app.core import bs_math, friction_model, regime_filters as rf
 from backtest import bhavcopy
+from backtest.liquidity_gate import LiquidityGate, gate_by_name
 
 SETTLEMENT_STT_RATE = 0.00125
 
@@ -86,6 +87,13 @@ class Config:
     dte_max: int = 45                 # entry expiry must be <= this many days out
     ivr_size_base: float = 0.5        # size mult = base + IV_rank  (0.5x..1.5x)
     portfolio_max_loss_frac: float = 0.10  # sum of open max-losses <= 10% equity
+    # ── liquidity gate ────────────────────────────────────────────────────
+    # Name of the backtest.liquidity_gate preset deciding whether a leg may be
+    # filled at all. "off" reproduces the pre-2026-08-07 behaviour, which filled
+    # on settlement prices for contracts that never traded — the backtest twin of
+    # the synthetic ledger rows purged on 2026-07-30. Anything else requires a
+    # real print. Default "traded": the honest minimum, no threshold tuning.
+    liquidity_gate: str = "traded"
     # gates
     use_gates: bool = True
     # GEX off by default in backtest: the naive OI-sign convention (dealers
@@ -184,6 +192,21 @@ class RealBacktester:
         self._last_entry_week: Optional[Tuple[int, int]] = None  # ladder cadence
         self._open_max_loss: float = 0.0                         # portfolio cap
         self.skip_reasons: Dict[str, int] = {}
+        self.gate = LiquidityGate(gate_by_name(self.cfg.liquidity_gate))
+
+    # ── liquidity ─────────────────────────────────────────────────────────────
+    def _gated_close(self, chain, expiry, strike, opt_type) -> Optional[float]:
+        """`_leg_close`, but None when the leg is not plausibly fillable.
+
+        Every price the backtester acts on goes through here, so a contract that
+        never traded can neither be entered nor exited — the same refusal the
+        live pricing guard makes, on the evidence EOD data can supply.
+        """
+        row = chain["options"].get((expiry, float(strike), opt_type))
+        ok, _why = self.gate.leg_ok(row)
+        if not ok:
+            return None
+        return _leg_close(chain, expiry, strike, opt_type)
 
     # ── strike selection ───────────────────────────────────────────────────
     def _pick_short_strike(self, chain, expiry, spot, opt_type,
@@ -199,7 +222,9 @@ class RealBacktester:
         best_err = 1e9
         for i in range(1, 40):
             strike = float(atm + i * step)
-            close = _leg_close(chain, expiry, strike, opt_type)
+            # gated: a strike we could not fill is not a candidate, so selection
+            # walks past dead strikes instead of picking one and failing later
+            close = self._gated_close(chain, expiry, strike, opt_type)
             if close is None:
                 continue
             iv = bs_math.implied_vol(close, spot, strike, t, opt_type)
@@ -343,8 +368,12 @@ class RealBacktester:
         return self._enter_directional(d, chain, expiry, spot, strategy, pcr)
 
     def _leg_fills(self, chain, expiry, strike, opt_type):
-        """(sell_fill, buy_fill) at today's close with slippage, or None."""
-        close = _leg_close(chain, expiry, strike, opt_type)
+        """(sell_fill, buy_fill) at today's close with slippage, or None.
+
+        None also means "the liquidity gate refused this leg" — callers already
+        treat None as unfillable, so refusal propagates as a skipped entry.
+        """
+        close = self._gated_close(chain, expiry, strike, opt_type)
         if close is None:
             return None
         return (max(close - self.cfg.slippage_per_leg, 0.05),
@@ -555,9 +584,16 @@ class RealBacktester:
         return put_side if pos.opt_type == "PE" else call_side
 
     def _side_mark(self, chain, expiry, sell_k, buy_k, opt_type):
-        """(cost_to_close, buyback, sellout) for one short spread side."""
-        sell_close = _leg_close(chain, expiry, sell_k, opt_type)
-        buy_close = _leg_close(chain, expiry, buy_k, opt_type)
+        """(cost_to_close, buyback, sellout) for one short spread side.
+
+        The SHORT leg must be gated: buying it back is the trade that actually
+        has to happen, and pretending it can be closed at a settlement price is
+        how a paper stop-loss gets fabricated. The long leg falls back to 0.05
+        (abandoned worthless) as before — failing to sell a long is a cost we
+        already assume, not a fill we invent.
+        """
+        sell_close = self._gated_close(chain, expiry, sell_k, opt_type)
+        buy_close = self._gated_close(chain, expiry, buy_k, opt_type)
         if sell_close is None:
             return None
         buy_close = buy_close or 0.05
@@ -830,6 +866,14 @@ class RealBacktester:
             "equity_curve": equity_curve,
             "skip_reasons": dict(sorted(self.skip_reasons.items(),
                                         key=lambda kv: -kv[1])),
+            "liquidity_gate": {
+                "preset": self.gate.cfg.name,
+                "legs_checked": self.gate.checked,
+                "legs_fillable": self.gate.passed,
+                "pass_rate_pct": round(self.gate.pass_rate, 2),
+                "refusals": dict(sorted(self.gate.rejections.items(),
+                                        key=lambda kv: -kv[1])),
+            },
             "summary": {
                 "n_trades": n,
                 "win_rate": round(len(wins) / n, 3) if n else 0.0,

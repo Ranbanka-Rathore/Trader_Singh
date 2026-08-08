@@ -46,7 +46,11 @@ def mk_chain(date, spot, iv=0.13, pcr=1.5, expiry=EXPIRY, lot=75):
                 max(spot - k, 0.0) if typ == "CE" else max(k - spot, 0.0))
             options[(expiry, float(k), typ)] = {
                 "close": round(max(p, 0.05), 2), "oi": 1000.0,
-                "chg_oi": 0.0, "volume": 100.0, "lot": lot,
+                "chg_oi": 0.0, "volume": 100.0, "txns": 50.0, "lot": lot,
+                # fully-quoted fixture chain: every strike printed a real trade,
+                # so the liquidity gate is a no-op here and these tests keep
+                # measuring strategy logic rather than fill plausibility
+                "traded": True,
             }
     # OI carriers pin the PCR exactly
     options[(expiry, float(lo), "PE")]["oi"] = pcr * 10_000_000
