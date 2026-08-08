@@ -107,6 +107,11 @@ class TrendEngine:
     name = "futures_trend"
     arena = "futures_trend"
 
+    # Fields a registered requirement may name, beyond the standard metrics.
+    EXTRA_FIELDS = frozenset({
+        "symbols_traded", "open_at_end", "panel_symbols", "panel_missing_lot",
+    })
+
     # Fixed a priori, and narrow on purpose: three axes at two levels is 8
     # combinations, the same size as the option engine's grid, which keeps the
     # deflated-Sharpe hurdle in walkforward.py comparable across arenas.

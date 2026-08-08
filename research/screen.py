@@ -269,6 +269,14 @@ def screen(h: Dict[str, Any], dates: List[datetime.date],
           + (f" (includes {n_cfg - int(h.get('n_configs', 1))} carried from "
              f"superseded attempts)" if n_cfg > int(h.get("n_configs", 1)) else ""))
 
+    # Requirements declared at registration, evaluated exactly like a charter
+    # check. They are appended AFTER the Section 6 checks so a report reads
+    # charter-first: the charter's rules apply to every hypothesis, these apply
+    # only to this one.
+    from research import requirements as reqs_mod
+    declared = reqs_mod.parse_all(h.get("requires") or [], engine_for(h))
+    checks.extend(reqs_mod.evaluate(declared, primary))
+
     sweep_rows = None
     if h.get("sweep"):
         sweep_rows = run_sweep(h, dates, provider)
@@ -289,6 +297,7 @@ def screen(h: Dict[str, Any], dates: List[datetime.date],
         "trading_days": len(dates),
         "effective_configs": n_cfg,
         "noise_threshold": round(threshold, 3),
+        "requires": [str(r) for r in declared],
         "gates": {g: r["metrics"] for g, r in runs.items()},
         "by_era": eras,
         "eras_spanned": spanned,

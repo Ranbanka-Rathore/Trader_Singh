@@ -145,6 +145,15 @@ arenas, not four.
 To register, run the command. To change one, change it before running: after the
 screen has been seen, it cannot be edited without invalidating the result.
 
+**Put every numeric part of a kill criterion in `--require`.** A threshold that
+lives only in the prose of `--kill` is one nothing checks: `xsect-mom-modern` was
+registered with "capacity fill rate below 50%" in its text, and confirming the
+verdict meant re-running the engine by hand afterwards. `--require` thresholds go
+into the fingerprint, are validated at registration against what the engine
+actually reports, and are enforced by the screen. Fields are the standard screen
+metrics plus whatever the engine measures about itself — `python -m research.loop
+register --help` and a deliberately wrong `--require` will list them.
+
 ### A1 — the one genuinely open option structure
 
 ```
@@ -166,9 +175,15 @@ traded, and finding that out costs one screen.*
 python -m research.loop register --id xsect-mom-modern \
   --arena cross_sectional --engine cross_sectional --era modern --gate strict \
   --configs 1 \
+  --require capacity_fill_rate_pct>=50 \
+  --require max_drawdown<=100000 \
   --claim "12-1 cross-sectional momentum on F&O stock futures has positive per-trade expectancy at Rs 15L after whole-lot and margin constraints." \
-  --kill "Screen t below the Section 4 bar, any Section 6 check fails, or capacity fill rate below 50% — a portfolio that cannot be held is not a strategy."
+  --kill "Screen t below the Section 4 bar, any Section 6 check fails, capacity fill rate below 50% — a portfolio that cannot be held is not a strategy — or a drawdown past the Rs 1,00,000 budget."
 ```
+
+*The version actually registered on 2026-08-08 predates `--require` and carried
+the capacity threshold in prose only. It was killed on t regardless, and the
+capacity figure was confirmed by hand afterwards at 35.0%.*
 
 ### A3 — trend, as a confirmatory kill
 

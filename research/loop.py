@@ -179,7 +179,9 @@ def _mark(passed: Optional[bool]) -> str:
 
 def print_checks(checks: List[Dict[str, Any]]):
     for c in checks:
-        print(f"   [{_mark(c['passed'])}] {c['check']:<32} {c['detail']}")
+        # wide enough for a declared requirement's generated name, which is
+        # longer than any charter check
+        print(f"   [{_mark(c['passed'])}] {c['check']:<38} {c['detail']}")
 
 
 def print_screen(rep: Dict[str, Any]):
@@ -251,6 +253,8 @@ def run_one(hid: str) -> str:
     print("=" * 78)
     print(f"  claim: {h['claim']}")
     print(f"  kills it: {h['kill_criterion']}")
+    if h.get("requires"):
+        print(f"  machine-checked: {', '.join(h['requires'])}")
     if h.get("supersedes"):
         chain = registry.ancestry(h)
         print(f"  retry of: {' <- '.join(chain)} "
@@ -353,6 +357,14 @@ def cmd_register(a) -> int:
             raise registry.RegistryError(
                 f"--set {kv}: {str(exc).strip(chr(39))}")
 
+    # Validated against what this engine actually reports, so a threshold on a
+    # misspelt field is refused now rather than silently never firing.
+    from research import requirements as reqs_mod
+    try:
+        declared = reqs_mod.parse_all(a.require or [], eng)
+    except reqs_mod.RequirementError as exc:
+        raise registry.RegistryError(f"--require: {exc}")
+
     sweep = None
     n_configs = a.configs
     if a.sweep:
@@ -373,7 +385,8 @@ def cmd_register(a) -> int:
         window=[s.isoformat(), e.isoformat()], gate=a.gate,
         n_configs=n_configs or 1, config=config, sweep=sweep,
         underlying=a.underlying, equity=a.equity, era=a.era,
-        engine=a.engine, supersedes=a.supersedes, note=a.note or "")
+        engine=a.engine, supersedes=a.supersedes,
+        requires=[str(r) for r in declared], note=a.note or "")
     print(f"registered '{h['id']}' [{h['arena']}] engine '{h['engine']}'  "
           f"{h['window'][0]} -> {h['window'][1]}")
     print(f"  gate '{h['gate']}'  budget {registry.effective_configs(h)} config(s) "
@@ -383,6 +396,9 @@ def cmd_register(a) -> int:
     print(f"  kills it: {h['kill_criterion']}")
     if h["config"]:
         print(f"  config: {h['config']}")
+    if h.get("requires"):
+        print(f"  machine-checked: {', '.join(h['requires'])}"
+              f"  — any of these failing kills it at screen")
     print(f"  fingerprint {h['fingerprint']}")
     print(f"\nrun it with:  python -m research.loop run {h['id']}")
     return 0
@@ -618,6 +634,11 @@ def main(argv=None) -> int:
                    help="Config override, repeatable")
     r.add_argument("--sweep", default=None, metavar="AXIS=V1,V2,V3",
                    help="one-axis sweep; enables the Section 6.7 plateau check")
+    r.add_argument("--require", action="append", metavar="FIELD>=N",
+                   help="a threshold the screen enforces, repeatable, e.g. "
+                        "capacity_fill_rate_pct>=50. Goes into the fingerprint, "
+                        "so it cannot be loosened after seeing the result. "
+                        "Fields must be ones the chosen engine reports.")
     r.add_argument("--underlying", default="NIFTY")
     r.add_argument("--equity", type=float, default=1_500_000.0)
     r.add_argument("--supersedes", default=None,

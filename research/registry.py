@@ -92,6 +92,10 @@ def fingerprint(h: Dict[str, Any]) -> str:
         "config": h.get("config") or {},
         "sweep": h.get("sweep"),
         "n_configs": h.get("n_configs"),
+        # Requirements are part of what the hypothesis claims, so loosening a
+        # threshold after seeing the screen changes the fingerprint and the run
+        # is refused. That is the entire point of declaring them up front.
+        "requires": list(h.get("requires") or []),
     }
     blob = json.dumps(payload, sort_keys=True, default=str)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()[:32]
@@ -147,6 +151,7 @@ def register(hid: str, arena: str, claim: str, kill_criterion: str,
              underlying: str = "NIFTY", equity: float = 1_500_000.0,
              engine: str = "real_backtester", era: Optional[str] = None,
              supersedes: Optional[str] = None,
+             requires: Optional[List[str]] = None,
              note: str = "") -> Dict[str, Any]:
     """Write a hypothesis to the kill log. Refuses anything the charter forbids."""
     log = load()
@@ -180,6 +185,7 @@ def register(hid: str, arena: str, claim: str, kill_criterion: str,
         "n_configs": int(n_configs),
         "config": config or {},
         "sweep": sweep,
+        "requires": [str(r) for r in (requires or [])],
         "supersedes": supersedes,
         "note": note,
         "registered_at": datetime.datetime.now().isoformat(timespec="seconds"),

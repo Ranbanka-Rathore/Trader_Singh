@@ -82,6 +82,15 @@ class XSectionEngine:
     name = "cross_sectional"
     arena = "cross_sectional"
 
+    # Engine-specific fields a registered requirement may name. Declared rather
+    # than discovered, so `--require capacity_fill_rate_pct>=50` can be validated
+    # before anything runs; a threshold on a misspelt field would never fire.
+    EXTRA_FIELDS = frozenset({
+        "rebalances", "positions_wanted", "positions_taken",
+        "capacity_fill_rate_pct", "symbols_traded",
+        "panel_symbols", "panel_missing_lot",
+    })
+
     GRID = [{"mom_lookback": lb, "rebalance_days": rb, "n_per_side": n}
             for lb in (126, 252) for rb in (21, 42) for n in (3, 5)]
 

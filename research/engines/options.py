@@ -32,6 +32,11 @@ class OptionsEngine:
     name = "real_backtester"
     arena = "index_structures"
 
+    # This engine reports no scalar extras — its per-strategy and exit-reason
+    # breakdowns are nested tables, not thresholds. Requirements on it are
+    # limited to the standard metrics.
+    EXTRA_FIELDS = frozenset()
+
     # The grid fixed a priori in the Phase-4 overhaul plan. Not widened here:
     # widening it would raise the deflated-Sharpe hurdle for every historical
     # result computed against it, and make this arena's numbers incomparable
