@@ -436,6 +436,34 @@
     }
    ],
    "fingerprint": "sha256:1bfcee93264fd13b9b2a6a0fbc5d089e"
+  },
+  {
+   "id": "evol-earnings-pre2024",
+   "arena": "event_vol",
+   "claim": "Selling the ATM straddle into single-stock earnings and covering the day after had positive per-trade expectancy before 2024, under the strongest fill rule the legacy schema can support.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than a quarter of known events tradeable, or a drawdown past the Rs 1,00,000 budget.",
+   "engine": "event_vol",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": null,
+   "window": [
+    "2016-01-01",
+    "2023-12-31"
+   ],
+   "gate": "strict_legacy",
+   "n_configs": 1,
+   "config": {},
+   "sweep": null,
+   "requires": [
+    "capacity_fill_rate_pct>=25",
+    "max_drawdown<=100000"
+   ],
+   "supersedes": "evol-earnings-modern",
+   "note": "Pre-UDiFF window. The legacy NSE schema has no trade-count column, so gate=strict refuses every leg as txns_unknown; strict_legacy is the strongest rule evaluable here (traded + volume + open interest). Window spans three liquidity eras, so read the per-era table, not the pooled headline.",
+   "registered_at": "2026-08-08T23:51:42",
+   "status": "registered",
+   "events": [],
+   "fingerprint": "sha256:ab1d46ae7e33ee35f55f05a12b949970"
   }
  ]
 }
