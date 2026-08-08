@@ -1,0 +1,2040 @@
+{
+ "generated": "2026-08-07T18:40:16",
+ "window": [
+  "2024-01-01",
+  "2026-08-06"
+ ],
+ "grid": [
+  {
+   "delta_target": 0.15,
+   "tp_ratio": 0.5,
+   "sl_mode": "strike_touch"
+  },
+  {
+   "delta_target": 0.15,
+   "tp_ratio": 0.5,
+   "sl_mode": "mark"
+  },
+  {
+   "delta_target": 0.15,
+   "tp_ratio": 0.6,
+   "sl_mode": "strike_touch"
+  },
+  {
+   "delta_target": 0.15,
+   "tp_ratio": 0.6,
+   "sl_mode": "mark"
+  },
+  {
+   "delta_target": 0.2,
+   "tp_ratio": 0.5,
+   "sl_mode": "strike_touch"
+  },
+  {
+   "delta_target": 0.2,
+   "tp_ratio": 0.5,
+   "sl_mode": "mark"
+  },
+  {
+   "delta_target": 0.2,
+   "tp_ratio": 0.6,
+   "sl_mode": "strike_touch"
+  },
+  {
+   "delta_target": 0.2,
+   "tp_ratio": 0.6,
+   "sl_mode": "mark"
+  }
+ ],
+ "oos_metrics": {
+  "n_trades": 48,
+  "win_rate": 0.625,
+  "total_net_pnl": -16184.87,
+  "total_friction": 4236.87,
+  "expectancy": -337.18,
+  "profit_factor": 0.664,
+  "sharpe": -0.63,
+  "max_drawdown": 24928.53
+ },
+ "is_sharpe_mean": 1.103,
+ "wfe": -0.571,
+ "deflated_sharpe_hurdle": 1.382,
+ "profitable_folds": "14/25 active (26 total)",
+ "acceptance": {
+  "wfe_ge_0.5": false,
+  "oos_pf_ge_1.25": false,
+  "folds_60pct_profitable": false,
+  "oos_sharpe_gt_hurdle": false
+ },
+ "mc_bootstrap_dd": {
+  "p50": 23530.32,
+  "p95": 49686.7,
+  "p99": 61662.25
+ },
+ "mc_cost_stress": {
+  "slippage_x2": {
+   "total_net_pnl": -31031.69,
+   "profit_factor": 0.437,
+   "n_trades": 48
+  },
+  "slippage_x3": {
+   "total_net_pnl": -46868.38,
+   "profit_factor": 0.258,
+   "n_trades": 48
+  }
+ },
+ "mc_jackknife": {
+  "total": -16184.87,
+  "drop_best_1": -18590.89,
+  "drop_best_2": -20718.72,
+  "drop_best_3": -22689.25
+ },
+ "folds": [
+  {
+   "fold": 0,
+   "train": [
+    "2024-01-01",
+    "2024-06-30"
+   ],
+   "test": [
+    "2024-07-01",
+    "2024-07-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 10,
+    "win_rate": 1.0,
+    "total_net_pnl": 13206.81,
+    "total_friction": 1126.94,
+    "expectancy": 1320.68,
+    "profit_factor": Infinity,
+    "sharpe": 4.027,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 1.0,
+    "total_net_pnl": 1599.25,
+    "total_friction": 187.0,
+    "expectancy": 799.62,
+    "profit_factor": Infinity,
+    "sharpe": 3.31,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 1,
+   "train": [
+    "2024-02-01",
+    "2024-07-31"
+   ],
+   "test": [
+    "2024-08-01",
+    "2024-08-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 12,
+    "win_rate": 1.0,
+    "total_net_pnl": 14308.33,
+    "total_friction": 1349.17,
+    "expectancy": 1192.36,
+    "profit_factor": Infinity,
+    "sharpe": 4.273,
+    "max_drawdown": 0.0
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.5,
+    "total_net_pnl": -4843.64,
+    "total_friction": 179.89,
+    "expectancy": -2421.82,
+    "profit_factor": 0.151,
+    "sharpe": -2.821,
+    "max_drawdown": 5706.31
+   }
+  },
+  {
+   "fold": 2,
+   "train": [
+    "2024-03-01",
+    "2024-08-31"
+   ],
+   "test": [
+    "2024-09-01",
+    "2024-09-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 12,
+    "win_rate": 0.917,
+    "total_net_pnl": 10073.16,
+    "total_friction": 1348.09,
+    "expectancy": 839.43,
+    "profit_factor": 3.202,
+    "sharpe": 2.324,
+    "max_drawdown": 4574.49
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.5,
+    "total_net_pnl": -893.24,
+    "total_friction": 128.24,
+    "expectancy": -446.62,
+    "profit_factor": 0.381,
+    "sharpe": -3.464,
+    "max_drawdown": 1443.94
+   }
+  },
+  {
+   "fold": 3,
+   "train": [
+    "2024-04-01",
+    "2024-09-30"
+   ],
+   "test": [
+    "2024-10-01",
+    "2024-10-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 12,
+    "win_rate": 0.833,
+    "total_net_pnl": 6827.78,
+    "total_friction": 1267.22,
+    "expectancy": 568.98,
+    "profit_factor": 2.926,
+    "sharpe": 2.088,
+    "max_drawdown": 3294.12
+   },
+   "test_metrics": {
+    "n_trades": 3,
+    "win_rate": 0.667,
+    "total_net_pnl": 2869.75,
+    "total_friction": 317.75,
+    "expectancy": 956.58,
+    "profit_factor": 4.425,
+    "sharpe": 3.456,
+    "max_drawdown": 837.98
+   }
+  },
+  {
+   "fold": 4,
+   "train": [
+    "2024-05-01",
+    "2024-10-31"
+   ],
+   "test": [
+    "2024-11-01",
+    "2024-11-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 13,
+    "win_rate": 0.769,
+    "total_net_pnl": 3353.1,
+    "total_friction": 1503.15,
+    "expectancy": 257.93,
+    "profit_factor": 1.463,
+    "sharpe": 0.782,
+    "max_drawdown": 6051.01
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.5,
+    "total_net_pnl": -3219.47,
+    "total_friction": 181.97,
+    "expectancy": -1609.74,
+    "profit_factor": 0.345,
+    "sharpe": -2.114,
+    "max_drawdown": 4912.67
+   }
+  },
+  {
+   "fold": 5,
+   "train": [
+    "2024-06-01",
+    "2024-11-30"
+   ],
+   "test": [
+    "2024-12-01",
+    "2024-12-31"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 14,
+    "win_rate": 0.786,
+    "total_net_pnl": 4493.06,
+    "total_friction": 1729.44,
+    "expectancy": 320.93,
+    "profit_factor": 1.301,
+    "sharpe": 0.576,
+    "max_drawdown": 8624.03
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 1.0,
+    "total_net_pnl": 3016.25,
+    "total_friction": 196.25,
+    "expectancy": 1508.12,
+    "profit_factor": Infinity,
+    "sharpe": 4.16,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 6,
+   "train": [
+    "2024-07-01",
+    "2024-12-31"
+   ],
+   "test": [
+    "2025-01-01",
+    "2025-01-31"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 13,
+    "win_rate": 0.769,
+    "total_net_pnl": -3675.76,
+    "total_friction": 1675.76,
+    "expectancy": -282.75,
+    "profit_factor": 0.825,
+    "sharpe": -0.356,
+    "max_drawdown": 10138.5
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.0,
+    "total_net_pnl": -642.33,
+    "total_friction": 162.33,
+    "expectancy": -321.17,
+    "profit_factor": 0.0,
+    "sharpe": -3.31,
+    "max_drawdown": 642.33
+   }
+  },
+  {
+   "fold": 7,
+   "train": [
+    "2024-08-01",
+    "2025-01-31"
+   ],
+   "test": [
+    "2025-02-01",
+    "2025-02-28"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.6,
+    "sl_mode": "mark"
+   },
+   "train_metrics": {
+    "n_trades": 13,
+    "win_rate": 0.615,
+    "total_net_pnl": -1229.17,
+    "total_friction": 1662.92,
+    "expectancy": -94.55,
+    "profit_factor": 0.936,
+    "sharpe": -0.147,
+    "max_drawdown": 8631.1
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 1.0,
+    "total_net_pnl": 3273.54,
+    "total_friction": 225.21,
+    "expectancy": 1636.77,
+    "profit_factor": Infinity,
+    "sharpe": 5.149,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 8,
+   "train": [
+    "2024-09-01",
+    "2025-02-28"
+   ],
+   "test": [
+    "2025-03-01",
+    "2025-03-31"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.6,
+    "sl_mode": "mark"
+   },
+   "train_metrics": {
+    "n_trades": 13,
+    "win_rate": 0.846,
+    "total_net_pnl": 10486.24,
+    "total_friction": 1767.51,
+    "expectancy": 806.63,
+    "profit_factor": 1.744,
+    "sharpe": 1.128,
+    "max_drawdown": 7401.38
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.5,
+    "total_net_pnl": -4291.79,
+    "total_friction": 208.04,
+    "expectancy": -2145.89,
+    "profit_factor": 0.171,
+    "sharpe": -2.806,
+    "max_drawdown": 5178.69
+   }
+  },
+  {
+   "fold": 9,
+   "train": [
+    "2024-10-01",
+    "2025-03-31"
+   ],
+   "test": [
+    "2025-04-01",
+    "2025-04-30"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.6,
+    "sl_mode": "mark"
+   },
+   "train_metrics": {
+    "n_trades": 13,
+    "win_rate": 0.846,
+    "total_net_pnl": 12332.02,
+    "total_friction": 1661.73,
+    "expectancy": 948.62,
+    "profit_factor": 2.039,
+    "sharpe": 1.456,
+    "max_drawdown": 6687.61
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.5,
+    "total_net_pnl": -8634.65,
+    "total_friction": 245.9,
+    "expectancy": -4317.32,
+    "profit_factor": 0.109,
+    "sharpe": -2.983,
+    "max_drawdown": 9690.3
+   }
+  },
+  {
+   "fold": 10,
+   "train": [
+    "2024-11-01",
+    "2025-04-30"
+   ],
+   "test": [
+    "2025-05-01",
+    "2025-05-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "mark"
+   },
+   "train_metrics": {
+    "n_trades": 12,
+    "win_rate": 0.75,
+    "total_net_pnl": -1109.5,
+    "total_friction": 1328.25,
+    "expectancy": -92.46,
+    "profit_factor": 0.889,
+    "sharpe": -0.203,
+    "max_drawdown": 5417.67
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 1.0,
+    "total_net_pnl": 1514.02,
+    "total_friction": 188.48,
+    "expectancy": 757.01,
+    "profit_factor": Infinity,
+    "sharpe": 4.635,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 11,
+   "train": [
+    "2024-12-01",
+    "2025-05-31"
+   ],
+   "test": [
+    "2025-06-01",
+    "2025-06-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 12,
+    "win_rate": 0.917,
+    "total_net_pnl": 8889.16,
+    "total_friction": 1302.09,
+    "expectancy": 740.76,
+    "profit_factor": 9.536,
+    "sharpe": 3.808,
+    "max_drawdown": 1041.41
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.0,
+    "total_net_pnl": -4898.29,
+    "total_friction": 135.79,
+    "expectancy": -2449.14,
+    "profit_factor": 0.0,
+    "sharpe": -3.464,
+    "max_drawdown": 4898.29
+   }
+  },
+  {
+   "fold": 12,
+   "train": [
+    "2025-01-01",
+    "2025-06-30"
+   ],
+   "test": [
+    "2025-07-01",
+    "2025-07-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 12,
+    "win_rate": 0.75,
+    "total_net_pnl": 3334.16,
+    "total_friction": 1252.09,
+    "expectancy": 277.85,
+    "profit_factor": 1.766,
+    "sharpe": 1.067,
+    "max_drawdown": 3309.68
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 1.0,
+    "total_net_pnl": 1528.8,
+    "total_friction": 211.2,
+    "expectancy": 764.4,
+    "profit_factor": Infinity,
+    "sharpe": 4.68,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 13,
+   "train": [
+    "2025-02-01",
+    "2025-07-31"
+   ],
+   "test": [
+    "2025-08-01",
+    "2025-08-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 12,
+    "win_rate": 0.917,
+    "total_net_pnl": 8230.58,
+    "total_friction": 1358.17,
+    "expectancy": 685.88,
+    "profit_factor": 8.903,
+    "sharpe": 3.758,
+    "max_drawdown": 1041.41
+   },
+   "test_metrics": {
+    "n_trades": 1,
+    "win_rate": 0.0,
+    "total_net_pnl": -1449.08,
+    "total_friction": 57.83,
+    "expectancy": -1449.08,
+    "profit_factor": 0.0,
+    "sharpe": -3.464,
+    "max_drawdown": 1449.08
+   }
+  },
+  {
+   "fold": 14,
+   "train": [
+    "2025-03-01",
+    "2025-08-31"
+   ],
+   "test": [
+    "2025-09-01",
+    "2025-09-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.5,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 11,
+    "win_rate": 0.818,
+    "total_net_pnl": 4574.18,
+    "total_friction": 1200.82,
+    "expectancy": 415.83,
+    "profit_factor": 2.837,
+    "sharpe": 2.084,
+    "max_drawdown": 1449.08
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.0,
+    "total_net_pnl": -7395.73,
+    "total_friction": 188.23,
+    "expectancy": -3697.87,
+    "profit_factor": 0.0,
+    "sharpe": -4.789,
+    "max_drawdown": 7395.73
+   }
+  },
+  {
+   "fold": 15,
+   "train": [
+    "2025-04-01",
+    "2025-09-30"
+   ],
+   "test": [
+    "2025-10-01",
+    "2025-10-31"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 11,
+    "win_rate": 0.727,
+    "total_net_pnl": 3067.54,
+    "total_friction": 1312.46,
+    "expectancy": 278.87,
+    "profit_factor": 1.432,
+    "sharpe": 0.693,
+    "max_drawdown": 6936.95
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.5,
+    "total_net_pnl": 508.29,
+    "total_friction": 174.21,
+    "expectancy": 254.14,
+    "profit_factor": 2.032,
+    "sharpe": 1.482,
+    "max_drawdown": 492.48
+   }
+  },
+  {
+   "fold": 16,
+   "train": [
+    "2025-05-01",
+    "2025-10-31"
+   ],
+   "test": [
+    "2025-11-01",
+    "2025-11-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 11,
+    "win_rate": 0.818,
+    "total_net_pnl": 3880.87,
+    "total_friction": 1196.63,
+    "expectancy": 352.81,
+    "profit_factor": 1.859,
+    "sharpe": 0.993,
+    "max_drawdown": 4478.14
+   },
+   "test_metrics": {
+    "n_trades": 1,
+    "win_rate": 1.0,
+    "total_net_pnl": 590.57,
+    "total_friction": 58.18,
+    "expectancy": 590.57,
+    "profit_factor": Infinity,
+    "sharpe": 3.55,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 17,
+   "train": [
+    "2025-06-01",
+    "2025-11-30"
+   ],
+   "test": [
+    "2025-12-01",
+    "2025-12-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 10,
+    "win_rate": 0.9,
+    "total_net_pnl": 2880.45,
+    "total_friction": 1064.55,
+    "expectancy": 288.04,
+    "profit_factor": 1.643,
+    "sharpe": 0.769,
+    "max_drawdown": 4478.14
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 1.0,
+    "total_net_pnl": 545.61,
+    "total_friction": 110.89,
+    "expectancy": 272.81,
+    "profit_factor": Infinity,
+    "sharpe": 3.31,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 18,
+   "train": [
+    "2025-07-01",
+    "2025-12-31"
+   ],
+   "test": [
+    "2026-01-01",
+    "2026-01-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 10,
+    "win_rate": 0.9,
+    "total_net_pnl": 1696.78,
+    "total_friction": 988.47,
+    "expectancy": 169.68,
+    "profit_factor": 1.379,
+    "sharpe": 0.468,
+    "max_drawdown": 4478.14
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 1.0,
+    "total_net_pnl": 1428.93,
+    "total_friction": 160.32,
+    "expectancy": 714.47,
+    "profit_factor": Infinity,
+    "sharpe": 4.761,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 19,
+   "train": [
+    "2025-08-01",
+    "2026-01-31"
+   ],
+   "test": [
+    "2026-02-01",
+    "2026-02-28"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 10,
+    "win_rate": 0.8,
+    "total_net_pnl": 273.96,
+    "total_friction": 1040.79,
+    "expectancy": 27.4,
+    "profit_factor": 1.047,
+    "sharpe": 0.074,
+    "max_drawdown": 4478.14
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.5,
+    "total_net_pnl": -975.11,
+    "total_friction": 162.61,
+    "expectancy": -487.56,
+    "profit_factor": 0.401,
+    "sharpe": -3.55,
+    "max_drawdown": 1627.9
+   }
+  },
+  {
+   "fold": 20,
+   "train": [
+    "2025-09-01",
+    "2026-02-28"
+   ],
+   "test": [
+    "2026-03-01",
+    "2026-03-31"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.6,
+    "sl_mode": "strike_touch"
+   },
+   "train_metrics": {
+    "n_trades": 11,
+    "win_rate": 0.727,
+    "total_net_pnl": -1151.52,
+    "total_friction": 1144.52,
+    "expectancy": -104.68,
+    "profit_factor": 0.845,
+    "sharpe": -0.306,
+    "max_drawdown": 4478.14
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 1.0,
+    "total_net_pnl": 1521.93,
+    "total_friction": 138.82,
+    "expectancy": 760.97,
+    "profit_factor": Infinity,
+    "sharpe": 3.384,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 21,
+   "train": [
+    "2025-10-01",
+    "2026-03-31"
+   ],
+   "test": [
+    "2026-04-01",
+    "2026-04-30"
+   ],
+   "combo": {
+    "delta_target": 0.15,
+    "tp_ratio": 0.6,
+    "sl_mode": "mark"
+   },
+   "train_metrics": {
+    "n_trades": 11,
+    "win_rate": 0.818,
+    "total_net_pnl": 4404.1,
+    "total_friction": 1123.65,
+    "expectancy": 400.37,
+    "profit_factor": 2.462,
+    "sharpe": 1.882,
+    "max_drawdown": 1688.98
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.5,
+    "total_net_pnl": 626.55,
+    "total_friction": 182.7,
+    "expectancy": 313.27,
+    "profit_factor": 6.444,
+    "sharpe": 2.805,
+    "max_drawdown": 115.1
+   }
+  },
+  {
+   "fold": 22,
+   "train": [
+    "2025-11-01",
+    "2026-04-30"
+   ],
+   "test": [
+    "2026-05-01",
+    "2026-05-31"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.5,
+    "sl_mode": "mark"
+   },
+   "train_metrics": {
+    "n_trades": 11,
+    "win_rate": 0.636,
+    "total_net_pnl": -7987.55,
+    "total_friction": 1487.55,
+    "expectancy": -726.14,
+    "profit_factor": 0.584,
+    "sharpe": -0.813,
+    "max_drawdown": 13041.24
+   },
+   "test_metrics": {
+    "n_trades": 1,
+    "win_rate": 1.0,
+    "total_net_pnl": 1970.53,
+    "total_friction": 76.97,
+    "expectancy": 1970.53,
+    "profit_factor": Infinity,
+    "sharpe": 3.464,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 23,
+   "train": [
+    "2025-12-01",
+    "2026-05-31"
+   ],
+   "test": [
+    "2026-06-01",
+    "2026-06-30"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.5,
+    "sl_mode": "mark"
+   },
+   "train_metrics": {
+    "n_trades": 11,
+    "win_rate": 0.636,
+    "total_net_pnl": -6219.62,
+    "total_friction": 1555.87,
+    "expectancy": -565.42,
+    "profit_factor": 0.698,
+    "sharpe": -0.606,
+    "max_drawdown": 13675.12
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 0.0,
+    "total_net_pnl": -3775.57,
+    "total_friction": 148.57,
+    "expectancy": -1887.79,
+    "profit_factor": 0.0,
+    "sharpe": -3.384,
+    "max_drawdown": 3775.57
+   }
+  },
+  {
+   "fold": 24,
+   "train": [
+    "2026-01-01",
+    "2026-06-30"
+   ],
+   "test": [
+    "2026-07-01",
+    "2026-07-31"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.5,
+    "sl_mode": "mark"
+   },
+   "train_metrics": {
+    "n_trades": 11,
+    "win_rate": 0.545,
+    "total_net_pnl": -7205.36,
+    "total_friction": 1488.61,
+    "expectancy": -655.03,
+    "profit_factor": 0.642,
+    "sharpe": -0.711,
+    "max_drawdown": 13675.12
+   },
+   "test_metrics": {
+    "n_trades": 2,
+    "win_rate": 1.0,
+    "total_net_pnl": 3840.01,
+    "total_friction": 209.49,
+    "expectancy": 1920.01,
+    "profit_factor": Infinity,
+    "sharpe": 3.31,
+    "max_drawdown": 0.0
+   }
+  },
+  {
+   "fold": 25,
+   "train": [
+    "2026-02-01",
+    "2026-07-31"
+   ],
+   "test": [
+    "2026-08-01",
+    "2026-08-06"
+   ],
+   "combo": {
+    "delta_target": 0.2,
+    "tp_ratio": 0.5,
+    "sl_mode": "mark"
+   },
+   "train_metrics": {
+    "n_trades": 11,
+    "win_rate": 0.727,
+    "total_net_pnl": -4475.03,
+    "total_friction": 1530.53,
+    "expectancy": -406.82,
+    "profit_factor": 0.754,
+    "sharpe": -0.442,
+    "max_drawdown": 13675.12
+   },
+   "test_metrics": {
+    "n_trades": 0,
+    "win_rate": 0.0,
+    "total_net_pnl": 0,
+    "total_friction": 0,
+    "expectancy": 0.0,
+    "profit_factor": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown": 0.0
+   }
+  }
+ ],
+ "oos_trades": [
+  {
+   "entry_date": "2024-07-24",
+   "exit_date": "2024-07-31",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23500.0,
+   "buy_strike": 23300.0,
+   "expiry": "2024-08-29",
+   "entry_credit": 22.55,
+   "exit_cost": 11.1,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 5,
+   "quantity": 125,
+   "gross_pnl": 1431.25,
+   "friction": 120.57,
+   "net_pnl": 1310.68,
+   "days_held": 7,
+   "entry_spot": 24413.5,
+   "exit_spot": 24951.15,
+   "pcr_at_entry": 1.473,
+   "short_delta": 0.151
+  },
+  {
+   "entry_date": "2024-07-15",
+   "exit_date": "2024-07-31",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23450.0,
+   "buy_strike": 23250.0,
+   "expiry": "2024-08-29",
+   "entry_credit": 12.85,
+   "exit_cost": 9.3,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 4,
+   "quantity": 100,
+   "gross_pnl": 355.0,
+   "friction": 66.43,
+   "net_pnl": 288.57,
+   "days_held": 16,
+   "entry_spot": 24586.7,
+   "exit_spot": 24951.15,
+   "pcr_at_entry": 1.846,
+   "short_delta": 0.149
+  },
+  {
+   "entry_date": "2024-08-19",
+   "exit_date": "2024-08-28",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23550.0,
+   "buy_strike": 23350.0,
+   "expiry": "2024-09-26",
+   "entry_credit": 18.5,
+   "exit_cost": 8.7,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 4,
+   "quantity": 100,
+   "gross_pnl": 980.0,
+   "friction": 117.33,
+   "net_pnl": 862.67,
+   "days_held": 9,
+   "entry_spot": 24572.65,
+   "exit_spot": 25052.35,
+   "pcr_at_entry": 1.405,
+   "short_delta": 0.152
+  },
+  {
+   "entry_date": "2024-08-12",
+   "exit_date": "2024-08-30",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 25700.0,
+   "buy_strike": 25900.0,
+   "expiry": "2024-09-26",
+   "entry_credit": 20.05,
+   "exit_cost": 65.2,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 5,
+   "quantity": 125,
+   "gross_pnl": -5643.75,
+   "friction": 62.56,
+   "net_pnl": -5706.31,
+   "days_held": 18,
+   "entry_spot": 24347.0,
+   "exit_spot": 25235.9,
+   "pcr_at_entry": 1.469,
+   "short_delta": 0.14
+  },
+  {
+   "entry_date": "2024-09-19",
+   "exit_date": "2024-09-30",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 24400.0,
+   "buy_strike": 24200.0,
+   "expiry": "2024-10-31",
+   "entry_credit": 17.0,
+   "exit_cost": 10.85,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 4,
+   "quantity": 100,
+   "gross_pnl": 615.0,
+   "friction": 64.3,
+   "net_pnl": 550.7,
+   "days_held": 11,
+   "entry_spot": 25415.8,
+   "exit_spot": 25810.85,
+   "pcr_at_entry": 1.233,
+   "short_delta": 0.15
+  },
+  {
+   "entry_date": "2024-09-26",
+   "exit_date": "2024-09-30",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 25250.0,
+   "buy_strike": 25050.0,
+   "expiry": "2024-10-31",
+   "entry_credit": 17.85,
+   "exit_cost": 31.65,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 4,
+   "quantity": 100,
+   "gross_pnl": -1380.0,
+   "friction": 63.94,
+   "net_pnl": -1443.94,
+   "days_held": 4,
+   "entry_spot": 26216.05,
+   "exit_spot": 25810.85,
+   "pcr_at_entry": 1.105,
+   "short_delta": 0.154
+  },
+  {
+   "entry_date": "2024-10-14",
+   "exit_date": "2024-10-21",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 26500.0,
+   "buy_strike": 26700.0,
+   "expiry": "2024-11-28",
+   "entry_credit": 23.9,
+   "exit_cost": 8.7,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 5,
+   "quantity": 125,
+   "gross_pnl": 1900.0,
+   "friction": 115.86,
+   "net_pnl": 1784.14,
+   "days_held": 7,
+   "entry_spot": 25127.95,
+   "exit_spot": 24781.1,
+   "pcr_at_entry": 1.571,
+   "short_delta": 0.144
+  },
+  {
+   "entry_date": "2024-10-21",
+   "exit_date": "2024-10-25",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 26000.0,
+   "buy_strike": 26200.0,
+   "expiry": "2024-11-28",
+   "entry_credit": 23.05,
+   "exit_cost": 6.75,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 5,
+   "quantity": 125,
+   "gross_pnl": 2037.5,
+   "friction": 113.91,
+   "net_pnl": 1923.59,
+   "days_held": 4,
+   "entry_spot": 24781.1,
+   "exit_spot": 24180.8,
+   "pcr_at_entry": 1.322,
+   "short_delta": 0.147
+  },
+  {
+   "entry_date": "2024-10-31",
+   "exit_date": "2024-10-31",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 25500.0,
+   "buy_strike": 25600.0,
+   "expiry": "2024-12-05",
+   "entry_credit": 18.15,
+   "exit_cost": 21.15,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 10,
+   "quantity": 250,
+   "gross_pnl": -750.0,
+   "friction": 87.98,
+   "net_pnl": -837.98,
+   "days_held": 0,
+   "entry_spot": 24205.35,
+   "exit_spot": 24205.35,
+   "pcr_at_entry": 0.16,
+   "short_delta": 0.162
+  },
+  {
+   "entry_date": "2024-11-11",
+   "exit_date": "2024-11-13",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 25450.0,
+   "buy_strike": 25650.0,
+   "expiry": "2024-12-26",
+   "entry_credit": 22.95,
+   "exit_cost": 8.45,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 5,
+   "quantity": 125,
+   "gross_pnl": 1812.5,
+   "friction": 119.3,
+   "net_pnl": 1693.2,
+   "days_held": 2,
+   "entry_spot": 24141.3,
+   "exit_spot": 23559.05,
+   "pcr_at_entry": 1.371,
+   "short_delta": 0.149
+  },
+  {
+   "entry_date": "2024-11-18",
+   "exit_date": "2024-11-29",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 24700.0,
+   "buy_strike": 24900.0,
+   "expiry": "2024-12-26",
+   "entry_credit": 20.9,
+   "exit_cost": 59.7,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 5,
+   "quantity": 125,
+   "gross_pnl": -4850.0,
+   "friction": 62.67,
+   "net_pnl": -4912.67,
+   "days_held": 11,
+   "entry_spot": 23453.8,
+   "exit_spot": 24131.1,
+   "pcr_at_entry": 1.152,
+   "short_delta": 0.145
+  },
+  {
+   "entry_date": "2024-12-19",
+   "exit_date": "2024-12-30",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 25150.0,
+   "buy_strike": 25350.0,
+   "expiry": "2025-01-30",
+   "entry_credit": 31.2,
+   "exit_cost": 10.95,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 5,
+   "quantity": 125,
+   "gross_pnl": 2531.25,
+   "friction": 125.23,
+   "net_pnl": 2406.02,
+   "days_held": 11,
+   "entry_spot": 23951.7,
+   "exit_spot": 23644.9,
+   "pcr_at_entry": 1.461,
+   "short_delta": 0.197
+  },
+  {
+   "entry_date": "2024-12-23",
+   "exit_date": "2024-12-31",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 24750.0,
+   "buy_strike": 24950.0,
+   "expiry": "2025-01-30",
+   "entry_credit": 32.75,
+   "exit_cost": 27.3,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 5,
+   "quantity": 125,
+   "gross_pnl": 681.25,
+   "friction": 71.02,
+   "net_pnl": 610.23,
+   "days_held": 8,
+   "entry_spot": 23753.45,
+   "exit_spot": 23644.8,
+   "pcr_at_entry": 1.342,
+   "short_delta": 0.206
+  },
+  {
+   "entry_date": "2025-01-13",
+   "exit_date": "2025-01-31",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 24350.0,
+   "buy_strike": 24550.0,
+   "expiry": "2025-02-27",
+   "entry_credit": 33.55,
+   "exit_cost": 40.55,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": -525.0,
+   "friction": 65.33,
+   "net_pnl": -590.33,
+   "days_held": 18,
+   "entry_spot": 23085.95,
+   "exit_spot": 23508.4,
+   "pcr_at_entry": 1.227,
+   "short_delta": 0.205
+  },
+  {
+   "entry_date": "2025-01-20",
+   "exit_date": "2025-01-31",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 24550.0,
+   "buy_strike": 24650.0,
+   "expiry": "2025-02-27",
+   "entry_credit": 16.15,
+   "exit_cost": 15.95,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 3,
+   "quantity": 225,
+   "gross_pnl": 45.0,
+   "friction": 97.0,
+   "net_pnl": -52.0,
+   "days_held": 11,
+   "entry_spot": 23344.75,
+   "exit_spot": 23508.4,
+   "pcr_at_entry": 1.214,
+   "short_delta": 0.196
+  },
+  {
+   "entry_date": "2025-02-10",
+   "exit_date": "2025-02-17",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 24500.0,
+   "buy_strike": 24700.0,
+   "expiry": "2025-03-27",
+   "entry_credit": 36.35,
+   "exit_cost": 14.2,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 1661.25,
+   "friction": 114.66,
+   "net_pnl": 1546.59,
+   "days_held": 7,
+   "entry_spot": 23381.6,
+   "exit_spot": 22959.5,
+   "pcr_at_entry": 1.206,
+   "short_delta": 0.204
+  },
+  {
+   "entry_date": "2025-02-17",
+   "exit_date": "2025-02-24",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 24050.0,
+   "buy_strike": 24250.0,
+   "expiry": "2025-03-27",
+   "entry_credit": 32.25,
+   "exit_cost": 7.75,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 1837.5,
+   "friction": 110.55,
+   "net_pnl": 1726.95,
+   "days_held": 7,
+   "entry_spot": 22959.5,
+   "exit_spot": 22553.35,
+   "pcr_at_entry": 1.16,
+   "short_delta": 0.193
+  },
+  {
+   "entry_date": "2025-03-10",
+   "exit_date": "2025-03-21",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 23500.0,
+   "buy_strike": 23700.0,
+   "expiry": "2025-04-24",
+   "entry_credit": 36.25,
+   "exit_cost": 103.35,
+   "exit_reason": "STOP_LOSS_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": -5032.5,
+   "friction": 146.19,
+   "net_pnl": -5178.69,
+   "days_held": 11,
+   "entry_spot": 22460.3,
+   "exit_spot": 23350.4,
+   "pcr_at_entry": 1.264,
+   "short_delta": 0.207
+  },
+  {
+   "entry_date": "2025-03-20",
+   "exit_date": "2025-03-28",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 22550.0,
+   "buy_strike": 22350.0,
+   "expiry": "2025-04-24",
+   "entry_credit": 26.1,
+   "exit_cost": 13.45,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 948.75,
+   "friction": 61.85,
+   "net_pnl": 886.9,
+   "days_held": 8,
+   "entry_spot": 23190.65,
+   "exit_spot": 23519.35,
+   "pcr_at_entry": 1.389,
+   "short_delta": 0.201
+  },
+  {
+   "entry_date": "2025-04-15",
+   "exit_date": "2025-04-23",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 22350.0,
+   "buy_strike": 22150.0,
+   "expiry": "2025-05-29",
+   "entry_credit": 25.65,
+   "exit_cost": 9.9,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 1181.25,
+   "friction": 125.6,
+   "net_pnl": 1055.65,
+   "days_held": 8,
+   "entry_spot": 23328.55,
+   "exit_spot": 24328.95,
+   "pcr_at_entry": 1.367,
+   "short_delta": 0.202
+  },
+  {
+   "entry_date": "2025-04-21",
+   "exit_date": "2025-04-24",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23250.0,
+   "buy_strike": 23050.0,
+   "expiry": "2025-05-29",
+   "entry_credit": 25.85,
+   "exit_cost": 153.45,
+   "exit_reason": "STOP_LOSS_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": -9570.0,
+   "friction": 120.3,
+   "net_pnl": -9690.3,
+   "days_held": 3,
+   "entry_spot": 24125.55,
+   "exit_spot": 24246.7,
+   "pcr_at_entry": 1.532,
+   "short_delta": 0.204
+  },
+  {
+   "entry_date": "2025-05-12",
+   "exit_date": "2025-05-19",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23450.0,
+   "buy_strike": 23250.0,
+   "expiry": "2025-06-26",
+   "entry_credit": 20.75,
+   "exit_cost": 5.65,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 1132.5,
+   "friction": 125.6,
+   "net_pnl": 1006.9,
+   "days_held": 7,
+   "entry_spot": 24924.7,
+   "exit_spot": 24945.45,
+   "pcr_at_entry": 1.404,
+   "short_delta": 0.153
+  },
+  {
+   "entry_date": "2025-05-19",
+   "exit_date": "2025-05-30",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23650.0,
+   "buy_strike": 23450.0,
+   "expiry": "2025-06-26",
+   "entry_credit": 28.95,
+   "exit_cost": 21.35,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 570.0,
+   "friction": 62.88,
+   "net_pnl": 507.12,
+   "days_held": 11,
+   "entry_spot": 24945.45,
+   "exit_spot": 24750.7,
+   "pcr_at_entry": 1.336,
+   "short_delta": 0.15
+  },
+  {
+   "entry_date": "2025-06-19",
+   "exit_date": "2025-06-30",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 26050.0,
+   "buy_strike": 26150.0,
+   "expiry": "2025-07-31",
+   "entry_credit": 12.2,
+   "exit_cost": 33.25,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 3,
+   "quantity": 225,
+   "gross_pnl": -4736.25,
+   "friction": 76.76,
+   "net_pnl": -4813.01,
+   "days_held": 11,
+   "entry_spot": 24793.25,
+   "exit_spot": 25517.05,
+   "pcr_at_entry": 1.429,
+   "short_delta": 0.149
+  },
+  {
+   "entry_date": "2025-06-26",
+   "exit_date": "2025-06-30",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 24550.0,
+   "buy_strike": 24350.0,
+   "expiry": "2025-07-31",
+   "entry_credit": 19.7,
+   "exit_cost": 20.05,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": -26.25,
+   "friction": 59.03,
+   "net_pnl": -85.28,
+   "days_held": 4,
+   "entry_spot": 25549.0,
+   "exit_spot": 25517.05,
+   "pcr_at_entry": 1.316,
+   "short_delta": 0.148
+  },
+  {
+   "entry_date": "2025-07-14",
+   "exit_date": "2025-07-25",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 26300.0,
+   "buy_strike": 26500.0,
+   "expiry": "2025-08-28",
+   "entry_credit": 21.55,
+   "exit_cost": 7.8,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 1031.25,
+   "friction": 106.48,
+   "net_pnl": 924.77,
+   "days_held": 11,
+   "entry_spot": 25082.3,
+   "exit_spot": 24837.0,
+   "pcr_at_entry": 1.599,
+   "short_delta": 0.154
+  },
+  {
+   "entry_date": "2025-07-21",
+   "exit_date": "2025-07-28",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 26150.0,
+   "buy_strike": 26350.0,
+   "expiry": "2025-08-28",
+   "entry_credit": 18.35,
+   "exit_cost": 8.9,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 708.75,
+   "friction": 104.72,
+   "net_pnl": 604.03,
+   "days_held": 7,
+   "entry_spot": 25090.7,
+   "exit_spot": 24680.9,
+   "pcr_at_entry": 1.27,
+   "short_delta": 0.145
+  },
+  {
+   "entry_date": "2025-08-18",
+   "exit_date": "2025-08-29",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 24000.0,
+   "buy_strike": 23800.0,
+   "expiry": "2025-09-30",
+   "entry_credit": 18.55,
+   "exit_cost": 37.1,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": -1391.25,
+   "friction": 57.83,
+   "net_pnl": -1449.08,
+   "days_held": 11,
+   "entry_spot": 24876.95,
+   "exit_spot": 24426.85,
+   "pcr_at_entry": 1.342,
+   "short_delta": 0.147
+  },
+  {
+   "entry_date": "2025-09-18",
+   "exit_date": "2025-09-26",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 24700.0,
+   "buy_strike": 24500.0,
+   "expiry": "2025-10-28",
+   "entry_credit": 15.4,
+   "exit_cost": 73.35,
+   "exit_reason": "STOP_STRIKE_TOUCH",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": -4346.25,
+   "friction": 131.89,
+   "net_pnl": -4478.14,
+   "days_held": 8,
+   "entry_spot": 25423.6,
+   "exit_spot": 24654.7,
+   "pcr_at_entry": 1.457,
+   "short_delta": 0.148
+  },
+  {
+   "entry_date": "2025-09-22",
+   "exit_date": "2025-09-30",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 24500.0,
+   "buy_strike": 24300.0,
+   "expiry": "2025-10-28",
+   "entry_credit": 18.0,
+   "exit_cost": 56.15,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": -2861.25,
+   "friction": 56.34,
+   "net_pnl": -2917.59,
+   "days_held": 8,
+   "entry_spot": 25202.35,
+   "exit_spot": 24611.1,
+   "pcr_at_entry": 1.283,
+   "short_delta": 0.153
+  },
+  {
+   "entry_date": "2025-10-13",
+   "exit_date": "2025-10-23",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 24600.0,
+   "buy_strike": 24400.0,
+   "expiry": "2025-11-25",
+   "entry_credit": 24.35,
+   "exit_cost": 9.5,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 1113.75,
+   "friction": 112.98,
+   "net_pnl": 1000.77,
+   "days_held": 10,
+   "entry_spot": 25227.35,
+   "exit_spot": 25891.4,
+   "pcr_at_entry": 1.407,
+   "short_delta": 0.194
+  },
+  {
+   "entry_date": "2025-10-20",
+   "exit_date": "2025-10-31",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 25250.0,
+   "buy_strike": 25050.0,
+   "expiry": "2025-11-25",
+   "entry_credit": 23.75,
+   "exit_cost": 29.5,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": -431.25,
+   "friction": 61.23,
+   "net_pnl": -492.48,
+   "days_held": 11,
+   "entry_spot": 25843.15,
+   "exit_spot": 25722.1,
+   "pcr_at_entry": 1.431,
+   "short_delta": 0.201
+  },
+  {
+   "entry_date": "2025-11-17",
+   "exit_date": "2025-11-28",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 25200.0,
+   "buy_strike": 25000.0,
+   "expiry": "2025-12-30",
+   "entry_credit": 19.5,
+   "exit_cost": 10.85,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 75,
+   "gross_pnl": 648.75,
+   "friction": 58.18,
+   "net_pnl": 590.57,
+   "days_held": 11,
+   "entry_spot": 26013.45,
+   "exit_spot": 26202.95,
+   "pcr_at_entry": 1.327,
+   "short_delta": 0.154
+  },
+  {
+   "entry_date": "2025-12-15",
+   "exit_date": "2025-12-31",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 25300.0,
+   "buy_strike": 25100.0,
+   "expiry": "2026-01-27",
+   "entry_credit": 18.6,
+   "exit_cost": 10.65,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 65,
+   "gross_pnl": 516.75,
+   "friction": 55.9,
+   "net_pnl": 460.85,
+   "days_held": 16,
+   "entry_spot": 26027.3,
+   "exit_spot": 26129.6,
+   "pcr_at_entry": 1.257,
+   "short_delta": 0.154
+  },
+  {
+   "entry_date": "2025-12-22",
+   "exit_date": "2025-12-31",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 25500.0,
+   "buy_strike": 25300.0,
+   "expiry": "2026-01-27",
+   "entry_credit": 19.8,
+   "exit_cost": 17.65,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 65,
+   "gross_pnl": 139.75,
+   "friction": 54.99,
+   "net_pnl": 84.76,
+   "days_held": 9,
+   "entry_spot": 26172.4,
+   "exit_spot": 26129.6,
+   "pcr_at_entry": 1.097,
+   "short_delta": 0.155
+  },
+  {
+   "entry_date": "2026-01-12",
+   "exit_date": "2026-01-21",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 27050.0,
+   "buy_strike": 27250.0,
+   "expiry": "2026-02-24",
+   "entry_credit": 21.3,
+   "exit_cost": 6.1,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 65,
+   "gross_pnl": 988.0,
+   "friction": 105.3,
+   "net_pnl": 882.7,
+   "days_held": 9,
+   "entry_spot": 25790.25,
+   "exit_spot": 25157.5,
+   "pcr_at_entry": 1.424,
+   "short_delta": 0.148
+  },
+  {
+   "entry_date": "2026-01-19",
+   "exit_date": "2026-01-30",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 26700.0,
+   "buy_strike": 26900.0,
+   "expiry": "2026-02-24",
+   "entry_credit": 19.75,
+   "exit_cost": 10.5,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 65,
+   "gross_pnl": 601.25,
+   "friction": 55.02,
+   "net_pnl": 546.23,
+   "days_held": 11,
+   "entry_spot": 25585.5,
+   "exit_spot": 25320.65,
+   "pcr_at_entry": 1.194,
+   "short_delta": 0.153
+  },
+  {
+   "entry_date": "2026-02-13",
+   "exit_date": "2026-02-27",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 26700.0,
+   "buy_strike": 26900.0,
+   "expiry": "2026-03-30",
+   "entry_credit": 19.15,
+   "exit_cost": 7.5,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 65,
+   "gross_pnl": 757.25,
+   "friction": 104.46,
+   "net_pnl": 652.79,
+   "days_held": 14,
+   "entry_spot": 25471.1,
+   "exit_spot": 25178.65,
+   "pcr_at_entry": 1.448,
+   "short_delta": 0.149
+  },
+  {
+   "entry_date": "2026-02-16",
+   "exit_date": "2026-02-27",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 24650.0,
+   "buy_strike": 24450.0,
+   "expiry": "2026-03-30",
+   "entry_credit": 14.15,
+   "exit_cost": 38.3,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 65,
+   "gross_pnl": -1569.75,
+   "friction": 58.15,
+   "net_pnl": -1627.9,
+   "days_held": 11,
+   "entry_spot": 25682.75,
+   "exit_spot": 25178.65,
+   "pcr_at_entry": 1.492,
+   "short_delta": 0.147
+  },
+  {
+   "entry_date": "2026-03-19",
+   "exit_date": "2026-03-30",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 24800.0,
+   "buy_strike": 25000.0,
+   "expiry": "2026-04-28",
+   "entry_credit": 22.9,
+   "exit_cost": 13.05,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 65,
+   "gross_pnl": 640.25,
+   "friction": 59.52,
+   "net_pnl": 580.73,
+   "days_held": 11,
+   "entry_spot": 23002.15,
+   "exit_spot": 22331.4,
+   "pcr_at_entry": 0.96,
+   "short_delta": 0.148
+  },
+  {
+   "entry_date": "2026-03-23",
+   "exit_date": "2026-03-30",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 24450.0,
+   "buy_strike": 24650.0,
+   "expiry": "2026-04-28",
+   "entry_credit": 29.3,
+   "exit_cost": 21.45,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 2,
+   "quantity": 130,
+   "gross_pnl": 1020.5,
+   "friction": 79.3,
+   "net_pnl": 941.2,
+   "days_held": 7,
+   "entry_spot": 22512.65,
+   "exit_spot": 22331.4,
+   "pcr_at_entry": 0.903,
+   "short_delta": 0.163
+  },
+  {
+   "entry_date": "2026-04-13",
+   "exit_date": "2026-04-21",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 22200.0,
+   "buy_strike": 22000.0,
+   "expiry": "2026-05-26",
+   "entry_credit": 21.2,
+   "exit_cost": 7.95,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 1,
+   "quantity": 65,
+   "gross_pnl": 861.25,
+   "friction": 119.6,
+   "net_pnl": 741.65,
+   "days_held": 8,
+   "entry_spot": 23842.65,
+   "exit_spot": 24576.6,
+   "pcr_at_entry": 0.975,
+   "short_delta": 0.157
+  },
+  {
+   "entry_date": "2026-04-20",
+   "exit_date": "2026-04-30",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 22900.0,
+   "buy_strike": 22700.0,
+   "expiry": "2026-05-26",
+   "entry_credit": 24.15,
+   "exit_cost": 24.95,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 1,
+   "quantity": 65,
+   "gross_pnl": -52.0,
+   "friction": 63.1,
+   "net_pnl": -115.1,
+   "days_held": 10,
+   "entry_spot": 24364.85,
+   "exit_spot": 23997.55,
+   "pcr_at_entry": 1.148,
+   "short_delta": 0.152
+  },
+  {
+   "entry_date": "2026-05-18",
+   "exit_date": "2026-05-29",
+   "strategy": "BEAR_CALL_SPREAD",
+   "sell_strike": 24950.0,
+   "buy_strike": 25150.0,
+   "expiry": "2026-06-30",
+   "entry_credit": 33.65,
+   "exit_cost": 17.9,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 2,
+   "quantity": 130,
+   "gross_pnl": 2047.5,
+   "friction": 76.97,
+   "net_pnl": 1970.53,
+   "days_held": 11,
+   "entry_spot": 23649.95,
+   "exit_spot": 23547.75,
+   "pcr_at_entry": 1.227,
+   "short_delta": 0.197
+  },
+  {
+   "entry_date": "2026-06-18",
+   "exit_date": "2026-06-30",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23450.0,
+   "buy_strike": 23250.0,
+   "expiry": "2026-07-28",
+   "entry_credit": 28.4,
+   "exit_cost": 44.65,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 2,
+   "quantity": 130,
+   "gross_pnl": -2112.5,
+   "friction": 75.53,
+   "net_pnl": -2188.03,
+   "days_held": 12,
+   "entry_spot": 24168.0,
+   "exit_spot": 23865.75,
+   "pcr_at_entry": 1.224,
+   "short_delta": 0.199
+  },
+  {
+   "entry_date": "2026-06-22",
+   "exit_date": "2026-06-30",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23400.0,
+   "buy_strike": 23200.0,
+   "expiry": "2026-07-28",
+   "entry_credit": 28.1,
+   "exit_cost": 39.75,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 2,
+   "quantity": 130,
+   "gross_pnl": -1514.5,
+   "friction": 73.04,
+   "net_pnl": -1587.54,
+   "days_held": 8,
+   "entry_spot": 24102.9,
+   "exit_spot": 23865.75,
+   "pcr_at_entry": 1.208,
+   "short_delta": 0.195
+  },
+  {
+   "entry_date": "2026-07-13",
+   "exit_date": "2026-07-31",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23450.0,
+   "buy_strike": 23250.0,
+   "expiry": "2026-08-25",
+   "entry_credit": 30.95,
+   "exit_cost": 13.55,
+   "exit_reason": "TAKE_PROFIT",
+   "lots": 2,
+   "quantity": 130,
+   "gross_pnl": 2262.0,
+   "friction": 134.17,
+   "net_pnl": 2127.83,
+   "days_held": 18,
+   "entry_spot": 24211.0,
+   "exit_spot": 24383.6,
+   "pcr_at_entry": 1.276,
+   "short_delta": 0.204
+  },
+  {
+   "entry_date": "2026-07-20",
+   "exit_date": "2026-07-31",
+   "strategy": "BULL_PUT_SPREAD",
+   "sell_strike": 23550.0,
+   "buy_strike": 23350.0,
+   "expiry": "2026-08-25",
+   "entry_credit": 29.8,
+   "exit_cost": 16.05,
+   "exit_reason": "WINDOW_END_MARK",
+   "lots": 2,
+   "quantity": 130,
+   "gross_pnl": 1787.5,
+   "friction": 75.32,
+   "net_pnl": 1712.18,
+   "days_held": 11,
+   "entry_spot": 24238.5,
+   "exit_spot": 24383.6,
+   "pcr_at_entry": 1.142,
+   "short_delta": 0.204
+  }
+ ]
+}

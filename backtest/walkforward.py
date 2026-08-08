@@ -299,6 +299,14 @@ def main():
     ap.add_argument("--ladder", action="store_true",
                     help="income-ladder mode: weekly tranches 30-45 DTE, "
                          "managed at 21 DTE, IVR-scaled sizing, 6 concurrent")
+    ap.add_argument("--gate", default="traded",
+                    help="liquidity_gate preset; use 'strict' for a fill rule "
+                         "that requires real volume (see backtest.liquidity_gate)")
+    ap.add_argument("--dte-min", type=int, default=None,
+                    help="override entry DTE floor (for confirming a sweep_dte band)")
+    ap.add_argument("--dte-max", type=int, default=None)
+    ap.add_argument("--manage", type=int, default=None,
+                    help="override management exit DTE")
     ap.add_argument("--report", default="wf_report.json")
     args = ap.parse_args()
     start = datetime.date.fromisoformat(args.start)
@@ -306,10 +314,21 @@ def main():
 
     base_cfg = Config(underlying=args.underlying, equity0=args.equity,
                       risk_frac_hard_cap=args.max_loss_frac,
-                      auto_interval=args.auto_interval)
+                      auto_interval=args.auto_interval,
+                      liquidity_gate=args.gate)
     if args.ladder:
         base_cfg = replace(base_cfg, ladder_mode=True, min_days_to_expiry=30,
                            dte_max=45, time_stop_days=21, max_open=6)
+    # explicit DTE overrides win, so a band that looked good in sweep_dte can be
+    # retested here under proper IS/OOS folds rather than trusted on one sample
+    if args.dte_min is not None:
+        base_cfg = replace(base_cfg, min_days_to_expiry=args.dte_min)
+    if args.dte_max is not None:
+        base_cfg = replace(base_cfg, dte_max=args.dte_max)
+    if args.manage is not None:
+        base_cfg = replace(base_cfg, time_stop_days=args.manage)
+    print(f"gate '{base_cfg.liquidity_gate}' | entry {base_cfg.min_days_to_expiry}"
+          f"-{base_cfg.dte_max} DTE | manage {base_cfg.time_stop_days}")
     print(f"WALK-FORWARD {start} -> {end} | equity Rs {args.equity:,.0f} | "
           f"loss cap {args.max_loss_frac:.0%} | grid of {len(GRID)} combos")
     wf = walk_forward(start, end, base_cfg)
