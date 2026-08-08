@@ -169,16 +169,33 @@ def select_ladder_expiry(exp_list, today=None, quality=None):
     return exp, dte, f"{why}_degraded"
 
 
+def _promotion_line() -> str:
+    """Eligibility of the active structure, for the boot banner.
+
+    Imported lazily and defensively: this module is the one every process
+    depends on, and a banner must never be the reason a service fails to start.
+    The gate itself lives in the order path, not here — this only makes the
+    state visible at boot instead of at the first refused entry.
+    """
+    try:
+        from research import promotion
+        return "\n" + promotion.gate_banner(_resolve_mode())
+    except Exception as exc:
+        return f"\n  promotion: state unavailable ({type(exc).__name__}) — LIVE entries will be refused"
+
+
 def banner() -> str:
     m = _resolve_mode()
     if m == "LIVE":
         return (
             "\n" + "!" * 60 +
-            "\n  ⚠️  TRADING_MODE = LIVE — REAL ORDERS WILL BE SENT TO DHAN  ⚠️\n" +
+            "\n  ⚠️  TRADING_MODE = LIVE — REAL ORDERS WILL BE SENT TO DHAN  ⚠️" +
+            _promotion_line() + "\n" +
             "!" * 60 + "\n"
         )
     return (
         "\n" + "=" * 60 +
-        "\n  🧻 TRADING_MODE = PAPER — orders are simulated, none sent to broker\n" +
+        "\n  🧻 TRADING_MODE = PAPER — orders are simulated, none sent to broker" +
+        _promotion_line() + "\n" +
         "=" * 60 + "\n"
     )

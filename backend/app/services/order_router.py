@@ -16,6 +16,11 @@ PAPER/LIVE: the broker's place_order is already gated by TRADING_MODE. In PAPER
 mode it returns a synthetic "PAPER-..." id; the router detects that and marks
 the leg filled at its limit price instantly. The exact same code path therefore
 runs in both modes — paper trading exercises the real router.
+
+PROMOTION: a LIVE entry additionally requires the strategy to have passed the
+charter's Section 5 gate (see research/promotion.py). Entries only — exits and
+unwinds are never gated, because a strategy that has lost its promotion still
+has open positions that have to be closed.
 """
 import asyncio
 import datetime
@@ -29,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.core import scrip_master
 from backend.app.db.models import OrderAudit
 from backend.app.services.broker_service import broker_service
+from research import promotion
 from trading_mode import mode as trading_mode
 
 logger = logging.getLogger("OrderRouter")
@@ -253,6 +259,27 @@ class OrderRouter:
             f"🧺 ROUTE BASKET {basket_id[:8]} [{mode_now}] {intent} {strategy_type} on {ticker}: "
             f"{len(ordered)} legs x {lots} lots"
         )
+
+        # ── PROMOTION GATE (charter Section 5) ─────────────────────────────
+        # Opening a position with real money requires a strategy that earned it:
+        # walk-forward criteria passed, then a pre-committed paper sample. The
+        # ladder failed all four criteria and traded anyway, because passing was
+        # something a human was supposed to check. This is where that is checked.
+        #
+        # ENTRIES ONLY. An EXIT or UNWIND is never gated — refusing to close a
+        # position does not protect the account, it traps risk inside it, and a
+        # demoted strategy still has open positions that must be got out of.
+        if str(intent).upper() == "ENTRY":
+            allowed, why = promotion.may_enter(strategy_type, mode=mode_now)
+            if not allowed:
+                logger.error(
+                    f"🚫 Basket {basket_id[:8]}: {strategy_type} is not promoted for "
+                    f"LIVE trading ({why}) — entry refused before any order. "
+                    f"Exits are unaffected. Promote it with: "
+                    f"python -m research.loop promote --help"
+                )
+                return {"status": "FAILED", "basket_id": basket_id,
+                        "reason": f"not_promoted_{why}", "legs": []}
 
         # Resolve ALL legs before placing ANY order — a basket with an
         # unresolvable leg must not start executing.

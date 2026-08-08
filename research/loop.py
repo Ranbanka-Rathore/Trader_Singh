@@ -6,6 +6,13 @@
     python -m research.loop show <id>
     python -m research.loop throughput
 
+and, once something survives, the Section 5 promotion ladder:
+
+    python -m research.loop promote <id> --structure ladder --covers BULL_PUT_SPREAD
+    python -m research.loop check-paper --structure ladder
+    python -m research.loop promote-live --structure ladder
+    python -m research.loop promotions | revoke --structure ... --reason ...
+
 STAGES
 ------
   1. SCREEN         one pass over the window under gate off/strict, judged
@@ -16,8 +23,10 @@ STAGES
   3. VERDICT        killed or survived, written to the kill log with its numbers
                     so nothing is ever silently retested.
 
-Surviving means "candidate for paper trading", never "deploy". Section 5 still
-requires a pre-committed 30-trade paper sample before any real capital.
+Surviving means "candidate for paper trading", never "deploy". A survived verdict
+is the only thing that can open the promotion ladder in research/promotion.py,
+and reaching `live` still needs a pre-committed paper sample on top of it. Until
+then the order router refuses every live entry for that structure.
 
 Run several hypotheses in one invocation when you can: parsing the bhavcopy
 archive dominates the cost (~100ms per session file, ~1s for every backtest
@@ -36,7 +45,7 @@ from typing import Any, Dict, List, Optional
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backtest import walkforward as wf
-from research import charter, registry, screen
+from research import charter, paper_gate, promotion, registry, screen
 from research.stats import daily_series, pearson
 
 # One chain cache for the process, shared by the screen and every walk-forward
@@ -363,6 +372,147 @@ def cmd_show(a) -> int:
     return 0
 
 
+def cmd_promote(a) -> int:
+    """research -> paper. The only door, and it needs a survived verdict."""
+    h = registry.require(a.hypothesis)
+    if h["status"] != "survived":
+        raise promotion.PromotionError(
+            f"'{a.hypothesis}' is {h['status']}, not survived. Section 5 gives no "
+            f"path to paper trading that skips the walk-forward gate — the ladder "
+            f"failed all four criteria and traded anyway, which is what this "
+            f"refusal exists to prevent.")
+    ev = next((e for e in reversed(h.get("events", []))
+               if e["stage"] == "walk_forward"), None)
+    if ev is None:
+        raise promotion.PromotionError(
+            f"'{a.hypothesis}' is marked survived but carries no walk-forward "
+            f"evidence. Re-run it rather than promoting on a status field.")
+
+    covers = [c.strip().upper() for c in a.covers.split(",") if c.strip()]
+    entry = promotion.promote_to_paper(a.structure, a.hypothesis, covers,
+                                       ev["detail"], review_days=a.review_days)
+    m = (ev["detail"].get("oos_metrics") or {})
+    print(f"'{a.structure}' -> stage PAPER on hypothesis {a.hypothesis}")
+    print(f"  evidence: {m.get('n_trades')} OOS trades, PF {m.get('profit_factor')}, "
+          f"Sharpe {m.get('sharpe')}, expectancy Rs {m.get('expectancy'):,}")
+    print(f"  covers: {', '.join(covers)}")
+    print(f"  review by: {entry['review_by']}")
+    print(f"\nLIVE entries remain REFUSED. Section 5 now requires "
+          f"{paper_gate.MIN_PAPER_TRADES} paper trades entered from here on;")
+    print(f"check progress with:  python -m research.loop check-paper "
+          f"--structure {a.structure}")
+    return 0
+
+
+def _sample_for(structure: str, mode: str):
+    """(record, report) for a structure's post-promotion trade sample."""
+    import asyncio
+
+    # Same Windows fix the services carry: psycopg cannot drive a
+    # ProactorEventLoop, which is what asyncio.run picks by default here.
+    if os.name == "nt":
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    rec = promotion.record(structure)
+    if rec is None:
+        raise promotion.PromotionError(
+            f"'{structure}' has no promotion record — nothing to sample against.")
+    since = datetime.datetime.fromisoformat(rec["promoted_at"])
+    try:
+        trades = asyncio.run(paper_gate.load_trades(rec.get("covers") or [], since,
+                                                    mode=mode))
+    except Exception as exc:
+        # A ledger that cannot be read is not a sample that passed. Say so as a
+        # refusal rather than a stack trace: this command is part of the path to
+        # real money, and "it errored" must never be mistaken for "it cleared".
+        raise promotion.PromotionError(
+            f"cannot read the {mode} ledger, so the sample cannot be judged: "
+            f"{type(exc).__name__}: {str(exc).splitlines()[0][:160]}\n"
+            f"Nothing was promoted or revoked. Fix the database and re-run.")
+    return rec, paper_gate.evaluate(trades, paper_gate.modelled_from(rec))
+
+
+def cmd_check_paper(a) -> int:
+    """Judge the sample; on a live strategy, enforce A3's shutdown rule."""
+    rec, rep = _sample_for(a.structure, mode=a.mode)
+    print(f"\n  {a.mode} SAMPLE for '{a.structure}' since {rec['promoted_at'][:10]} "
+          f"(stage '{rec.get('stage')}')")
+    print(f"    {rep['n_trades']} trades  net Rs {rep['total_pnl']:+,.0f}  "
+          f"expectancy Rs {rep['expectancy']:+,.0f}  PF {rep['profit_factor']}  "
+          f"max DD Rs {rep['max_drawdown']:,.0f}")
+    print()
+    print_checks(rep["checks"])
+
+    breached = any(c["check"] == "drawdown_within_model" and not c["passed"]
+                   for c in rep["checks"])
+    if breached and rec.get("stage") == promotion.LIVE and not a.dry_run:
+        # Amendment A3, pre-committed: a breach of the modelled p99 stops the
+        # system. Enforcing it here rather than asking is the point — the whole
+        # value of the rule is that it was agreed before it hurt.
+        promotion.revoke(a.structure,
+                         f"realised drawdown Rs {rep['max_drawdown']:,.0f} breached "
+                         f"modelled p99 Rs {rep['modelled_dd_p99']:,.0f}")
+        print(f"\n  REVOKED '{a.structure}': drawdown model falsified. LIVE entries "
+              f"stop now; open positions are unaffected and still manageable.")
+        return 1
+
+    if rep["verdict"] == "pass":
+        print(f"\n  Sample PASSES. Promote with:  python -m research.loop "
+              f"promote-live --structure {a.structure}")
+    else:
+        print(f"\n  Sample not yet clear: {', '.join(rep['failed'])}")
+    return 0
+
+
+def cmd_promote_live(a) -> int:
+    """paper -> live. Real money from here."""
+    rec, rep = _sample_for(a.structure, mode="PAPER")
+    print_checks(rep["checks"])
+    if rep["verdict"] != "pass":
+        raise promotion.PromotionError(
+            f"the paper sample does not clear: {', '.join(rep['failed'])}. "
+            f"Section 5 requires it independently of the backtest.")
+    entry = promotion.promote_to_live(a.structure, rep)
+    mult = rep["suggested_size_multiplier"]
+    print(f"\n  '{a.structure}' -> stage LIVE. Real orders are now permitted for "
+          f"{', '.join(entry['covers'])}.")
+    print(f"  Modelled p99 drawdown Rs {rep['modelled_dd_p99']:,.0f} against a "
+          f"Rs {charter.DRAWDOWN_BUDGET_RS:,.0f} budget"
+          + (f" — start at {mult:.2f}x size." if mult < 1.0 else "."))
+    print(f"  Amendment A3: start at Rs 20-30k of risk and escalate on realised "
+          f"milestones, not on confidence.")
+    print(f"  Re-run check-paper --mode LIVE regularly; a p99 breach revokes this.")
+    return 0
+
+
+def cmd_promotions(a) -> int:
+    recs = promotion.all_records()
+    if not recs:
+        print("nothing promoted. Every structure is at stage 'research' — "
+              "LIVE entries are refused for all of them.")
+        return 0
+    print(f"{'structure':<14}{'stage':<10}{'hypothesis':<26}{'review by':<13}covers")
+    print("-" * 96)
+    for p in recs:
+        flag = " (REVOKED)" if p.get("revoked") else ""
+        print(f"{p['structure']:<14}{p.get('stage', '?') + flag:<10}"
+              f"{str(p.get('hypothesis_id')):<26}{str(p.get('review_by')):<13}"
+              f"{', '.join(p.get('covers') or [])}")
+    print(f"\nactive structure right now: '{promotion.active_structure()}' "
+          f"at stage '{promotion.stage(promotion.active_structure())}'")
+    return 0
+
+
+def cmd_revoke(a) -> int:
+    promotion.revoke(a.structure, a.reason)
+    print(f"'{a.structure}' revoked: {a.reason}")
+    print("LIVE entries stop immediately. Open positions still exit normally.")
+    return 0
+
+
 def cmd_throughput(a) -> int:
     tp = registry.throughput()
     if not tp["registered"]:
@@ -426,10 +576,44 @@ def main(argv=None) -> int:
 
     sub.add_parser("throughput", help="hypotheses closed per week").set_defaults(fn=cmd_throughput)
 
+    # ── the promotion gate (charter Section 5) ───────────────────────────────
+    p = sub.add_parser("promote", help="research -> paper, from a survived hypothesis")
+    p.add_argument("hypothesis")
+    p.add_argument("--structure", required=True,
+                   help="live structure this licenses, e.g. 'ladder' or 'sniper'")
+    p.add_argument("--covers", required=True,
+                   help="comma-separated strategy types the evidence covers, "
+                        "e.g. BULL_PUT_SPREAD,BEAR_CALL_SPREAD")
+    p.add_argument("--review-days", type=int, default=promotion.DEFAULT_REVIEW_DAYS,
+                   help="how long the promotion stands before it must be re-earned")
+    p.set_defaults(fn=cmd_promote)
+
+    c = sub.add_parser("check-paper",
+                       help="judge the post-promotion sample; enforces the A3 "
+                            "drawdown shutdown on a live strategy")
+    c.add_argument("--structure", required=True)
+    c.add_argument("--mode", default="PAPER", choices=("PAPER", "LIVE"))
+    c.add_argument("--dry-run", action="store_true",
+                   help="report only; do not revoke on a drawdown breach")
+    c.set_defaults(fn=cmd_check_paper)
+
+    pl = sub.add_parser("promote-live", help="paper -> live. Real money from here.")
+    pl.add_argument("--structure", required=True)
+    pl.set_defaults(fn=cmd_promote_live)
+
+    sub.add_parser("promotions", help="what is licensed to trade, and at what stage"
+                   ).set_defaults(fn=cmd_promotions)
+
+    rv = sub.add_parser("revoke", help="stop a structure trading live")
+    rv.add_argument("--structure", required=True)
+    rv.add_argument("--reason", required=True)
+    rv.set_defaults(fn=cmd_revoke)
+
     a = ap.parse_args(argv)
     try:
         return a.fn(a)
-    except (registry.RegistryError, screen.ScreenError) as exc:
+    except (registry.RegistryError, screen.ScreenError,
+            promotion.PromotionError) as exc:
         print(f"REFUSED: {exc}")
         return 2
 
