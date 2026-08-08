@@ -153,17 +153,18 @@ def test_untraded_day_does_not_fake_a_return():
 def test_engine_registry():
     print("\n[5] The loop can only run engines that exist")
     names = engines.available()
-    check(f"all three arenas are registered ({names})",
-          {"real_backtester", "futures_trend", "cross_sectional"} <= set(names))
+    check(f"all four arenas are registered ({names})",
+          {"real_backtester", "futures_trend", "cross_sectional",
+           "event_vol"} <= set(names))
     for n in names:
         e = engines.get(n)
         for method in ("build", "with_params", "grid", "run", "stress", "warmup_days"):
             check(f"{n}.{method} exists", hasattr(e, method))
     try:
-        engines.get("event_vol")
-        check("an unbuilt arena raises", False)
+        engines.get("crypto_perps")
+        check("an engine that does not exist raises", False)
     except KeyError as exc:
-        check(f"an unbuilt arena raises by name ({str(exc)[:34]}...)",
+        check(f"an engine that does not exist raises by name ({str(exc)[:34]}...)",
               "unknown engine" in str(exc))
 
 
@@ -445,9 +446,9 @@ def test_cli_engine_guards():
         check(f"an arena/engine mismatch is refused (rc={rc})", rc == 2)
 
         rc = loop.main(["register", "--id", "t4", "--arena", "event_vol",
-                        "--engine", "event_vol", "--era", "modern",
+                        "--engine", "crypto_perps", "--era", "modern",
                         "--claim", "x", "--kill", "y"])
-        check(f"the unbuilt arena cannot be registered at all (rc={rc})", rc == 2)
+        check(f"an arena with no engine cannot be registered (rc={rc})", rc == 2)
 
         rc = loop.main(["register", "--id", "t5", "--arena", "cross_sectional",
                         "--engine", "cross_sectional", "--era", "modern",

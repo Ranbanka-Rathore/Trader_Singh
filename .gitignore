@@ -23,6 +23,9 @@ heartbeat.txt
 api-scrip-master.csv
 *.csv.gz
 data/bhavcopy/
+# NSE board-meeting intimations, ~100MB of JSON, re-fetchable with
+# backtest.events.download_range
+data/events/
 
 # --- Runtime state / control files ---
 PANIC_BUTTON.txt

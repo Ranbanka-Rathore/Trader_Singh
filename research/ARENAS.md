@@ -22,6 +22,7 @@ configuration**, all under `gate=strict`, none registered:
 | futures trend (index) | 2023-01-01 → 2026-08-06 | 79 trades, −Rs 5,14,508, PF 0.48, Sharpe −1.12 |
 | futures trend, walk-forward | same | 37 OOS trades, −Rs 6,09,908, PF 0.049, Sharpe −2.39; fails 7 of the acceptance criteria |
 | cross-sectional (12-1 momentum) | 2022-01-01 → 2026-08-06 | 294 trades, −Rs 4,30,672, PF 0.93, Sharpe −0.26, capacity fill 68% |
+| event vol (earnings short straddle) | 2024-01-01 → 2026-08-08 | 32 trades from 251 events, −Rs 30,115, PF 0.65, capacity fill 12.7% |
 
 These were validation runs, not screens, and they were not cherry-picked — both
 arenas lost badly on the first configuration tried, which is why there is no
@@ -39,6 +40,17 @@ The cross-sectional run above also used a leverage default that was afterwards
 judged infeasible (4x gross, producing a drawdown larger than the account) and
 lowered to 2x. That change was made on risk grounds, before any registration, and
 is disclosed here rather than left to look like tuning.
+
+**A gate bug found on 2026-08-08 affects the three hypotheses already closed.**
+`txns` is NaN — not zero — for every row before 2024, because the legacy NSE
+schema has no trade-count column, and `float('nan') < 5.0` is False in Python. So
+the `strict` gate's numeric floors were never enforced on pre-2024 data; they
+silently passed. `cal-cheapvol-modern`, `xsect-mom-modern` and
+`trend-donchian-modern` all ran 2023-01-01 → 2026-08-08, so their 2023 portion
+was screened by a looser gate than the report claimed. The fix makes the gate
+STRICTER, so all three kills stand a fortiori — a stricter fill rule cannot
+rescue a strategy that already failed. The numbers in those reports are still
+what was run, and are kept as such.
 
 ---
 
@@ -100,43 +112,50 @@ checked and filled at the close, so a gap through the level books the whole gap.
 
 ---
 
-## Arena 4 — event-driven volatility — **BLOCKED, not built**
+## Arena 4 — event-driven volatility — **OPEN (earnings half)**
 
-No engine. Not because it is hard, but because the data to do it honestly does
-not exist in this project, and building it on what *is* here would manufacture
-exactly the kind of false positive Section 6 exists to reject.
+**Engine:** `research/engines/eventvol.py` on `backtest/events.py`.
+Sell the ATM straddle a few days before an earnings meeting, buy it back the day
+after, on the nearest expiry that survives the event. Wings are bought by default
+so the maximum loss is computable — a naked short straddle over an earnings gap
+has unbounded risk and is inadmissible against a Rs 1,00,000 budget.
 
-**What exists:** `backend/app/core/regime_filters.py` carries 47 macro event
-dates — FOMC, RBI MPC, budget — spanning **2024-01-31 to 2026-12-09**, with the
-module's own caveat that they are "best-effort schedules compiled 2026-07" and
-that "RBI MPC dates especially shift".
+**The data problem is solved.** NSE publishes every listed company's
+board-meeting intimation, and a meeting called to approve financial results IS
+the earnings date. `backtest/events.py` harvests it:
 
-**Why that is not enough:**
-1. **2.5 years of coverage** against a 10.5-year archive, all inside the modern
-   liquidity era, so results could not be reported per era as Amendment B3
-   requires.
-2. **47 events** total. Section 3's detection rule needs an effect visible in
-   ~30 observations; a calendar this thin gives at most one usable sample and no
-   out-of-sample fold.
-3. **Hand-compiled and unverified.** A shifted RBI date silently mislabels the
-   event window, and the resulting "edge" would be a data-entry artefact. This is
-   the same class of error as the settlement-price fills.
-4. **No earnings dates at all**, so the single-stock half of the arena — the part
-   with enough events to be statistically tractable — cannot be touched.
+- **80,185 earnings events, 2,745 symbols, 2016-2026**, 6,000-9,000 a year
+- quality report passes with zero hard and zero soft faults, no empty quarters
+- median advance notice 7-11 days in every year (p05 of 3-7 days)
 
-**To unblock it, in order:**
-- Harvest NSE corporate announcements (board-meeting and results dates per
-  symbol) back to 2016. Same shape of job as `backtest/bhavcopy.py`: a dated
-  archive on disk, cached, with a quality report.
-- Harvest RBI MPC dates from the RBI press-release archive, and budget dates,
-  back to 2016 — both are published and datable, unlike the current hand list.
-- Run `backtest/data_quality.py`-style checks over the result: no missing
-  quarters, every date attributable to a source document.
-- Only then write the engine.
+That replaces the 47 hand-compiled macro dates that blocked this arena. It also
+covers the half that matters: single-stock earnings is where the events are
+numerous enough to be statistically tractable.
 
-Estimated effort is comparable to Phase 1's archive work. Until it is done, this
-arena stays closed, and the honest position is that the survey covers three
-arenas, not four.
+**Three vocabulary eras, and matching one loses years in silence** — the same
+trap the bhavcopy loader hit twice:
+
+| era | `bm_purpose` |
+|---|---|
+| 2016-2017 | `Results`, `Results/Dividend`, `Results/Others` |
+| 2018-2024 | `Financial Results/...`, capitalisation varies |
+| 2025- | often the generic `Board Meeting Intimation`, real subject in `bm_desc` |
+
+Matching `"financial result"` against `bm_purpose` alone found **zero** events
+before 2018 and dropped **18,600** rows in 2025-26. The quality report's
+empty-quarter check is what caught it.
+
+**The lookahead guard is the whole game here.** An earnings strategy that may
+consult the calendar as of today is trivially profitable and worthless. Every
+intimation carries both the meeting date and `bm_timestamp` — when the company
+told the exchange — and `events_known_by()` is the only sanctioned way to ask
+what was visible on a given day. The engine also enforces `min_notice_days`.
+
+**Still not covered: the macro half.** RBI MPC, FOMC and budget dates remain the
+47 hand-compiled entries in `regime_filters.py`, spanning 2024-2026 only. Those
+are ~8 events a year — thin enough that Section 3's detection rule bites — and
+would need harvesting from the RBI press-release archive before they could carry
+a hypothesis. The arena is open on earnings; it is not open on macro.
 
 ---
 
@@ -198,6 +217,28 @@ python -m research.loop register --id trend-donchian-modern \
 
 *Registered knowing the answer, so that the arena's history is on the record and
 the budget is charged. It must not be counted as a prediction that was tested.*
+
+### A4 — earnings volatility
+
+```
+python -m research.loop register --id evol-earnings-modern \
+  --arena event_vol --engine event_vol --era modern --gate strict \
+  --configs 1 \
+  --require capacity_fill_rate_pct>=25 \
+  --require max_drawdown<=100000 \
+  --claim "Selling the ATM straddle into single-stock earnings and covering the day after has positive per-trade expectancy in the modern era under a real fill rule." \
+  --kill "Screen t below the Section 4 bar, any Section 6 check fails, fewer than a quarter of known events tradeable, or a drawdown past the Rs 1,00,000 budget."
+```
+
+*Engine validation on 2024-01-01 to 2026-08-08 with a 25-name universe produced
+32 trades from 251 events (12.7% fill) at PF 0.65 — the constraint was capacity,
+with 164 events dropped because one lot of a four-leg stock butterfly exceeds
+the risk cap. As with arenas 2 and 3, that default configuration is now known
+and cannot be re-registered as a discovery; see the disclosure at the top.*
+
+**Gate choice matters for pre-2024 windows.** The legacy NSE schema has no trade
+count, so `strict` cannot be evaluated there and refuses everything as
+`txns_unknown`. Use `--gate strict_legacy` on an `early` or `ramp` window.
 
 ### Arenas still worth a first look
 

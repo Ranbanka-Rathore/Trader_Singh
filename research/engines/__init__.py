@@ -53,7 +53,7 @@ def available() -> List[str]:
 
 
 def _load_builtins() -> None:
-    from research.engines import options, trend, xsection  # noqa: F401
+    from research.engines import eventvol, options, trend, xsection  # noqa: F401
 
 
 def coerce_field(cls, name: str, raw: Any) -> Any:
