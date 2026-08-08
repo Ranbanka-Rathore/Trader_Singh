@@ -1,0 +1,153 @@
+{
+ "hypothesis": {
+  "id": "evol-earnings-modern",
+  "arena": "event_vol",
+  "claim": "Selling the ATM straddle into single-stock earnings and covering the day after has positive per-trade expectancy in the modern era under a real fill rule.",
+  "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than a quarter of known events tradeable, or a drawdown past the Rs 1,00,000 budget.",
+  "engine": "event_vol",
+  "underlying": "NIFTY",
+  "equity": 1500000.0,
+  "era": "modern",
+  "window": [
+   "2023-01-01",
+   "2026-08-08"
+  ],
+  "gate": "strict",
+  "n_configs": 1,
+  "config": {},
+  "sweep": null,
+  "requires": [
+   "capacity_fill_rate_pct>=25",
+   "max_drawdown<=100000"
+  ],
+  "supersedes": null,
+  "note": "",
+  "registered_at": "2026-08-08T19:59:49",
+  "status": "registered",
+  "events": [],
+  "fingerprint": "sha256:1bfcee93264fd13b9b2a6a0fbc5d089e"
+ },
+ "screen": {
+  "stage": "screen",
+  "gate": "strict",
+  "engine": "event_vol",
+  "window": [
+   "2023-01-01",
+   "2026-08-08"
+  ],
+  "trading_days": 885,
+  "effective_configs": 1,
+  "noise_threshold": 1.177,
+  "requires": [
+   "capacity_fill_rate_pct>=25",
+   "max_drawdown<=100000"
+  ],
+  "gates": {
+   "off": {
+    "n_trades": 243,
+    "net_pnl": 323704.06,
+    "expectancy": 1332.12,
+    "profit_factor": 1.23,
+    "win_rate": 0.416,
+    "sharpe": 0.21,
+    "max_drawdown": 729695.28,
+    "t": 0.397,
+    "fill_pass_rate_pct": 100.0,
+    "top_skip": "one_lot_exceeds_risk_cap",
+    "extras": {
+     "events_considered": 885,
+     "events_traded": 243,
+     "dropped_no_notice": 45,
+     "dropped_unfillable": 590,
+     "capacity_fill_rate_pct": 27.5,
+     "symbols_traded": 57
+    }
+   },
+   "strict": {
+    "n_trades": 58,
+    "net_pnl": -85363.38,
+    "expectancy": -1471.78,
+    "profit_factor": 0.48,
+    "win_rate": 0.431,
+    "sharpe": -1.36,
+    "max_drawdown": 91688.25,
+    "t": -2.153,
+    "fill_pass_rate_pct": 86.5,
+    "top_skip": "one_lot_exceeds_risk_cap",
+    "extras": {
+     "events_considered": 885,
+     "events_traded": 58,
+     "dropped_no_notice": 45,
+     "dropped_unfillable": 782,
+     "capacity_fill_rate_pct": 6.6,
+     "symbols_traded": 34
+    }
+   }
+  },
+  "by_era": {
+   "modern": {
+    "n_trades": 58,
+    "net_pnl": -85363.38,
+    "expectancy": -1471.78,
+    "win_rate": 0.431,
+    "profit_factor": 0.48,
+    "t": -2.153
+   }
+  },
+  "eras_spanned": [
+   "modern"
+  ],
+  "sweep": null,
+  "checks": [
+   {
+    "check": "has_trades",
+    "passed": true,
+    "detail": "58 trades under gate 'strict'"
+   },
+   {
+    "check": "enough_trades",
+    "passed": true,
+    "detail": "58 trades vs minimum 20 (charter 6.4)"
+   },
+   {
+    "check": "plausible_profit_factor",
+    "passed": true,
+    "detail": "PF 0.48 on 58 trades"
+   },
+   {
+    "check": "fill_model_stable",
+    "passed": false,
+    "detail": "expectancy sign flips: +1,332 -> -1,472"
+   },
+   {
+    "check": "clears_noise_threshold",
+    "passed": false,
+    "detail": "t = -2.153 vs threshold 1.18 for 1 configuration(s)"
+   },
+   {
+    "check": "require_capacity_fill_rate_pct_ge_25",
+    "passed": false,
+    "detail": "capacity_fill_rate_pct = 6.6, required >=25 (declared at registration)"
+   },
+   {
+    "check": "require_max_drawdown_le_100000",
+    "passed": true,
+    "detail": "max_drawdown = 91,688, required <=100,000 (declared at registration)"
+   }
+  ],
+  "verdict": "kill",
+  "failed": [
+   "fill_model_stable",
+   "clears_noise_threshold",
+   "require_capacity_fill_rate_pct_ge_25"
+  ],
+  "top_skip_reasons": {
+   "one_lot_exceeds_risk_cap": 398,
+   "entry_leg0_txns_unknown": 222,
+   "entry_leg3_settle_only": 60,
+   "notice_too_short": 42,
+   "entry_leg2_settle_only": 35
+  }
+ },
+ "generated": "2026-08-08T20:02:29"
+}
