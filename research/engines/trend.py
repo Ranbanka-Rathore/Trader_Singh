@@ -261,6 +261,9 @@ class TrendEngine:
             "summary": engines.summarise(trades, cfg.equity0, {
                 "symbols_traded": len({t["symbol"] for t in trades}),
                 "open_at_end": len(open_pos),
+                # see xsection for why panel health is reported, not just used
+                "panel_symbols": len(panel.series),
+                "panel_missing_lot": panel.missing_lot,
             }),
             "skip_reasons": dict(sorted(skips.items(), key=lambda kv: -kv[1])),
             "liquidity_gate": {

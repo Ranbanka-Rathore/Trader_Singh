@@ -465,6 +465,7 @@ def test_report_printing():
                 "top_skip": "vrp_thin"}
 
     base = {"trading_days": 400, "window": ["2023-01-01", "2024-12-31"],
+            "gate": "strict", "engine": "real_backtester",
             "gates": {"off": m(), "strict": m()}, "by_era": {},
             "eras_spanned": ["modern"], "sweep": None,
             "checks": [{"check": "has_trades", "passed": True, "detail": "30 trades"}],

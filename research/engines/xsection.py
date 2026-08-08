@@ -220,6 +220,11 @@ class XSectionEngine:
                 "positions_taken": taken_total,
                 "capacity_fill_rate_pct": round(fill_rate, 1),
                 "symbols_traded": len({t["symbol"] for t in trades}),
+                # panel health belongs in the report too: a run whose universe
+                # silently shrank because lots went missing looks exactly like a
+                # strategy that found nothing to trade
+                "panel_symbols": len(panel.series),
+                "panel_missing_lot": panel.missing_lot,
             }),
             "skip_reasons": dict(sorted(skips.items(), key=lambda kv: -kv[1])),
             "liquidity_gate": {

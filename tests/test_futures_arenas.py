@@ -342,8 +342,76 @@ def test_xsection_liquidity_screen():
           not any(int(s[1:]) % 2 for s in traded))
 
 
+def test_engine_extras_reach_the_report():
+    print("\n[12] What an arena measures about itself reaches the screen report")
+    import contextlib
+    import io
+
+    from research import loop, screen
+
+    dates = _weekdays(datetime.date(2023, 1, 2), 400)
+    days = {}
+    for i, d in enumerate(dates):
+        e = _monthly_expiry(d)
+        days[d] = {f"S{k:02d}": {e: _bar(d, f"S{k:02d}", e,
+                                         100.0 * (1.0 + (k - 6) * 0.0006) ** i,
+                                         volume=100000.0, lot=500)}
+                   for k in range(12)}
+    eng = engines.get("cross_sectional")
+    h = {"equity": 1_500_000.0, "gate": "strict", "engine": "cross_sectional",
+         "config": {"mom_lookback": 120, "adv_lookback": 10, "min_adv_rs": 0.0,
+                    "n_per_side": 4, "rebalance_days": 30}}
+    res = eng.run(eng.build(h), dates, provider=_loader(days))
+
+    check("summarise collects the engine's own numbers under one key",
+          "engine_extras" in res["summary"])
+    check("...and they are still readable flat, as engine code expects",
+          res["summary"]["capacity_fill_rate_pct"]
+          == res["summary"]["engine_extras"]["capacity_fill_rate_pct"])
+
+    m = screen.metrics(res)
+    check("the screen carries them into its metrics",
+          m["extras"].get("capacity_fill_rate_pct") is not None)
+    check("...including the capacity numbers a kill criterion can name",
+          {"positions_wanted", "positions_taken", "capacity_fill_rate_pct"}
+          <= set(m["extras"]))
+    check("...and panel health, so a shrunken universe is visible",
+          {"panel_symbols", "panel_missing_lot"} <= set(m["extras"]))
+
+    # the option arena has no scalar extras; it must not break on their absence
+    opt = {"n_trades": 3, "total_net_pnl": 10.0, "profit_factor": 1.1,
+           "win_rate": 0.5, "sharpe_annualized": 0.4, "max_drawdown": 5.0}
+    bare = screen.metrics({"summary": opt, "trades": [],
+                           "liquidity_gate": {"pass_rate_pct": 99.0},
+                           "skip_reasons": {}})
+    check("an engine with no extras yields an empty dict, not a crash",
+          bare["extras"] == {})
+
+    # and the renderer prints them
+    rep = {"trading_days": 400, "window": ["2023-01-01", "2024-12-31"],
+           "gate": "strict", "engine": "cross_sectional",
+           "gates": {"off": m, "strict": m}, "by_era": {},
+           "eras_spanned": ["modern"], "sweep": None,
+           "checks": [{"check": "has_trades", "passed": True, "detail": "ok"}],
+           "top_skip_reasons": {}, "noise_threshold": 1.18,
+           "effective_configs": 1, "verdict": "kill", "failed": []}
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        loop.print_screen(rep)
+    out = buf.getvalue()
+    check("the report prints the capacity fill rate", "capacity_fill_rate_pct" in out)
+    check("...labelled with the engine that measured it", "cross_sectional" in out)
+
+    rep_bare = dict(rep, gates={"off": bare, "strict": bare})
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        loop.print_screen(rep_bare)
+    check("an arena with nothing extra prints no empty section",
+          "measured about itself" not in buf.getvalue())
+
+
 def test_cli_engine_guards():
-    print("\n[12] Registration validates the engine, not just the words")
+    print("\n[13] Registration validates the engine, not just the words")
     import shutil
     import tempfile
     from research import loop, registry
@@ -404,6 +472,7 @@ if __name__ == "__main__":
     test_trend_refuses_unaffordable_lot()
     test_xsection_capacity()
     test_xsection_liquidity_screen()
+    test_engine_extras_reach_the_report()
     test_cli_engine_guards()
     print(f"\n{'=' * 50}\nRESULT: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

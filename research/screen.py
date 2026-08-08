@@ -112,6 +112,10 @@ def metrics(res: Dict[str, Any]) -> Dict[str, Any]:
         "t": round(t, 3) if t is not None else None,
         "fill_pass_rate_pct": res["liquidity_gate"]["pass_rate_pct"],
         "top_skip": next(iter(res["skip_reasons"]), "-"),
+        # Whatever the arena measures about itself — capacity fill, rebalance
+        # count, panel health. Carried through so a kill criterion phrased in
+        # those terms can be checked against the report instead of recomputed.
+        "extras": dict(s.get("engine_extras") or {}),
     }
 
 
@@ -280,6 +284,7 @@ def screen(h: Dict[str, Any], dates: List[datetime.date],
     return {
         "stage": "screen",
         "gate": gate,
+        "engine": h.get("engine") or "real_backtester",
         "window": h["window"],
         "trading_days": len(dates),
         "effective_configs": n_cfg,

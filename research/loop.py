@@ -194,6 +194,14 @@ def print_screen(rep: Dict[str, Any]):
               f"{m['expectancy']:>12,.0f}{m['profit_factor']:>8.2f}{t:>8}"
               f"{m['fill_pass_rate_pct']:>8.1f}")
 
+    primary = rep.get("gate") or next(iter(rep["gates"]), None)
+    extras = (rep["gates"].get(primary, {}) or {}).get("extras") or {}
+    if extras:
+        print(f"\n    what the {rep.get('engine', 'engine')} measured about itself:")
+        for k, v in extras.items():
+            shown = f"{v:,}" if isinstance(v, (int, float)) else str(v)
+            print(f"      {k:<28} {shown}")
+
     if len(rep["eras_spanned"]) > 1:
         print(f"\n    per era (window spans {', '.join(rep['eras_spanned'])} — "
               f"pooled numbers above average over different markets):")

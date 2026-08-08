@@ -150,5 +150,14 @@ def summarise(trades: List[Dict[str, Any]], equity0: float,
         "avg_days_held": (round(sum(float(t.get("days_held", 0)) for t in trades) / n, 1)
                           if n else 0.0),
     }
+    # Engine-specific numbers are kept BOTH flat (so engine code reads them
+    # naturally) and collected under one key, so the screen can carry them into
+    # its report without having to know what any particular arena measures.
+    #
+    # This exists because a kill criterion once named a capacity threshold that
+    # no report contained: the number had to be recomputed by hand to check the
+    # verdict. A criterion nobody can see is a criterion that quietly stops
+    # being applied.
     out.update(extra or {})
+    out["engine_extras"] = dict(extra or {})
     return out
