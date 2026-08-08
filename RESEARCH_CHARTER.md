@@ -299,6 +299,74 @@ unchanged: do not chase effects too small to matter or too small to see.
 
 ---
 
+## Amendment B — operationalising Sections 4, 6 and 8 for the research loop
+
+**2026-08-08, BEFORE any hypothesis was registered or run.** Legitimate for
+exactly that reason: no result exists yet that any of these numbers could have
+been chosen to accommodate. Changes no threshold — it fixes the meaning of rules
+that were written qualitatively, so that `research/` can enforce them.
+
+**Reason.** Sections 6.6 and 6.7 say "moves materially" and "a broad plateau".
+Those cannot be checked by a program, and deciding what they mean *after* seeing
+a screen result is precisely the failure Section 4 exists to prevent. So they are
+fixed now, in advance, in `research/charter.py`.
+
+### B1. "P&L moves materially between gate off and strict" (Section 6.6)
+
+Judged on **per-trade edge, not total P&L**. A strict gate removes trades that
+could not have happened, so totals *should* fall — condemning a strategy for that
+would be condemning it for the gate working. What indicts a backtest is the
+per-trade edge changing, because that means the fill model produced the number.
+
+Material if **any** of:
+- the sign of expectancy per trade flips between `off` and `strict`;
+- expectancy per trade moves by more than **50%** in relative terms;
+- profit factor crosses **1.25** (the Section 5 promotion bar) in either direction.
+
+*The ladder fails on the first clause: +Rs 2,359/trade under `off`, negative under
+`strict`.*
+
+### B2. "A broad plateau of adjacent parameters" (Section 6.7)
+
+Applies only to a hypothesis that registers a sweep. The best cell on the swept
+axis must have **at least 1 immediately adjacent cell with positive expectancy**.
+Deliberately generous: it only has to catch the isolated spike, which is the
+pattern that produced the 35–45 DTE false positive.
+
+### B3. Liquidity eras (reporting requirement)
+
+The share of NIFTY option legs that actually trade rises ~6× across the archive
+(measured 2026-08-08, three sessions sampled per year): 2016 10.2%, 2019 9.8%,
+2020 14.8%, 2021 29.0%, 2022 38.6%, 2023 51.7%, 2026 63.5%. A result pooled
+across that break is an average over three different markets.
+
+Eras, drawn where the slope changes:
+
+| era | window | legs tradeable |
+|---|---|---|
+| `early` | 2016-01-01 – 2019-12-31 | ~10% |
+| `ramp` | 2020-01-01 – 2022-12-31 | 15–39% |
+| `modern` | 2023-01-01 – | 52–64% |
+
+**Every result is reported per era.** `modern` is the default test window: it is
+the only regime resembling the market a strategy would actually be traded in.
+
+### B4. The multiple-comparisons budget compounds across retries
+
+Section 7 says re-testing a variant "counts against the multiple-comparisons
+budget in Section 4". Made mechanical: a hypothesis registered with
+`--supersedes` inherits the sum of its ancestors' declared configuration counts,
+so the `sqrt(2 ln N)` bar rises with every retry of a dead idea. The fourth
+variant is the fourth draw from the same urn and is priced as one.
+
+### B5. Screens cannot promote
+
+Stage 1 may return only *kill* or *advance*. Nothing reaches a positive verdict
+without the Section 5 walk-forward. This is structural, not procedural: there is
+no code path from a screen to "survived".
+
+---
+
 ## Amendment Log
 
 *(append-only; date + reason + what changed. An amendment made after seeing a
@@ -310,3 +378,10 @@ result it would change invalidates that result.)*
   operator supplied real drawdown tolerance of Rs 1,00,000. Supersedes Sections 2
   and 3; Sections 5-7 unchanged. **Made before any search was run — no result
   informed it.**
+- 2026-08-08 — **Amendment B** added. Reason: Sections 6.6 and 6.7 were written
+  qualitatively and cannot be enforced by a program; fixing their meaning after
+  seeing a screen result would be the exact failure Section 4 guards against.
+  Defines materiality, the plateau rule, the liquidity eras, the compounding
+  multiple-comparisons budget, and that screens cannot promote. Changes no
+  threshold. **Made before any hypothesis was registered — no result informed
+  it.**
