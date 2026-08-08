@@ -151,11 +151,48 @@ intimation carries both the meeting date and `bm_timestamp` — when the company
 told the exchange — and `events_known_by()` is the only sanctioned way to ask
 what was visible on a given day. The engine also enforces `min_notice_days`.
 
-**Still not covered: the macro half.** RBI MPC, FOMC and budget dates remain the
-47 hand-compiled entries in `regime_filters.py`, spanning 2024-2026 only. Those
-are ~8 events a year — thin enough that Section 3's detection rule bites — and
-would need harvesting from the RBI press-release archive before they could carry
-a hypothesis. The arena is open on earnings; it is not open on macro.
+### The macro half — attempted 2026-08-08, STILL BLOCKED
+
+`backtest/macro_events.py` now exists and does the useful part: harvesting,
+per-source provenance, declared coverage, and a cadence quality report. What it
+does not do is produce a calendar good enough to research on, and it says so
+rather than shipping one.
+
+| source | provenance | coverage | usable? |
+|---|---|---|---|
+| `fomc` | harvested from federalreserve.gov | 2016-01 – 2026-12 | **no** — fails its own cadence check |
+| `rbi` | manual, from `regime_filters` | 2024-02 – 2026-12 | only inside that window |
+| `budget` | manual, from `regime_filters` | 2024-02 – 2026-02 | only inside that window |
+
+**FOMC is 8-for-11 years and the quality report hard-faults.** 2017, 2018 and
+2023 come back two meetings short, and those two are always the ones straddling a
+month boundary — "January 31–February 1", "October 31–November 1". The string
+"January" appears *twice* in the whole of `fomchistorical2017.htm`, so the
+meeting is not in the document to parse: a source problem, not a regex problem.
+2019 separately returns nine against a known eight, so the parser over-matches
+too. The right response to 8-for-11 is not to tune the parser until the counts
+match a number already known — that is fitting to a target. The check stays
+failing.
+
+**RBI cannot be harvested at all.** Its press-release archive is ASP.NET
+postback-driven: query parameters are ignored and the year dropdown is server
+state, so there is no stable URL. The alternatives were a postback-simulating
+scraper that breaks silently, or typing ~75 meeting dates from memory — the
+second being exactly the unverified input Section 6 rejects, where being one day
+wrong on a policy date manufactures an edge out of a typo.
+
+**What was gained anyway:** `require_coverage()` means an under-covered source
+now raises at load time instead of returning an empty list. That matters more
+than it sounds — a short calendar produces no trades, and no trades is
+indistinguishable from a strategy that does not work, which is how 47 hand-typed
+dates sat in the codebase looking like a feature.
+
+**To finish it**, in order: a source for RBI MPC dates that is not the website —
+the RBI Bulletin PDFs or an official data release — then the same for Union
+Budget dates, then a second FOMC source to cross-check the three short years
+against. Until then, a macro hypothesis is registrable only inside 2024-02 to
+2026-02, which is roughly 40 events across all three sources in one liquidity
+era: enough to look, not enough to conclude.
 
 ---
 
