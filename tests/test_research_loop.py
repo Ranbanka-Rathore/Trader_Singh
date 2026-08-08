@@ -446,8 +446,47 @@ def test_screen_end_to_end():
     check("no screen verdict is ever 'survived'", rep["verdict"] != "survived")
 
 
+def test_ab_compares_against_the_registered_gate():
+    print("\n[16] The fill-model A/B compares 'off' with the gate that was registered")
+    from tests.test_futures_arenas import _bar, _loader, _monthly_expiry, _weekdays
+
+    dates = _weekdays(datetime.date(2023, 1, 2), 300)
+    days = {}
+    for i, d in enumerate(dates):
+        e = _monthly_expiry(d)
+        days[d] = {f"S{k:02d}": {e: _bar(d, f"S{k:02d}", e,
+                                         100.0 * (1.0 + (k - 3) * 0.001) ** i,
+                                         volume=50000.0, lot=200)}
+                   for k in range(6)}
+    cfg = {"mom_lookback": 60, "adv_lookback": 10, "min_adv_rs": 0.0,
+           "n_per_side": 2, "rebalance_days": 30}
+
+    for gate in ("traded", "strict"):
+        h = _reg(f"ab-{gate}", arena="cross_sectional", engine="cross_sectional",
+                 window=["2023-01-01", "2024-12-31"], gate=gate, config=dict(cfg))
+        rep = screen.screen(h, dates, provider=_loader(days))
+        check(f"gate '{gate}': the run set is off + the registered gate "
+              f"({sorted(rep['gates'])})",
+              set(rep["gates"]) == {"off", gate})
+        detail = [c["detail"] for c in rep["checks"]
+                  if c["check"] == "fill_model_stable"][0]
+        check(f"...and materiality names it, not a hard-coded 'strict'",
+              gate in detail or "flips" in detail or "moves" in detail)
+
+    # The real reason this matters: a pre-2024 window cannot be judged against
+    # 'strict', because the legacy schema has no trade count to evaluate.
+    from backtest.liquidity_gate import LiquidityGate
+    legacy_row = {"close": 10.0, "traded": True, "volume": 400.0,
+                  "txns": float("nan"), "oi": 800.0}
+    check("strict refuses a legacy row outright",
+          not LiquidityGate(LiquidityGate.STRICT).leg_ok(legacy_row)[0])
+    check("...so comparing 'off' against it would report every pre-2024 "
+          "hypothesis as a fill artefact",
+          LiquidityGate(LiquidityGate.STRICT_LEGACY).leg_ok(legacy_row)[0])
+
+
 def test_report_printing():
-    print("\n[16] The report renderer survives every shape it is handed")
+    print("\n[17] The report renderer survives every shape it is handed")
     from research import loop
     import io
     import contextlib
@@ -513,7 +552,7 @@ def test_report_printing():
 
 
 def test_cli_guards():
-    print("\n[17] The command line refuses the same things the API does")
+    print("\n[18] The command line refuses the same things the API does")
     from research import loop
 
     check("list works on an empty-ish log", loop.main(["list"]) == 0)
@@ -561,6 +600,7 @@ if __name__ == "__main__":
         test_era_split()
         test_plateau()
         test_screen_end_to_end()
+        test_ab_compares_against_the_registered_gate()
         test_report_printing()
         test_cli_guards()
     finally:

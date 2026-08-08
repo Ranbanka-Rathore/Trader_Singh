@@ -626,7 +626,18 @@ def main(argv=None) -> int:
                    help="arena engine to run this on; 'python -m research.loop "
                         "list' shows what is registered. An arena with no engine "
                         "cannot have a hypothesis (see research/ARENAS.md)")
-    r.add_argument("--gate", default="strict", choices=("traded", "strict", "desk"))
+    # Derived from the presets rather than typed, so adding a gate cannot leave
+    # the CLI silently unable to name it — which is how 'strict_legacy' became
+    # unregistrable the moment it was needed.
+    from backtest.liquidity_gate import LiquidityGate as _LG
+    _gates = sorted(c.name for c in (_LG.OFF, _LG.TRADED, _LG.STRICT,
+                                     _LG.DESK, _LG.STRICT_LEGACY)
+                    if c.name != "off")
+    r.add_argument("--gate", default="strict", choices=_gates,
+                   help="liquidity preset the screen judges fills with; 'off' is "
+                        "refused at registration (charter 6.1). Use "
+                        "'strict_legacy' on a pre-2024 window, where the legacy "
+                        "schema has no trade count and 'strict' refuses everything")
     r.add_argument("--configs", type=int, default=1,
                    help="how many configurations this hypothesis tries; sets the "
                         "Section 4 noise bar. Understating it is cheating.")

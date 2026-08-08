@@ -23,10 +23,18 @@ from backtest.real_backtester import Config, RealBacktester
 from research import charter
 from research.stats import tstat
 
-# Gates every screen runs regardless of what was registered: "off" is the
-# counterfactual that exposes a fill-model artefact, "strict" is the honest end
-# of the range. The registered gate is added if it is neither.
-AB_GATES = ("off", "strict")
+# "off" is the counterfactual that exposes a fill-model artefact: it fills on
+# settlement prices for contracts nobody dealt in. Every screen runs it, and
+# Section 6.6's materiality test compares it against THE REGISTERED GATE.
+#
+# It used to compare against a hard-coded "strict". That is wrong for any window
+# before 2024, where the legacy NSE schema carries no trade count and `strict`
+# therefore refuses every leg as txns_unknown — the comparison would be against
+# an empty result and would report a fill-model artefact for every pre-2024
+# hypothesis, whatever the strategy did. The honest comparison is against the
+# strictest rule that can actually be evaluated on the window, which is what the
+# operator declares at registration and what the fingerprint records.
+AB_GATES = ("off",)
 
 
 class ScreenError(Exception):
@@ -253,12 +261,11 @@ def screen(h: Dict[str, Any], dates: List[datetime.date],
              " is not a credit-spread number (charter 6.5)" if implausible else ""))
 
     # 6.1 / 6.6 — does the fill rule carry the result?
-    material, reasons = charter.gate_materiality(runs["off"]["metrics"],
-                                                 runs["strict"]["metrics"])
+    material, reasons = charter.gate_materiality(runs["off"]["metrics"], primary)
     check("fill_model_stable", not material,
           "; ".join(reasons) if material
           else (f"expectancy {runs['off']['metrics']['expectancy']:+,.0f} (off) -> "
-                f"{runs['strict']['metrics']['expectancy']:+,.0f} (strict) — "
+                f"{primary['expectancy']:+,.0f} ({gate}) — "
                 f"the edge does not depend on the fill rule"))
 
     # Section 4 — the multiple-comparisons bar, raised by every retry.
