@@ -367,6 +367,73 @@ no code path from a screen to "survived".
 
 ---
 
+## Amendment C — operationalising the Section 5 promotion gate
+
+**2026-08-08, BEFORE anything has been promoted.** Nothing is at stage `paper` or
+`live`, so no number below could have been chosen to let a particular strategy
+through. Adds no new permission — it makes the existing gate enforceable.
+
+**Reason.** Section 5 says a strategy must "paper trade with a pre-committed
+sample size (minimum 30 trades) before any real capital" and that "the paper
+result must independently clear" the targets. What *clearing* means at n=30 was
+never defined, and defining it after seeing a paper result would be the Section 4
+failure again.
+
+### C1. The stage ladder
+
+`research` → `paper` → `live`. A structure is at `research` unless a promotion
+record says otherwise, and **`research` and `paper` both mean live entries are
+refused**. Only `live` permits real orders. The transitions:
+
+- **research → paper** requires a hypothesis in the kill log with status
+  `survived` — the Section 5 walk-forward criteria, the cost and jackknife
+  stress, and Amendment A5's OOS bar, all already evaluated by the loop. There is
+  no other door, and no way to assert a promotion from evidence the loop did not
+  produce.
+- **paper → live** requires the sample in C2.
+
+### C2. What the paper sample must clear
+
+Counting only trades entered **after** the paper promotion was recorded — a
+sample that includes trades already in the ledger is selected evidence, not a
+pre-committed one.
+
+1. **≥ 30 closed trades** (Section 5, unchanged).
+2. **Every counted trade live-priced.** A single non-live-priced row fails the
+   whole sample rather than being quietly excluded: it means the entry pricing
+   guard has a hole, and a ledger that can contain fiction cannot authorise
+   money. This is the 2026-07-30 purge condition.
+3. **Positive expectancy.**
+4. **Not falsifying the model.** At n=30 with per-trade sd ~Rs 2,800 the standard
+   error is ~Rs 511, so the sample cannot *prove* an edge and is not asked to.
+   It is asked not to contradict one: realised expectancy more than **2 standard
+   errors below** the modelled OOS expectancy fails.
+5. **Realised max drawdown within the modelled p99** (Amendment A3).
+
+### C3. The drawdown shutdown is automatic
+
+A3 pre-committed that "breach of the p99 modelled drawdown stops the system".
+Made mechanical: the same check run against a `live` structure **revokes its
+promotion on breach**, without asking. The entire value of that rule is that it
+was agreed before it hurt, and a rule that needs a decision at the moment it
+binds is not a rule. Revocation stops entries only — open positions still exit
+normally, because trapping risk in a position is not a safety measure.
+
+### C4. A promotion expires
+
+Default **180 days**, recorded on the record as `review_by`. Past it, live entries
+are refused until it is re-earned. Without an expiry the first strategy to pass
+would be licensed indefinitely on a single backtest, in a market whose liquidity
+regime has already changed character twice inside this archive (B3).
+
+### C5. A promotion covers named strategy types only
+
+The record lists the strategy types its evidence covers, and an entry outside
+that list is refused. Evidence about credit spreads is not a licence for iron
+condors the engine happens to be able to emit.
+
+---
+
 ## Amendment Log
 
 *(append-only; date + reason + what changed. An amendment made after seeing a
@@ -385,3 +452,9 @@ result it would change invalidates that result.)*
   multiple-comparisons budget, and that screens cannot promote. Changes no
   threshold. **Made before any hypothesis was registered — no result informed
   it.**
+- 2026-08-08 — **Amendment C** added. Reason: Section 5's promotion gate existed
+  and nothing was bound to it, which is how the ladder reached live having failed
+  all four of its criteria. Defines the research/paper/live ladder, what a
+  30-trade paper sample must clear, the automatic drawdown revocation, promotion
+  expiry, and strategy-type coverage. Adds no new permission. **Made before
+  anything had been promoted — no result informed it.**
