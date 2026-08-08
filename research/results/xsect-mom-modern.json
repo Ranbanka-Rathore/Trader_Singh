@@ -1,0 +1,114 @@
+{
+ "hypothesis": {
+  "id": "xsect-mom-modern",
+  "arena": "cross_sectional",
+  "claim": "12-1 cross-sectional momentum on F&O stock futures has positive per-trade expectancy at Rs 15L after whole-lot and margin constraints.",
+  "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, or capacity fill rate below 50% -- a portfolio that cannot be held is not a strategy.",
+  "engine": "cross_sectional",
+  "underlying": "NIFTY",
+  "equity": 1500000.0,
+  "era": "modern",
+  "window": [
+   "2023-01-01",
+   "2026-08-08"
+  ],
+  "gate": "strict",
+  "n_configs": 1,
+  "config": {},
+  "sweep": null,
+  "supersedes": null,
+  "note": "",
+  "registered_at": "2026-08-08T17:18:39",
+  "status": "registered",
+  "events": [],
+  "fingerprint": "sha256:a7191eba6a1dddb6a7bab4f670634849"
+ },
+ "screen": {
+  "stage": "screen",
+  "gate": "strict",
+  "window": [
+   "2023-01-01",
+   "2026-08-08"
+  ],
+  "trading_days": 885,
+  "effective_configs": 1,
+  "noise_threshold": 1.177,
+  "gates": {
+   "off": {
+    "n_trades": 151,
+    "net_pnl": 119256.9,
+    "expectancy": 789.78,
+    "profit_factor": 1.03,
+    "win_rate": 0.51,
+    "sharpe": 0.08,
+    "max_drawdown": 1398362.95,
+    "t": 0.126,
+    "fill_pass_rate_pct": 100.0,
+    "top_skip": "margin_budget_exhausted"
+   },
+   "strict": {
+    "n_trades": 151,
+    "net_pnl": 119256.9,
+    "expectancy": 789.78,
+    "profit_factor": 1.03,
+    "win_rate": 0.51,
+    "sharpe": 0.08,
+    "max_drawdown": 1398362.95,
+    "t": 0.126,
+    "fill_pass_rate_pct": 100.0,
+    "top_skip": "margin_budget_exhausted"
+   }
+  },
+  "by_era": {
+   "modern": {
+    "n_trades": 151,
+    "net_pnl": 119256.9,
+    "expectancy": 789.78,
+    "win_rate": 0.51,
+    "profit_factor": 1.03,
+    "t": 0.126
+   }
+  },
+  "eras_spanned": [
+   "modern"
+  ],
+  "sweep": null,
+  "checks": [
+   {
+    "check": "has_trades",
+    "passed": true,
+    "detail": "151 trades under gate 'strict'"
+   },
+   {
+    "check": "enough_trades",
+    "passed": true,
+    "detail": "151 trades vs minimum 20 (charter 6.4)"
+   },
+   {
+    "check": "plausible_profit_factor",
+    "passed": true,
+    "detail": "PF 1.03 on 151 trades"
+   },
+   {
+    "check": "fill_model_stable",
+    "passed": true,
+    "detail": "expectancy +790 (off) -> +790 (strict) \u2014 the edge does not depend on the fill rule"
+   },
+   {
+    "check": "clears_noise_threshold",
+    "passed": false,
+    "detail": "t = 0.126 vs threshold 1.18 for 1 configuration(s)"
+   }
+  ],
+  "verdict": "kill",
+  "failed": [
+   "clears_noise_threshold"
+  ],
+  "top_skip_reasons": {
+   "margin_budget_exhausted": 286,
+   "universe_too_thin": 19,
+   "open_at_end": 3
+  }
+ },
+ "generated": "2026-08-08T17:21:55"
+}

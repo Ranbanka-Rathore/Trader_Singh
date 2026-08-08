@@ -1,0 +1,113 @@
+{
+ "hypothesis": {
+  "id": "trend-donchian-modern",
+  "arena": "futures_trend",
+  "claim": "Donchian breakout on liquid index futures has positive per-trade expectancy in the modern era.",
+  "kill_criterion": "Screen t below the Section 4 bar or any Section 6 evidence check fails.",
+  "engine": "futures_trend",
+  "underlying": "NIFTY",
+  "equity": 1500000.0,
+  "era": "modern",
+  "window": [
+   "2023-01-01",
+   "2026-08-08"
+  ],
+  "gate": "strict",
+  "n_configs": 1,
+  "config": {},
+  "sweep": null,
+  "supersedes": null,
+  "note": "CONFIRMATORY: the default configuration was run on 2026-08-08 during engine validation and failed. See research/ARENAS.md disclosure. Registered knowing the answer so the arena history is on the record and the budget is charged; not to be counted as a prediction that was tested.",
+  "registered_at": "2026-08-08T17:18:42",
+  "status": "registered",
+  "events": [],
+  "fingerprint": "sha256:191e6f6780dae49633dfd39075c0be9e"
+ },
+ "screen": {
+  "stage": "screen",
+  "gate": "strict",
+  "window": [
+   "2023-01-01",
+   "2026-08-08"
+  ],
+  "trading_days": 885,
+  "effective_configs": 1,
+  "noise_threshold": 1.177,
+  "gates": {
+   "off": {
+    "n_trades": 79,
+    "net_pnl": -514507.85,
+    "expectancy": -6512.76,
+    "profit_factor": 0.48,
+    "win_rate": 0.291,
+    "sharpe": -1.12,
+    "max_drawdown": 698479.73,
+    "t": -2.38,
+    "fill_pass_rate_pct": 100.0,
+    "top_skip": "one_lot_exceeds_risk_cap"
+   },
+   "strict": {
+    "n_trades": 79,
+    "net_pnl": -514507.85,
+    "expectancy": -6512.76,
+    "profit_factor": 0.48,
+    "win_rate": 0.291,
+    "sharpe": -1.12,
+    "max_drawdown": 698479.73,
+    "t": -2.38,
+    "fill_pass_rate_pct": 100.0,
+    "top_skip": "one_lot_exceeds_risk_cap"
+   }
+  },
+  "by_era": {
+   "modern": {
+    "n_trades": 79,
+    "net_pnl": -514507.85,
+    "expectancy": -6512.76,
+    "win_rate": 0.291,
+    "profit_factor": 0.48,
+    "t": -2.38
+   }
+  },
+  "eras_spanned": [
+   "modern"
+  ],
+  "sweep": null,
+  "checks": [
+   {
+    "check": "has_trades",
+    "passed": true,
+    "detail": "79 trades under gate 'strict'"
+   },
+   {
+    "check": "enough_trades",
+    "passed": true,
+    "detail": "79 trades vs minimum 20 (charter 6.4)"
+   },
+   {
+    "check": "plausible_profit_factor",
+    "passed": true,
+    "detail": "PF 0.48 on 79 trades"
+   },
+   {
+    "check": "fill_model_stable",
+    "passed": true,
+    "detail": "expectancy -6,513 (off) -> -6,513 (strict) \u2014 the edge does not depend on the fill rule"
+   },
+   {
+    "check": "clears_noise_threshold",
+    "passed": false,
+    "detail": "t = -2.38 vs threshold 1.18 for 1 configuration(s)"
+   }
+  ],
+  "verdict": "kill",
+  "failed": [
+   "clears_noise_threshold"
+  ],
+  "top_skip_reasons": {
+   "one_lot_exceeds_risk_cap": 246,
+   "warmup": 60
+  }
+ },
+ "generated": "2026-08-08T17:23:26"
+}

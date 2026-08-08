@@ -1,0 +1,309 @@
+{
+ "version": 1,
+ "hypotheses": [
+  {
+   "id": "cal-cheapvol-modern",
+   "arena": "index_structures",
+   "claim": "Calendar spreads entered in the cheap-vol regime have positive per-trade expectancy in the modern era under a real fill rule.",
+   "kill_criterion": "Fewer than 20 trades, or screen t below the Section 4 bar, or any Section 6 evidence check fails.",
+   "engine": "real_backtester",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-08"
+   ],
+   "gate": "strict",
+   "n_configs": 1,
+   "config": {
+    "enable_calendar": true,
+    "ladder_mode": false
+   },
+   "sweep": null,
+   "supersedes": null,
+   "note": "",
+   "registered_at": "2026-08-08T17:18:29",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-08T17:20:21",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 94,
+        "net_pnl": -73554.05,
+        "expectancy": -782.49,
+        "profit_factor": 0.45,
+        "win_rate": 0.447,
+        "sharpe": -1.23,
+        "max_drawdown": 80282.31,
+        "t": -2.346,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "vrp_thin"
+       },
+       "strict": {
+        "n_trades": 67,
+        "net_pnl": -95272.37,
+        "expectancy": -1421.98,
+        "profit_factor": 0.34,
+        "win_rate": 0.463,
+        "sharpe": -1.41,
+        "max_drawdown": 97245.96,
+        "t": -2.767,
+        "fill_pass_rate_pct": 44.82,
+        "top_skip": "vrp_thin"
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 67,
+        "net_pnl": -95272.37,
+        "expectancy": -1421.98,
+        "win_rate": 0.463,
+        "profit_factor": 0.34,
+        "t": -2.767
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "67 trades under gate 'strict'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "67 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.34 on 67 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": false,
+        "detail": "expectancy moves 82%: -782 -> -1,422"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -2.767 vs threshold 1.18 for 1 configuration(s)"
+       }
+      ],
+      "failed": [
+       "fill_model_stable",
+       "clears_noise_threshold"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:bb2946e71300ef2b186ced52b678c90e"
+  },
+  {
+   "id": "xsect-mom-modern",
+   "arena": "cross_sectional",
+   "claim": "12-1 cross-sectional momentum on F&O stock futures has positive per-trade expectancy at Rs 15L after whole-lot and margin constraints.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, or capacity fill rate below 50% -- a portfolio that cannot be held is not a strategy.",
+   "engine": "cross_sectional",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-08"
+   ],
+   "gate": "strict",
+   "n_configs": 1,
+   "config": {},
+   "sweep": null,
+   "supersedes": null,
+   "note": "",
+   "registered_at": "2026-08-08T17:18:39",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-08T17:21:55",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 151,
+        "net_pnl": 119256.9,
+        "expectancy": 789.78,
+        "profit_factor": 1.03,
+        "win_rate": 0.51,
+        "sharpe": 0.08,
+        "max_drawdown": 1398362.95,
+        "t": 0.126,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "margin_budget_exhausted"
+       },
+       "strict": {
+        "n_trades": 151,
+        "net_pnl": 119256.9,
+        "expectancy": 789.78,
+        "profit_factor": 1.03,
+        "win_rate": 0.51,
+        "sharpe": 0.08,
+        "max_drawdown": 1398362.95,
+        "t": 0.126,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "margin_budget_exhausted"
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 151,
+        "net_pnl": 119256.9,
+        "expectancy": 789.78,
+        "win_rate": 0.51,
+        "profit_factor": 1.03,
+        "t": 0.126
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "151 trades under gate 'strict'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "151 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 1.03 on 151 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": true,
+        "detail": "expectancy +790 (off) -> +790 (strict) \u2014 the edge does not depend on the fill rule"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = 0.126 vs threshold 1.18 for 1 configuration(s)"
+       }
+      ],
+      "failed": [
+       "clears_noise_threshold"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:a7191eba6a1dddb6a7bab4f670634849"
+  },
+  {
+   "id": "trend-donchian-modern",
+   "arena": "futures_trend",
+   "claim": "Donchian breakout on liquid index futures has positive per-trade expectancy in the modern era.",
+   "kill_criterion": "Screen t below the Section 4 bar or any Section 6 evidence check fails.",
+   "engine": "futures_trend",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-08"
+   ],
+   "gate": "strict",
+   "n_configs": 1,
+   "config": {},
+   "sweep": null,
+   "supersedes": null,
+   "note": "CONFIRMATORY: the default configuration was run on 2026-08-08 during engine validation and failed. See research/ARENAS.md disclosure. Registered knowing the answer so the arena history is on the record and the budget is charged; not to be counted as a prediction that was tested.",
+   "registered_at": "2026-08-08T17:18:42",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-08T17:23:26",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 79,
+        "net_pnl": -514507.85,
+        "expectancy": -6512.76,
+        "profit_factor": 0.48,
+        "win_rate": 0.291,
+        "sharpe": -1.12,
+        "max_drawdown": 698479.73,
+        "t": -2.38,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap"
+       },
+       "strict": {
+        "n_trades": 79,
+        "net_pnl": -514507.85,
+        "expectancy": -6512.76,
+        "profit_factor": 0.48,
+        "win_rate": 0.291,
+        "sharpe": -1.12,
+        "max_drawdown": 698479.73,
+        "t": -2.38,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap"
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 79,
+        "net_pnl": -514507.85,
+        "expectancy": -6512.76,
+        "win_rate": 0.291,
+        "profit_factor": 0.48,
+        "t": -2.38
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "79 trades under gate 'strict'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "79 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.48 on 79 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": true,
+        "detail": "expectancy -6,513 (off) -> -6,513 (strict) \u2014 the edge does not depend on the fill rule"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -2.38 vs threshold 1.18 for 1 configuration(s)"
+       }
+      ],
+      "failed": [
+       "clears_noise_threshold"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:191e6f6780dae49633dfd39075c0be9e"
+  }
+ ]
+}
