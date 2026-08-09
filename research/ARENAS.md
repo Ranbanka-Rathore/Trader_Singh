@@ -284,3 +284,189 @@ per-era reporting, and all three engines run on the full 2016–2026 archive, so
 the same hypotheses can be registered per era. Do that only with the era declared
 up front — running `modern` and then reaching for `early` because `modern` failed
 is a second draw from the same urn and must be registered with `--supersedes`.
+
+---
+
+## SURVEY, 2026-08-09 — how many independent bets does 1-leg futures supply?
+
+**Disclosure: measured before drafting anything below.** No signal, no
+positions, no P&L — this is unconditional correlation and drift of the
+instrument set, the same class of measurement as the liquidity-era survey. It
+does not spend a hypothesis, and it is recorded here so it cannot later be
+presented as one.
+
+Run: `futures.build_panel` over 2016-01-01 → 2026-08-08, `gate=strict_legacy`.
+
+### Finding 1 — the liquidity gate does not bind on futures at all
+
+| universe | window | bars checked | fillable | pass rate |
+|---|---|---|---|---|
+| index (3 syms) | 2016–2026 | 6,602 | 6,485 | **98.2%** |
+| stock (277 syms) | modern | 129,626 | 129,625 | **100.0%** |
+| stock (219 syms) | ramp | 169,837 | 169,834 | **100.0%** |
+
+The 117 index refusals are 64 unknown-lot, 52 settle-only, 1 no-OI — housekeeping,
+not liquidity. **The failure mode that killed three of the five closed
+hypotheses does not exist on this instrument.** That is the entire case for the
+"fewer legs" direction, and it is now a number rather than a hope.
+
+### Finding 2 — the index universe is one bet wearing three costumes
+
+Daily roll-adjusted return correlation, full window:
+
+| | BANKNIFTY | FINNIFTY | NIFTY |
+|---|---|---|---|
+| **BANKNIFTY** | 1.000 | 0.956 | 0.892 |
+| **FINNIFTY** | 0.956 | 1.000 | 0.894 |
+| **NIFTY** | 0.892 | 0.894 | 1.000 |
+
+ρ̄ = 0.914 → **N_eff = 3 / (1 + 2ρ̄) = 1.06 independent bets.** FINNIFTY does not
+exist before 2021-01-11, so the early era is two symbols at ρ 0.892 → N_eff 1.04.
+It is 1.06 in every era.
+
+Two consequences, and the second is a risk finding:
+
+1. **`trend-donchian-modern`'s 79 trades were not 79 observations.** Breakouts on
+   instruments correlated at 0.91 fire together, so with `max_open=3` over three
+   symbols the concurrent positions are one position taken three times. Effective
+   sample ≈ 79 × (1.06/3) ≈ **28** — at the Section 3 floor, not comfortably past
+   it. The kill stands regardless: correlation *inflates* apparent significance,
+   so a negative t is only more negative once deflated. But a *positive* t in this
+   arena would have been overstated, which is what matters for anything registered
+   next.
+2. **`risk_frac=0.0075` is not the risk taken.** Three concurrent correlated
+   positions risk ~2.25% of equity as one bet — Rs 33,750 against the Rs 1,00,000
+   budget. Three such bets going wrong consecutively exhausts it. Any registration
+   here should either set `max_open=1` or declare the concurrency-adjusted number.
+
+### Finding 3 — stock futures buy independence, and capacity caps what you can buy
+
+| universe | N names | ρ̄ | N_eff (all names) | N_eff at 6 held | at 8 held |
+|---|---|---|---|---|---|
+| stock, modern | 248 | 0.298 | 3.33 | 2.41 | 2.59 |
+| stock, ramp | 203 | 0.307 | 3.22 | 2.36 | 2.54 |
+
+Stock futures are ~3× as independent as the index set, but arena 2 already
+established that Rs 15L holds **6–8 names**, so the reachable ceiling is
+**~2.6 independent bets**, not 3.3. Capacity is the binding constraint for the
+third time — but note the shape is different here: it caps the *diversification*
+rather than refusing the trade.
+
+What that ceiling costs, stated in the charter's own units. Section 2 wants OOS
+Sharpe ≥ 1.0. A portfolio of k equally-good bets reaches Sharpe ≈ s·√N_eff, so:
+
+| universe | N_eff | standalone Sharpe needed per bet for portfolio 1.0 |
+|---|---|---|
+| index futures | 1.06 | **0.97** |
+| stock futures @ 8 held | 2.59 | **0.62** |
+
+A timing rule with standalone Sharpe 0.97 on NIFTY is not a realistic thing to
+go looking for. 0.62 per name across eight names is demanding but not absurd.
+**This is the reason to draft on the stock universe rather than the index one**,
+and it is arithmetic from measured correlations, not preference.
+
+### Finding 4 — roll-adjusted drift IS excess return, and the modern era has none
+
+Because financing is embedded in the roll and the engine credits no interest on
+idle margin (its stated limitation #1), these drifts already sit relative to the
+risk-free rate. They are excess returns, and the right hurdle for them is 0%, not 7%.
+
+| symbol | era | drift %/yr | vol %/yr | Sharpe |
+|---|---|---|---|---|
+| NIFTY | full 10.6y | +7.93 | 16.37 | 0.47 |
+| NIFTY | modern | **−0.60** | 13.71 | **−0.04** |
+| BANKNIFTY | full 10.6y | +9.63 | 21.46 | 0.43 |
+| BANKNIFTY | modern | **+0.44** | 16.23 | **0.03** |
+| FINNIFTY | modern | +3.59 | 16.38 | 0.22 |
+
+Passive long index futures has returned essentially nothing over the risk-free
+rate since 2024-01. `trend-donchian-modern` was screened over a window in which
+its underlying had no risk premium to harvest. That does not reopen it — it is
+closed — but it means a long-biased signal screened on the *full* window would
+face a +7.9%/yr passive drift instead, and that changes what its t-statistic means.
+
+### The benchmark gap this exposes
+
+Section 1 names the benchmark as "a ~7% fixed deposit / **index fund**". The
+screen does not implement the second half: its noise bar tests per-trade
+expectancy against **zero**, not against buy-and-hold. For the five closed
+hypotheses that never bit — they were short-vol or dollar-neutral, with no
+structural beta to accidentally harvest. It bites immediately on any long-biased
+futures signal, where holding beta in a rising market produces a positive t while
+proving nothing.
+
+**Fix, and it needs no new code:** any long-biased registration declares its
+benchmark as a machine-checked `--require sharpe>=X`, where X is the passive
+Sharpe over the identical window, taken from the table above. `sharpe` is already
+a standard screen metric, so it goes into the fingerprint and is enforced at
+verdict like any other threshold. A hypothesis that beats zero but loses to
+holding the thing is then killed by the machinery instead of by whoever happens
+to remember.
+
+---
+
+## Drafted, NOT REGISTERED — arena 3 redrawn on the stock universe
+
+### T1 — time-series momentum on single-stock futures *(recommended first)*
+
+The claim: judged against its **own** history rather than cross-sectionally,
+a stock future's trailing return predicts its next return, enough to clear
+the FD after whole lots, margin and friction.
+
+Why this is not arena 2 again: `xsect-mom-modern` ranks names against **each
+other** and is dollar-neutral by construction — it holds no market exposure and
+died at t +0.13. A time-series rule judges each name against itself, so the book
+carries net directional beta and its P&L is a different object. That distinction
+is a claim, not an axiom, and it should be checked rather than asserted: the two
+trade lists overlap in names, and if their P&L correlates above ~0.7 this is
+arena 2 in a trend costume, exactly as `trend.py`'s docstring warns.
+
+**Requires a small engine change first.** `TrendConfig` has `kind` and
+`universe`, so `--set kind=stock --set universe=` already reaches the stock
+panel — but the signal is hard-coded Donchian. A time-series momentum rule needs
+a `signal` knob on `TrendEngine`. Two constraints on that change:
+
+- **Do not widen `GRID`.** It is fixed a priori at 8 combinations, and
+  `walkforward.py` computes the deflated-Sharpe hurdle from its size. Widening it
+  retroactively changes the bar every historical result in this arena was judged
+  against. A new signal gets its own 8-combination grid on its own axes.
+- Set `max_open` deliberately, and state the concurrency-adjusted risk per
+  Finding 2 rather than inheriting `risk_frac=0.0075` as if it meant 0.75%.
+
+```
+python -m research.loop register --id tsmom-stock-modern \
+  --arena futures_trend --engine futures_trend --era modern --gate strict \
+  --configs 1 \
+  --set kind=stock --set universe= \
+  --set signal=tsmom --set max_open=8 \
+  --require capacity_fill_rate_pct>=50 \
+  --require max_drawdown<=100000 \
+  --require sharpe>=0.30 \
+  --claim "Time-series momentum on single-stock futures has positive per-trade expectancy at Rs 15L in the modern era, after whole lots, margin and a real fill rule." \
+  --kill "Screen t below the Section 4 bar, any Section 6 check fails, capacity fill below 50%, a drawdown past Rs 1,00,000, or a Sharpe that fails to beat holding the underlying."
+```
+
+*On `sharpe>=0.30`: the modern-era index passive Sharpe is ≈0.03 (Finding 4), so
+a beta-harvesting long book has almost nothing to inherit in this window and 0.30
+is a genuine hurdle rather than a formality. Quote the `--require` arguments in
+bash — an unquoted `>` is eaten by shell redirection and silently writes a junk
+file.*
+
+### T2 — the honest null: is arena 3 huntable at all?
+
+Findings 2 and 3 together say the reachable ceiling in 1-leg futures is ~2.6
+independent bets, needing standalone Sharpe 0.62 per name to clear Section 2. If
+T1 comes back below that, the finding is not "tsmom does not work" but **"this
+arena cannot reach Section 2's Sharpe at Rs 15L, whatever the signal"** — which
+closes the arena rather than one hypothesis, and is worth more than another
+variant. Register it only after T1, and only with the ceiling argument stated in
+advance so it is a prediction rather than a consolation.
+
+### Not drafted, and why
+
+**A new signal on the index universe.** N_eff 1.06 means it needs a standalone
+Sharpe of 0.97 on essentially one instrument to clear Section 2. Section 3's
+corollary — discard effects too small to detect in ~30 trades — applies in the
+other direction here: the effect required is so *large* that finding it would be
+more surprising than not finding it. The index universe is where arena 3 should
+stop, not where it should be redrawn.
