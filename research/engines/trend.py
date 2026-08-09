@@ -19,6 +19,36 @@ scale. Position size comes out in WHOLE LOTS, and a trade whose minimum lot
 exceeds the per-trade risk cap is skipped and counted, never fractionally sized.
 At Rs 15L that constraint bites, and it is supposed to show.
 
+TWO SIGNALS, AND WHY THE GRID DOES NOT GROW
+--------------------------------------------
+`signal` selects the entry rule. `donchian` is the original breakout and is the
+default, so every result already in the kill log reproduces byte-for-byte.
+`tsmom` judges each symbol against its OWN trailing return instead of a channel,
+which is a different bet: a breakout needs a new extreme, time-series momentum
+only needs the last N months to have been positive.
+
+Each signal carries its own grid of exactly EIGHT combinations. That number is
+load-bearing and is not a coincidence: `walkforward.py` sets the deflated-Sharpe
+hurdle at sqrt(2 ln |grid| / T), so a grid of a different size would silently
+move the bar that `trend-donchian-modern` was already judged against and make
+the two incomparable. A new signal therefore gets its own eight axes-combinations
+rather than being bolted onto the existing eight.
+
+WHAT tsmom IS FOR, AND WHAT IT IS NOT
+--------------------------------------
+It exists because the index universe cannot support a hypothesis: NIFTY,
+BANKNIFTY and FINNIFTY correlate at 0.89-0.96 daily, so the three of them supply
+1.06 independent bets and would need a standalone Sharpe near 0.97 to clear
+Section 2. Single-stock futures correlate at ~0.30, giving ~2.6 independent bets
+at the 6-8 names Rs 15L can hold, which drops the required standalone Sharpe to
+~0.62. See the 2026-08-09 survey in ARENAS.md.
+
+It is NOT arena 2 with a new name. `xsection` ranks names AGAINST EACH OTHER and
+is dollar-neutral by construction, holding no market exposure. `tsmom` judges
+each name against itself, so the book carries net directional beta. That is a
+claim about the two P&L series, not an axiom, and it should be measured before
+either is trusted as diversifying from the other.
+
 TWO LIMITATIONS, STATED RATHER THAN HIDDEN
 -------------------------------------------
 1. NO INTEREST ON IDLE MARGIN. Futures carry is IN these returns — a rolled long
@@ -53,6 +83,13 @@ from research import engines
 # costume, and its results would not be independent of arena 2's.
 DEFAULT_UNIVERSE = ("NIFTY", "BANKNIFTY", "FINNIFTY")
 
+# The entry rules this engine knows. An unrecognised name is refused at
+# registration rather than silently falling back to the default — a hypothesis
+# that registers "signal=tsmomentum" and quietly screens a Donchian breakout
+# would put a fingerprint in the kill log that describes a run that never
+# happened.
+SIGNALS = ("donchian", "tsmom")
+
 
 @dataclass
 class TrendConfig:
@@ -62,8 +99,14 @@ class TrendConfig:
     gate: str = "strict"
     roll_days: int = futures.DEFAULT_ROLL_DAYS
     # signal
-    entry_lookback: int = 20          # breakout window (grid)
-    exit_lookback: int = 10           # opposite-extreme exit window (grid)
+    signal: str = "donchian"          # one of SIGNALS; default is the original
+    entry_lookback: int = 20          # donchian: breakout window (grid)
+    exit_lookback: int = 10           # donchian: opposite-extreme exit (grid)
+    # tsmom: sign of the return from t-(mom_lookback+mom_skip) to t-mom_skip.
+    # The skip drops the most recent month, the standard construction that keeps
+    # short-term reversal out of a momentum measurement. Ignored by donchian.
+    mom_lookback: int = 126           # tsmom: trailing window in bars (grid)
+    mom_skip: int = 21                # tsmom: bars dropped at the near end (grid)
     vol_lookback: int = 20            # realised-vol window for the stop
     stop_vol_mult: float = 2.5        # stop distance = mult x daily vol (grid)
     allow_short: bool = True
@@ -118,8 +161,27 @@ class TrendEngine:
     GRID = [{"entry_lookback": e, "exit_lookback": x, "stop_vol_mult": s}
             for e in (20, 55) for x in (10, 20) for s in (2.5, 4.0)]
 
+    # Per-signal grids. EVERY entry must be 8 combinations long: the hurdle is
+    # sqrt(2 ln |grid| / T), so an unequal grid changes the bar rather than the
+    # strategy, and results across signals stop being comparable. The assertion
+    # below is not decoration — it is the thing that stops that happening by
+    # accident when someone adds a third level to an axis.
+    GRIDS = {
+        "donchian": GRID,
+        "tsmom": [{"mom_lookback": m, "mom_skip": k, "stop_vol_mult": s}
+                  for m in (126, 252) for k in (0, 21) for s in (2.5, 4.0)],
+    }
+    assert set(GRIDS) == set(SIGNALS), "every signal needs a grid"
+    assert all(len(g) == 8 for g in GRIDS.values()), \
+        "grids must be 8 combos or the deflated-Sharpe hurdle shifts"
+
     def coerce(self, name: str, raw: Any) -> Any:
-        return engines.coerce_field(TrendConfig, name, raw)
+        value = engines.coerce_field(TrendConfig, name, raw)
+        if name == "signal" and value not in SIGNALS:
+            # Raised at REGISTRATION, which is the only moment it is cheap.
+            raise KeyError(f"signal: expected one of {', '.join(SIGNALS)}, "
+                           f"got '{value}'")
+        return value
 
     def build(self, hypothesis: Dict[str, Any], gate: Optional[str] = None) -> TrendConfig:
         cfg = TrendConfig(equity0=float(hypothesis.get("equity", 1_500_000.0)),
@@ -135,18 +197,64 @@ class TrendEngine:
         """Config with execution costs multiplied, for the Section 5 cost stress."""
         return replace(cfg, slippage_bps=cfg.slippage_bps * mult)
 
-    def grid(self) -> List[Dict[str, Any]]:
-        return list(self.GRID)
+    def grid(self, cfg: Optional[TrendConfig] = None) -> List[Dict[str, Any]]:
+        """The grid for the configured signal.
+
+        Sweeping donchian's channel axes over a tsmom run would search eight
+        parameters the strategy does not read, producing eight identical folds
+        and an in-sample "best" chosen at random.
+        """
+        signal = cfg.signal if cfg is not None else "donchian"
+        return list(self.GRIDS[signal])
+
+    def _min_bars(self, cfg: TrendConfig) -> int:
+        """Bars of history before this config's signal is defined at all."""
+        if cfg.signal == "tsmom":
+            return max(cfg.mom_lookback + cfg.mom_skip, cfg.vol_lookback)
+        return max(cfg.entry_lookback, cfg.vol_lookback)
 
     def warmup_days(self, cfg: TrendConfig) -> int:
-        """Calendar days needed before the longest breakout window is defined.
+        """Calendar days needed before this config's signal is defined.
 
         Trading days are ~69% of calendar days, so the lookback is scaled up
         rather than passed through — a 55-bar channel needs about 80 calendar
-        days of archive, not 55.
+        days of archive, not 55, and a 252-bar momentum with a 21-bar skip needs
+        about 440, not 273. Getting this wrong does not error: it silently gives
+        the first folds no signal and reports the result as "does not trade".
         """
-        bars = max(cfg.entry_lookback, cfg.exit_lookback, cfg.vol_lookback)
+        bars = max(self._min_bars(cfg), cfg.exit_lookback)
         return int(bars * 1.5) + 30
+
+    def _direction(self, cfg: TrendConfig, ser, i: int) -> int:
+        """+1 long, -1 short, 0 flat — the only place an entry rule is defined.
+
+        Computed on `ser.index`, the roll-safe compounded series, never on the
+        contract close: a 20-day high in raw front prices is an artefact of where
+        the last roll landed.
+        """
+        idx = ser.index
+        if cfg.signal == "donchian":
+            window = idx[max(0, i - cfg.entry_lookback):i]
+            if not window:
+                return 0
+            if idx[i] > max(window):
+                return 1
+            if cfg.allow_short and idx[i] < min(window):
+                return -1
+            return 0
+        if cfg.signal == "tsmom":
+            near = i - cfg.mom_skip
+            far = near - cfg.mom_lookback
+            if far < 0 or near < 0 or idx[far] <= 0:
+                return 0
+            r = idx[near] / idx[far] - 1.0
+            if r > 0:
+                return 1
+            if r < 0 and cfg.allow_short:
+                return -1
+            return 0
+        raise ValueError(f"unknown signal '{cfg.signal}'; expected one of "
+                         f"{', '.join(SIGNALS)}")
 
     # ── the run ──────────────────────────────────────────────────────────────
     def run(self, cfg: TrendConfig, dates: List[datetime.date],
@@ -182,13 +290,21 @@ class TrendEngine:
                     move = (bar.close / pos.entry_price - 1.0) * pos.direction
                     if move <= -pos.stop_ret:
                         reason = "stop"
-                    elif i >= cfg.exit_lookback:
-                        window = idx[max(0, i - cfg.exit_lookback):i]
-                        if window:
-                            if pos.direction > 0 and idx[i] <= min(window):
-                                reason = "channel_exit"
-                            elif pos.direction < 0 and idx[i] >= max(window):
-                                reason = "channel_exit"
+                    elif cfg.signal == "donchian":
+                        if i >= cfg.exit_lookback:
+                            window = idx[max(0, i - cfg.exit_lookback):i]
+                            if window:
+                                if pos.direction > 0 and idx[i] <= min(window):
+                                    reason = "channel_exit"
+                                elif pos.direction < 0 and idx[i] >= max(window):
+                                    reason = "channel_exit"
+                    # tsmom has no channel to fall out of: it holds while its own
+                    # trailing return still points the way the position does, and
+                    # leaves the moment that stops being true — including when the
+                    # sign goes flat, which with allow_short=False is the only exit
+                    # the signal can produce.
+                    elif self._direction(cfg, ser, i) != pos.direction:
+                        reason = "signal_flip"
                     # Never hold a contract into its own settlement.
                     if reason is None and (bar.expiry - d).days <= cfg.roll_days:
                         reason = "roll_out"
@@ -203,20 +319,12 @@ class TrendEngine:
                 if len(open_pos) >= cfg.max_open:
                     skip("max_open")
                     continue
-                if i < max(cfg.entry_lookback, cfg.vol_lookback):
+                if i < self._min_bars(cfg):
                     skip("warmup")
                     continue
 
                 # ── entry signal on the roll-safe index ──────────────────────
-                window = idx[max(0, i - cfg.entry_lookback):i]
-                if not window:
-                    skip("no_window")
-                    continue
-                direction = 0
-                if idx[i] > max(window):
-                    direction = 1
-                elif cfg.allow_short and idx[i] < min(window):
-                    direction = -1
+                direction = self._direction(cfg, ser, i)
                 if direction == 0:
                     continue
 
@@ -296,7 +404,11 @@ class TrendEngine:
             "entry_date": pos.entry_date.isoformat(),
             "exit_date": d.isoformat(),
             "direction": "LONG" if pos.direction > 0 else "SHORT",
+            # `strategy` keeps the TREND_ prefix regardless of signal so the
+            # label in trend-donchian-modern's stored report still means the same
+            # thing; which rule produced the trade goes in its own field.
             "strategy": f"TREND_{'LONG' if pos.direction > 0 else 'SHORT'}",
+            "signal": cfg.signal,
             "entry_price": round(pos.entry_price, 2),
             "exit_price": round(fill, 2),
             "lots": pos.lots, "quantity": qty,

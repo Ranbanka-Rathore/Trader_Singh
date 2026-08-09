@@ -421,17 +421,31 @@ is a claim, not an axiom, and it should be checked rather than asserted: the two
 trade lists overlap in names, and if their P&L correlates above ~0.7 this is
 arena 2 in a trend costume, exactly as `trend.py`'s docstring warns.
 
-**Requires a small engine change first.** `TrendConfig` has `kind` and
-`universe`, so `--set kind=stock --set universe=` already reaches the stock
-panel — but the signal is hard-coded Donchian. A time-series momentum rule needs
-a `signal` knob on `TrendEngine`. Two constraints on that change:
+**The engine change is built** (2026-08-09). `TrendEngine` now takes
+`signal=donchian|tsmom`, and `--set kind=stock --set universe=` reaches the stock
+panel. What it does:
 
-- **Do not widen `GRID`.** It is fixed a priori at 8 combinations, and
-  `walkforward.py` computes the deflated-Sharpe hurdle from its size. Widening it
-  retroactively changes the bar every historical result in this arena was judged
-  against. A new signal gets its own 8-combination grid on its own axes.
-- Set `max_open` deliberately, and state the concurrency-adjusted risk per
-  Finding 2 rather than inheriting `risk_frac=0.0075` as if it meant 0.75%.
+- `tsmom` enters on the sign of the return from `t-(mom_lookback+mom_skip)` to
+  `t-mom_skip`, computed on the roll-safe compounded index, and exits on the stop,
+  a **`signal_flip`** (its own trailing return stops pointing the way the position
+  does), or `roll_out`. It has no channel exit.
+- **`GRID` was not widened.** `walkforward.py` sets the hurdle at
+  `sqrt(2 ln |grid| / T)`, so tsmom gets its **own** 8 combinations
+  (`mom_lookback` 126/252 × `mom_skip` 0/21 × `stop_vol_mult` 2.5/4.0) and the bar
+  `trend-donchian-modern` was judged against is untouched. An assertion in the
+  engine fails the import if any signal's grid stops being 8 long.
+- `donchian` remains the default and is byte-for-byte unchanged — a regression
+  test asserts the implicit and explicit runs are the same run.
+- An unrecognised signal name is refused at **registration**, not at run time, so
+  a typo cannot put a fingerprint in the kill log describing a run that never
+  happened.
+- `warmup_days` is signal-aware: 439 calendar days at `mom_lookback=252` against
+  60 for a 20-bar channel. Getting this wrong does not error — it silently starves
+  the early folds and reports "does not trade".
+
+Still to decide at registration: set `max_open` deliberately, and state the
+concurrency-adjusted risk per Finding 2 rather than inheriting `risk_frac=0.0075`
+as if it meant 0.75%.
 
 ```
 python -m research.loop register --id tsmom-stock-modern \

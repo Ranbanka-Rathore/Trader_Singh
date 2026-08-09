@@ -112,7 +112,8 @@ class XSectionEngine:
         """Config with execution costs multiplied, for the Section 5 cost stress."""
         return replace(cfg, slippage_bps=cfg.slippage_bps * mult)
 
-    def grid(self) -> List[Dict[str, Any]]:
+    def grid(self, cfg=None) -> List[Dict[str, Any]]:
+        # `cfg` is accepted and ignored — see the note in eventvol.grid.
         return list(self.GRID)
 
     def warmup_days(self, cfg: XSectionConfig) -> int:

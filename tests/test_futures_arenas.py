@@ -256,6 +256,110 @@ def test_trend_engine():
           <= set(res["summary"]))
 
 
+def _two_phase(dates, sym="TSM", start=100.0, up=0.004, down=-0.008,
+               vol=0.008, lot=50, seed=11, turn=None):
+    """A decisive up-trend that reverses, so a momentum sign genuinely flips.
+
+    A one-directional fixture cannot tell a signal that exits on reversal apart
+    from one that never exits at all.
+    """
+    import random
+    rng = random.Random(seed)
+    turn = len(dates) // 2 if turn is None else turn
+    out, px = {}, start
+    for n, d in enumerate(dates):
+        px *= (1.0 + (up if n < turn else down) + rng.gauss(0.0, vol))
+        e = _monthly_expiry(d)
+        out[d] = {sym: {e: _bar(d, sym, e, round(max(px, 1.0), 2), lot=lot)}}
+    return out
+
+
+def test_trend_signal_knob():
+    print("\n[8b] The signal knob picks the entry rule, and brings its own grid")
+    tr = engines.get("futures_trend")
+
+    # The default is load-bearing: trend-donchian-modern is closed in the kill
+    # log against it, and a moved default would make that result unreproducible.
+    check("the default signal is still donchian", tr.build({}).signal == "donchian")
+    check("...and the no-argument grid is still donchian's 8",
+          tr.grid() == tr.GRIDS["donchian"] and len(tr.grid()) == 8)
+
+    ts = tr.build({"config": {"signal": "tsmom"}})
+    check("tsmom is given its own grid", tr.grid(ts) == tr.GRIDS["tsmom"])
+    check("...also of 8, so the deflated-Sharpe hurdle does not move",
+          len(tr.grid(ts)) == 8)
+    check("...on the axes tsmom actually reads",
+          set(tr.grid(ts)[0]) == {"mom_lookback", "mom_skip", "stop_vol_mult"})
+    check("...and none of donchian's, which it would sweep without reading",
+          not any("entry_lookback" in combo for combo in tr.grid(ts)))
+
+    slow = tr.build({"config": {"signal": "tsmom", "mom_lookback": 252}})
+    check(f"a 12-month momentum warms up over a year ({tr.warmup_days(slow)} days)",
+          tr.warmup_days(slow) > 365)
+    check(f"...far longer than a 20-bar channel ({tr.warmup_days(tr.build({}))})",
+          tr.warmup_days(slow) > 3 * tr.warmup_days(tr.build({})))
+
+    # A typo must not silently screen a different strategy than the one the
+    # fingerprint records.
+    try:
+        tr.coerce("signal", "tsmomentum")
+        check("an unknown signal is refused", False)
+    except KeyError:
+        check("an unknown signal is refused at registration, not at run time", True)
+
+
+def test_tsmom_judges_a_name_against_itself():
+    print("\n[8c] tsmom holds on its own trailing return and leaves on the flip")
+    dates = _weekdays(datetime.date(2025, 1, 1), 160)
+    days = _two_phase(dates)
+    eng = engines.get("futures_trend")
+    cfg = eng.build({"equity": 1_500_000.0,
+                     "config": {"universe": "TSM", "kind": "stock",
+                                "signal": "tsmom", "mom_lookback": 10,
+                                "mom_skip": 2, "vol_lookback": 10}})
+    res = eng.run(cfg, dates, provider=_loader(days))
+
+    check(f"the reversing series is traded ({res['summary']['n_trades']} trades)",
+          res["summary"]["n_trades"] >= 2)
+    check("every trade records which rule produced it",
+          all(t["signal"] == "tsmom" for t in res["trades"]))
+    check("the book turns over on the momentum flip",
+          any(t["exit_reason"] == "signal_flip" for t in res["trades"]))
+    check("...and never on a channel, which tsmom does not have",
+          not any(t["exit_reason"] == "channel_exit" for t in res["trades"]))
+    longs = [t for t in res["trades"] if t["direction"] == "LONG"]
+    shorts = [t for t in res["trades"] if t["direction"] == "SHORT"]
+    check(f"both sides are taken as the trend reverses "
+          f"({len(longs)}L/{len(shorts)}S)", longs and shorts)
+    check("whole lots and real friction still apply to the new signal",
+          all(t["friction"] > 0 and isinstance(t["lots"], int)
+              for t in res["trades"]))
+
+
+def test_donchian_is_untouched_by_the_new_knob():
+    print("\n[8d] Adding a signal did not change the one already in the log")
+    dates = _weekdays(datetime.date(2025, 1, 1), 90)
+    days = _trending(dates)
+    eng = engines.get("futures_trend")
+    base = {"equity": 1_500_000.0,
+            "config": {"universe": "TREND", "kind": "stock",
+                       "entry_lookback": 10, "exit_lookback": 5,
+                       "vol_lookback": 10}}
+    implicit = eng.run(eng.build(base), dates, provider=_loader(days))
+    explicit_cfg = dict(base["config"], signal="donchian")
+    explicit = eng.run(eng.build({**base, "config": explicit_cfg}), dates,
+                       provider=_loader(days))
+
+    check("the default and an explicit donchian are the same run",
+          implicit["summary"]["n_trades"] == explicit["summary"]["n_trades"]
+          and implicit["summary"]["total_net_pnl"]
+          == explicit["summary"]["total_net_pnl"])
+    check("...and it still exits on the channel, not on a flip",
+          any(t["exit_reason"] == "channel_exit" for t in implicit["trades"]))
+    check("...and no trade claims to be tsmom",
+          all(t["signal"] == "donchian" for t in implicit["trades"]))
+
+
 def test_trend_refuses_unaffordable_lot():
     print("\n[9] One lot too big for the risk cap is skipped, not part-sized")
     dates = _weekdays(datetime.date(2025, 1, 1), 90)
@@ -470,6 +574,9 @@ if __name__ == "__main__":
     test_grids_are_comparable()
     test_warmup_is_engine_specific()
     test_trend_engine()
+    test_trend_signal_knob()
+    test_tsmom_judges_a_name_against_itself()
+    test_donchian_is_untouched_by_the_new_knob()
     test_trend_refuses_unaffordable_lot()
     test_xsection_capacity()
     test_xsection_liquidity_screen()

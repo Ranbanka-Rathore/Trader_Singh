@@ -60,7 +60,8 @@ class OptionsEngine:
         """Config with execution costs multiplied, for the Section 5 cost stress."""
         return replace(cfg, slippage_per_leg=cfg.slippage_per_leg * mult)
 
-    def grid(self) -> List[Dict[str, Any]]:
+    def grid(self, cfg: Optional[Config] = None) -> List[Dict[str, Any]]:
+        # `cfg` is accepted and ignored — see the note in eventvol.grid.
         return list(self.GRID)
 
     def warmup_days(self, cfg: Config) -> int:

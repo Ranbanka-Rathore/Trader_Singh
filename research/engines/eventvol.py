@@ -112,7 +112,9 @@ class EventVolEngine:
     def stress(self, cfg, mult: float):
         return replace(cfg, slippage_per_leg=cfg.slippage_per_leg * mult)
 
-    def grid(self) -> List[Dict[str, Any]]:
+    def grid(self, cfg=None) -> List[Dict[str, Any]]:
+        # `cfg` is accepted and ignored: only the trend engine's grid depends on
+        # the config, but the caller cannot know that, so all engines take it.
         return list(self.GRID)
 
     def warmup_days(self, cfg) -> int:

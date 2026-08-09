@@ -81,7 +81,10 @@ def walk_forward_stage(h: Dict[str, Any]) -> Dict[str, Any]:
                            if t["entry_date"] >= s.isoformat()],
                 "skip_reasons": res.get("skip_reasons", {})}
 
-    result = wf.walk_forward(start, end, base, runner=runner, grid=eng.grid(),
+    # The grid is asked of the CONFIGURED engine, not of the engine class: which
+    # parameters are worth sweeping can depend on the hypothesis (a tsmom run
+    # must not be swept over Donchian's channel axes, which it never reads).
+    result = wf.walk_forward(start, end, base, runner=runner, grid=eng.grid(base),
                              apply_params=eng.with_params)
     oos = result["oos_metrics"]
     boot = wf.mc_bootstrap_dd(result["oos_trades"])
