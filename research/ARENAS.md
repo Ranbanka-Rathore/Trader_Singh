@@ -543,9 +543,9 @@ a stock-futures book.
 
 ---
 
-## Drafted, NOT REGISTERED — arena 3 redrawn on the stock universe
+## Arena 3 redrawn on the stock universe — T1 REGISTERED, T2 not
 
-### T1 — time-series momentum on single-stock futures *(recommended first)*
+### T1 — time-series momentum on single-stock futures — **REGISTERED 2026-08-10**
 
 The claim: judged against its **own** history rather than cross-sectionally,
 a stock future's trailing return predicts its next return, enough to clear
@@ -609,12 +609,32 @@ python -m research.loop register --id tsmom-stock-modern \
   --configs 1 \
   --set kind=stock --set universe= \
   --set signal=tsmom --set max_open=8 \
-  --require 'capacity_fill_rate_pct>=50' \
+  --require 'symbols_traded>=20' \
   --require 'max_drawdown<=100000' \
   --require 'sharpe>=1.00' \
   --claim "Time-series momentum on single-stock futures has positive per-trade expectancy at Rs 15L in the modern era, after whole lots, margin and a real fill rule, and reaches a book Sharpe of 1.0 — Amendment A5's preferred individual bar, which on this window is also the 95th percentile of random 8-name buy-and-hold books." \
-  --kill "Screen t below the Section 4 bar, any Section 6 check fails, capacity fill below 50%, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0 — the level at which 95% of no-signal 8-name books in this window are excluded."
+  --kill "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 20 distinct symbols traded — which would falsify the N_eff 2.59 diversification premise the arena was redrawn on — a drawdown past Rs 1,00,000, or a book Sharpe below 1.0, the level at which 95% of no-signal 8-name books in this window are excluded."
 ```
+
+**REGISTERED 2026-08-10**, fingerprint `sha256:2de74ce8cb130dcbe79fbecad306defd`
+(window 2023-01-01 → 2026-08-10, noise bar t ≥ 1.18). Committed before the screen
+was run, so the claim precedes the number.
+
+*The third requirement changed at registration, and the registry is why.* The
+draft carried `capacity_fill_rate_pct>=50`, copied from arena 2's pattern — but
+that field belongs to the cross-sectional engine and `futures_trend` does not
+report it, so `requirements.py` refused the registration outright rather than
+accept a threshold that could never fire. The available lookalike,
+`fill_pass_rate_pct`, measures **100.00%** here under `strict_legacy` (Findings 1
+and 5), so a bar on it would have been decoration.
+
+`symbols_traded>=20` was declared instead, and it checks something the draft left
+entirely unguarded: **Finding 3's diversification premise is the whole reason
+arena 3 was redrawn onto stocks.** N_eff 2.59 assumes 8 concurrent positions drawn
+from a broad universe. If the book only ever touches a dozen names, that premise
+is false, the per-bet arithmetic behind the 1.0 bar collapses, and the hypothesis
+should die on it. 20 is 2.5× `max_open` — a floor that catches pathological
+concentration rather than a bar tuned toward an answer nobody has seen yet.
 
 *What a pass means, stated before the number exists: tsmom clearing 1.0 at screen
 makes it **worth one walk-forward**, and clearing A5 out-of-sample afterwards

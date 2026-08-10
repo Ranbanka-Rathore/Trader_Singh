@@ -705,6 +705,40 @@
     }
    ],
    "fingerprint": "sha256:ab1d46ae7e33ee35f55f05a12b949970"
+  },
+  {
+   "id": "tsmom-stock-modern",
+   "arena": "futures_trend",
+   "claim": "Time-series momentum on single-stock futures has positive per-trade expectancy at Rs 15L in the modern era, after whole lots, margin and a real fill rule, and reaches a book Sharpe of 1.0 \u2014 Amendment A5's preferred individual bar, which on this window is also the 95th percentile of random 8-name buy-and-hold books.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 20 distinct symbols traded \u2014 which would falsify the N_eff 2.59 diversification premise the arena was redrawn on \u2014 a drawdown past Rs 1,00,000, or a book Sharpe below 1.0, the level at which 95% of no-signal 8-name books in this window are excluded.",
+   "engine": "futures_trend",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-10"
+   ],
+   "gate": "strict_legacy",
+   "n_configs": 1,
+   "config": {
+    "kind": "stock",
+    "universe": [],
+    "signal": "tsmom",
+    "max_open": 8
+   },
+   "sweep": null,
+   "requires": [
+    "symbols_traded>=20",
+    "max_drawdown<=100000",
+    "sharpe>=1"
+   ],
+   "supersedes": null,
+   "note": "",
+   "registered_at": "2026-08-10T11:42:37",
+   "status": "registered",
+   "events": [],
+   "fingerprint": "sha256:2de74ce8cb130dcbe79fbecad306defd"
   }
  ]
 }
