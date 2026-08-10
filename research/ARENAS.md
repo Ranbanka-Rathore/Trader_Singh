@@ -149,12 +149,8 @@ one bet); this makes it unavailable as well.
 
 Three limits on this number, all pushing the real figure **down**:
 
-1. **It is an upper bound on supply, not a fill model.** A quoted leg is not a
-   filled position in the size wanted. Arena 2 measured 35% capacity fill and
-   arena 4 measured 6.6% — apply anything like that to 52/yr and the headroom
-   over 32.2 is gone. The risk is genuinely lower here (a two-leg NIFTY weekly at
-   Rs 15L is small against the most liquid option book in the country) but that
-   is an argument, not a measurement, and it has not been made.
+1. ~~**It is an upper bound on supply, not a fill model.**~~ **Measured
+   2026-08-10 — capacity does not bind here.** See below.
 2. **It is unconditional.** Any entry condition — a regime, a vol filter, a
    signal — reduces it, which is exactly what happened to `cal-cheapvol-modern`.
 3. **Supply is not edge.** Nothing here says a weekly NIFTY structure makes
@@ -167,6 +163,50 @@ underlyings in 2023, because `txns` is NaN pre-2024 and the gate correctly
 refuses what it cannot evaluate. Finding 5 was measured on stock futures; the
 same mechanism silently empties the option book, and the fix is the same —
 `strict_legacy` on any window touching 2023.
+
+#### Capacity fill: 96.9% — the supply survives Rs 15L
+
+`scratch/arena1_weekly_capacity.py`, using `RealBacktester`'s own sizing rule
+(`real_backtester.py:260`) rather than a new one: `max_loss_per_lot =
+(width − credit) × lot`, `L_risk = floor(0.015 × equity / max_loss_per_lot)`,
+with the one-lot hard cap at 3% of equity. `L_vol` and `L_kelly` are omitted
+because both only ever reduce the count.
+
+| year | expiries | sized | per yr | 1 lot too big | fill % |
+|---|---|---|---|---|---|
+| 2023 | 53 | 52 | 52.0 | 0 | 98.1% |
+| 2024 | 52 | 52 | 51.9 | 0 | 100.0% |
+| 2025 | 55 | 53 | 53.0 | 0 | 96.4% |
+| 2026 | 34 | 31 | 51.0 | 0 | 91.2% |
+
+**Overall 188/194 = 96.9%.** Against arena 2's 35% and arena 4's 6.6%, capacity
+is simply not the constraint here — and **"one lot too big" never fired once**.
+Max loss per lot ran Rs 3,403 / Rs 8,808 / Rs 13,744 (min/median/max) against a
+Rs 22,500 per-trade budget, so the whole-lot granularity that strangled the other
+arenas has ample room in this one. Median 2 lots, range 1–6.
+
+Why this arena differs is worth keeping: arena 2 needed ten simultaneous
+stock-futures positions each carrying full notional, and arena 4 needed straddles
+on single-stock options that mostly do not trade. A two-leg defined-risk NIFTY
+vertical risks the spread width, not the notional, on the most liquid option book
+in the country.
+
+*(NIFTY's lot changed four times across the window — 25, 50, 65, 75 all appear.
+That is why `load_chain` resolves the lot per expiry rather than per day; a single
+session legitimately carries two.)*
+
+**Two limits, and the first one bites.** The sizing probe is a **vertical** —
+same expiry, two strikes. Section 8 defines this arena as index structures *other
+than vanilla credit spreads*, so the structures actually admissible here are
+calendars, ratios and term-structure trades. **A calendar spans two expiries and
+its max loss is not `(width − credit) × lot`**, and a ratio is not defined-risk at
+all — so this capacity result transfers to the *liquidity and lot* question for
+any two-leg NIFTY weekly, but its **sizing** half is only established for
+vertical-shaped risk. And the engine models no margin whatsoever (`grep margin`
+finds nothing in `real_backtester.py` or `engines/options.py`), which is close to
+harmless for a vertical, where broker margin ≈ max loss, and is not harmless for
+a ratio. That gap should be closed before a ratio structure is registered, not
+after.
 
 > **Precondition for the next arena-1 registration:** demonstrate the
 > configuration can supply ~116 trades on `modern`, and declare it as
