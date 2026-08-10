@@ -56,6 +56,12 @@ multiple-comparisons budget must reflect **eleven** looks, not one. The correct
 form for any of them is a confirmatory registration, as `trend-donchian-modern`
 was.
 
+**And to arena 1's trade supply (2026-08-10).** The weekly-expiry measurement
+below spent knowledge that a near-ATM NIFTY pair is openable on ~52 expiries a
+year while the other three indices fell to ~12 after SEBI's 2024 rationalisation.
+This is *supply*, not edge — it says nothing about whether such a structure makes
+money — but a registration citing it is citing something already seen.
+
 **And it extends to arena 2, which is still OPEN (2026-08-10).** The
 cross-sectional ceiling measurement spent knowledge of a live arena: 12-1
 momentum's rank IC at arena 2's own horizon (−0.0139, t −0.66), the IC required
@@ -114,9 +120,53 @@ A5's floor.
 **The shortfall is a property of the configuration, not the arena.** A calendar
 spread gated on a cheap-vol regime fires only when the regime is on — that is
 the point of it — and a structure that trades on a condition cannot also trade
-often. But arena 1 is "index-option structures" broadly, and NIFTY now lists
-weekly expiries: a structure trading a weekly cycle would clear 32.3/year without
-difficulty.
+often.
+
+#### Measured 2026-08-10: a weekly NIFTY structure clears it, and only NIFTY does
+
+The claim that "a weekly structure would clear 32.3/year" was reasoning, not
+measurement, so it was measured (`scratch/arena1_weekly_supply.py`). For every
+option expiry in the modern era, could a near-ATM CE+PE pair have been *opened*
+2–5 days before it, with both legs passing `strict_legacy`? That is the ceiling
+on trade count for any weekly structure — no strategy can exceed it.
+
+| underlying | 2023 | 2024 | 2025 | 2026 | vs A5's 32.2/yr |
+|---|---|---|---|---|---|
+| **NIFTY** | **52.0** | **51.9** | **53.0** | **51.0** | **clears every year** |
+| BANKNIFTY | 52.0 | 47.9 | 12.0 | 11.5 | dies in 2025 |
+| FINNIFTY | 51.0 | 48.9 | 12.0 | 11.5 | dies in 2025 |
+| MIDCPNIFTY | 30.0 | 48.9 | 12.0 | 11.5 | dies in 2025 |
+
+(annualised; 2026 runs to August only)
+
+**Yes — but the answer is NIFTY-only, and that is the more useful half.** The
+collapse from ~48–52 to ~12 in 2025 is SEBI's late-2024 expiry rationalisation:
+one weekly per exchange, which NIFTY kept and the others lost. Twelve a year is
+monthly-only. So **stacking several index underlyings to reach A5's sample is no
+longer available** — a route that looked open on 2023–24 data and closed in
+2025. Finding 2 already made it unattractive (N_eff 1.06, the index universe is
+one bet); this makes it unavailable as well.
+
+Three limits on this number, all pushing the real figure **down**:
+
+1. **It is an upper bound on supply, not a fill model.** A quoted leg is not a
+   filled position in the size wanted. Arena 2 measured 35% capacity fill and
+   arena 4 measured 6.6% — apply anything like that to 52/yr and the headroom
+   over 32.2 is gone. The risk is genuinely lower here (a two-leg NIFTY weekly at
+   Rs 15L is small against the most liquid option book in the country) but that
+   is an argument, not a measurement, and it has not been made.
+2. **It is unconditional.** Any entry condition — a regime, a vol filter, a
+   signal — reduces it, which is exactly what happened to `cal-cheapvol-modern`.
+3. **Supply is not edge.** Nothing here says a weekly NIFTY structure makes
+   money, and Section 8's honest prior says this is the most crowded arena
+   available to Indian retail.
+
+*Incidental confirmation of Finding 5, on a different instrument:* under `strict`
+this same measurement returned **zero** tradeable expiries for all four
+underlyings in 2023, because `txns` is NaN pre-2024 and the gate correctly
+refuses what it cannot evaluate. Finding 5 was measured on stock futures; the
+same mechanism silently empties the option book, and the fix is the same —
+`strict_legacy` on any window touching 2023.
 
 > **Precondition for the next arena-1 registration:** demonstrate the
 > configuration can supply ~116 trades on `modern`, and declare it as
