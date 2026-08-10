@@ -54,9 +54,24 @@ class Era:
 #   2020 14.8%   2021 29.0%   2022 38.6%                <- ramp
 #   2023 51.7%   2024 52.2%   2025 57.0%   2026 63.5%   <- plateau
 #
-# Pooling a result across these is meaningless: the same strategy is being asked
-# to trade three different markets. Boundaries are drawn where the slope changes,
-# not on round years by coincidence.
+# Pooling a STRATEGY RESULT across these is meaningless: the same strategy is
+# being asked to trade three different markets. Boundaries are drawn where the
+# slope changes, not on round years by coincidence.
+#
+# AMENDMENT D (2026-08-10) scopes this to the evidence above, which is entirely
+# about the NIFTY OPTION book. Measured on single-stock futures the same property
+# is 100.00% in every year 2016-2026 — there is no ramp there to partition, and
+# rho_bar, breadth, vol and dispersion are continuous across both boundaries. So:
+#
+#   - strategy results are still reported per era, `modern` still the default
+#     (D1) — a backtest reads lots, fills, margin and capacity, which do differ;
+#   - signal-PROPERTY estimation (IC, correlation, dispersion — quantities with
+#     no lots, fills or sizing in them) may pool eras, but only for an instrument
+#     whose era-defining property has been measured and found flat (D2).
+#
+# Stock futures qualify. The option book demonstrably does not. Index futures
+# have not been checked, so they do not qualify either. Amendment D lowers no
+# bar and reopens no closed hypothesis (D3).
 ERAS: Dict[str, Era] = {
     "early": Era("early", datetime.date(2016, 1, 1), datetime.date(2019, 12, 31),
                  "~10%", "thin book, ~3,000 listed legs/day, weeklies barely traded"),

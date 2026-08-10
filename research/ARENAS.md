@@ -888,13 +888,16 @@ momentum-reversal pattern.
 
 Three ways to buy power, none of them free, none taken yet:
 
-1. **More history.** ~35 rebalances would detect IC 0.05 and ~55 would detect
-   0.04, against 29 today. The ramp era would supply them — but Amendment B3
-   forbids pooling across liquidity eras. Whether B3 *binds here* is a real
-   question rather than a formality: the eras were drawn on NIFTY **option**
-   liquidity, and Finding 1 measured stock futures passing at 100% in both ramp
-   and modern. That is a charter question to settle deliberately, not a
-   convenience to assume.
+1. **More history — SETTLED, see Amendment D (2026-08-10).** ~35 rebalances would
+   detect IC 0.05 and ~55 would detect 0.04, against 29 today. The blocker was
+   B3, and measuring it (`scratch/arena3_era_break.py`) showed B3's eras rest
+   entirely on NIFTY **option** leg tradeability while the same property for
+   stock futures is **100.00% in every year 2016–2026**, with ρ̄, breadth, vol and
+   dispersion continuous across both boundaries. Amendment D scopes B3 to its
+   evidence: strategy results stay per-era with `modern` the default, while
+   signal-property estimation may pool. **IC estimation in arena 3 now has 110
+   rebalances and a detectable IC of 0.0283**, comfortably below the ~0.04–0.05
+   requirement. The arena became answerable without any bar moving.
 2. **Shorter horizon**, giving more rebalances — but T2 measured 21 days as the
    favourable hold and did not measure 5, so this trades a known-good horizon for
    an unknown one.

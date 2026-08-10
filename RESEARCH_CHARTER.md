@@ -434,6 +434,87 @@ condors the engine happens to be able to emit.
 
 ---
 
+## Amendment D — B3's eras are scoped to the evidence that drew them
+
+**2026-08-10.** Made with arena 3's IC table already seen, which is disclosed
+rather than hidden — see "what this may not be used for" below. It **loosens** a
+constraint, so it is the dangerous kind of amendment and is written to be as
+narrow as the evidence supports.
+
+**Reason.** B3 partitions the archive into three liquidity eras and requires every
+result to be reported per era. Its entire evidence is the share of NIFTY
+**option** legs that actually trade, which rises ~6× from 2016 to 2026. Nothing
+in B3 measured any other instrument. Applying its boundaries to single-stock
+futures was an extension by analogy, and the analogy is false: measured on stock
+futures under `strict_legacy`, the era-defining property is **100.00% in every
+year from 2016 to 2026**. There is no liquidity ramp in that instrument to
+partition.
+
+The properties that matter for a cross-sectional book are likewise continuous
+across the 2022→2023 boundary (`scratch/arena3_era_break.py`):
+
+| | early | ramp | modern |
+|---|---|---|---|
+| gate pass rate | 100% | 100% | 100% |
+| ρ̄ | 0.183–0.314 | 0.271–0.418 | 0.205–0.341 |
+| N_eff at 8 held | 2.50–3.51 | 2.04–2.76 | 2.36–3.29 |
+| median annualised vol | 32–36% | 33–48% | 25–32% |
+| 21-day cross-sectional dispersion | ~10.3% | ~10.4% | ~8.6% |
+
+Ranges overlap throughout with no trend. 2020's ρ̄ 0.418 and vol 47.7% are COVID —
+an event inside an era, not a boundary between eras. The one metric that moves
+materially is lot size (1500 → 625), and it declines smoothly across the whole
+archive rather than breaking at any era edge.
+
+### D1. What B3 continues to require, unchanged
+
+**Every strategy result is still reported per era, and `modern` is still the
+default test window.** A backtest reads lots, fills, margin and capacity, all of
+which differ across a decade, and pooling those is exactly the average-over-three-
+markets B3 names. Nothing about screens, walk-forwards, verdicts or promotions
+changes.
+
+### D2. What may now be pooled
+
+**Signal-property estimation may pool eras** — information coefficient, pairwise
+correlation, cross-sectional dispersion, and other unconditional properties of
+the instrument set. These quantities involve no lots, no fills, no sizing and no
+capital, so the objection that makes pooling wrong for a backtest does not apply
+to them.
+
+Permitted only where **the era-defining property has been measured on that
+instrument and found flat**, with the measurement recorded before the pooled
+estimate is used. Stock futures qualify on the table above. No other instrument
+qualifies until someone measures it: the option book demonstrably does not, and
+index futures have not been checked.
+
+### D3. What this may not be used for
+
+- **It does not reopen a closed hypothesis.** Section 7 stands: `tsmom-stock-modern`
+  and the rest are closed, and a pooled re-run of a dead configuration is the
+  tuning Section 7 forbids.
+- **It does not lower any bar.** A5's 0.8/1.0, the drawdown budget and the
+  `sqrt(2 ln N)` noise threshold are untouched. Pooling buys *observations*, not
+  a cheaper test — and the noise bar is computed from the config count, so more
+  data cannot flatter a sweep.
+- **The eleven ICs already measured on `modern` are spent knowledge** (disclosed
+  in `research/ARENAS.md`). Re-estimating them pooled does not make them fresh
+  predictions, and any of them registered later is still a confirmatory
+  registration priced at eleven looks.
+
+### D4. Why this was safe to make after seeing a result
+
+The result that prompted it is a **power** calculation, not an edge: the smallest
+IC detectable on `modern` alone (0.0551) is the same size as the IC required to
+be worth trading (~0.04–0.05), so the arena could not answer its own question.
+Amendment D changes which observations may be counted, not what counts as
+passing. It cannot turn a losing signal into a winning one, and the table it
+rests on contains no strategy result — deliberately, since choosing a window by
+first looking at what each window does to a signal's IC is how a result gets
+manufactured.
+
+---
+
 ## Amendment Log
 
 *(append-only; date + reason + what changed. An amendment made after seeing a
@@ -458,3 +539,17 @@ result it would change invalidates that result.)*
   30-trade paper sample must clear, the automatic drawdown revocation, promotion
   expiry, and strategy-type coverage. Adds no new permission. **Made before
   anything had been promoted — no result informed it.**
+- 2026-08-10 — **Amendment D** added. Reason: B3's three liquidity eras rest
+  entirely on NIFTY *option* leg tradeability, and applying them to single-stock
+  futures was an extension by analogy that measurement refutes — the same property
+  is 100.00% for stock futures in every year 2016–2026, with ρ̄, breadth, vol and
+  dispersion all continuous across the era boundaries. Scopes B3 to its evidence:
+  strategy results stay per-era with `modern` the default (D1), while
+  signal-property estimation (IC, correlation, dispersion — quantities involving
+  no lots, fills or sizing) may pool eras where that instrument's era-defining
+  property has been measured flat (D2). Lowers no bar and reopens no hypothesis
+  (D3). **This one WAS made after seeing a result, which is disclosed rather than
+  hidden:** the prompting result is a power calculation — detectable IC 0.0551 on
+  `modern` against a ~0.04–0.05 requirement, so arena 3 could not answer its own
+  question — and it changes which observations may be counted, not what counts as
+  passing (D4). The table it rests on contains no strategy result.
