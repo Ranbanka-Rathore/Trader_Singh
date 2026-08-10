@@ -56,6 +56,12 @@ multiple-comparisons budget must reflect **eleven** looks, not one. The correct
 form for any of them is a confirmatory registration, as `trend-donchian-modern`
 was.
 
+**And to arena 1's friction economics (2026-08-10).** Round-trip cost in vol
+points is now known per structure: 0.24 naked, 1.60 for a 0/6 butterfly, 1.83 for
+a 2/6 condor, 4.42 for a 2/4 condor, against a 2.38 premium. Anyone registering a
+four-legged index structure now knows which wing widths are viable before running
+anything.
+
 **And to arena 1's term structure (2026-08-10).** The VRP measurement under W2
 spent knowledge of a live arena: NIFTY's near and far ATM implied vol against
 subsequent realised, 187 weekly cycles — near +2.38 vol points, far +1.84, and a
@@ -760,6 +766,62 @@ either excluded by the charter or already dead on friction, and the remaining
 routes need sizing machinery the engine does not have. Note the iron condor
 result is the relevant precedent — 2 vol points is thin, and the one structure
 tested to harvest it lost to costs.
+
+### Does 2 vol points survive friction? Measured 2026-08-10 — **it depends entirely on the wing**
+
+`scratch/arena1_friction_vol_points.py`. Friction is put into the same units as
+the premium: an option's vega says what a vol point is worth in rupees, the
+friction model says what a round trip costs, and the ratio is a cost expressed in
+vol points that compares directly against 2.38. Costs are the project's own —
+`friction_model.basket_friction` (brokerage, STT, exchange, SEBI, IPFT, stamp,
+GST) plus `slippage_per_leg = 0.75` per leg per side. 193 weekly cycles, 187
+fully tradeable.
+
+| structure | Rs per vol pt | friction Rs | **cost in vol pts** | verdict vs 2.38 |
+|---|---|---|---|---|
+| short straddle (naked, 2 legs) | 1,203 | 289 | **0.24** | survives 10:1 |
+| short strangle ±2 (naked, 2 legs) | 1,163 | 276 | **0.24** | survives 10:1 |
+| iron **butterfly** 0/6 (4 legs) | 380 | 538 | **1.60** | **survives**, 0.78 retained |
+| iron condor 2/6 (4 legs) | 329 | 526 | **1.83** | survives, 0.55 retained |
+| iron condor 2/4 (4 legs, narrow) | 135 | 528 | **4.42** | **1.9× the premium — dead** |
+
+**The wing is the whole story, and it is a vega story rather than a cost story.**
+Friction barely moves across the four-legged structures (Rs 526–538). What
+collapses is the *earnings* side: net short vega falls from ~1,200 Rs/vol-point
+naked to 329 at a 6-step wing and **135 at a 4-step wing**. A narrow wing gives
+back 89% of the vega you are being paid for while costing the same four legs of
+friction. That is the mechanism behind the iron condor's rejection on 2026-07-04
+(18 OOS trades, −Rs 4,936, "double the friction of a directional spread"), now
+quantified rather than inferred.
+
+**Slippage is 54–59% of all friction**, so `slippage_per_leg = 0.75` is the
+dominant lever in this arena — larger than every statutory charge combined. It is
+an assumption, not a measurement, and a structure's verdict here moves with it.
+
+#### What this does and does not establish
+
+*Establishes:* friction alone does **not** kill the premium in a wide
+defined-risk structure. An iron butterfly with 6-step wings retains 0.78 of the
+2.38 vol points (33%); a 2/6 condor retains 0.55 (23%). The earlier reading —
+"every defined-risk route is already dead on friction" — was too strong, and the
+narrow condor was doing the work in it.
+
+*Does not establish:* that any of these is profitable. **The VRP is payment for
+bearing gap risk, not free money.** This measures the mean premium against the
+mean cost; it says nothing about the fat left tail that the premium exists to
+compensate. A short-vol book earns a thin, steady credit and pays it back in
+occasional large losses, and whether the survivor clears A5's Sharpe 0.8 depends
+entirely on a loss distribution nothing here has measured.
+
+#### The one structure this opens
+
+The **iron butterfly has never been tested** — `ARENAS.md`'s dead list covers the
+ladder, the 35–45 DTE band and the iron *condor*, not the butterfly. It has the
+best friction economics measured here, it is inside Section 8's remit (not a
+vanilla credit spread), it needs **no new code** (the engine already emits
+four-legged structures), and weekly supply and capacity are already established at
+52/yr and 96.9%. That makes it arena 1's only remaining candidate that is
+registrable today rather than after a sizing rewrite.
 
 ### Recommendation, superseded: measure the prior before writing the code
 
