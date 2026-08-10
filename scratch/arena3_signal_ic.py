@@ -261,17 +261,25 @@ def main():
         eras = ["early", "ramp", "modern"]
         print(f"{'signal':26s} " + " ".join(f"{e:>16s}" for e in eras))
         print("-" * 78)
+        verdicts = {}
         for name, ric, *_ in rows:
             cells = []
             for e in eras:
                 m = per_era.get(name, {}).get(e)
                 cells.append(f"{m[0]:+8.4f} t{m[2]:+5.2f}" if m else f"{'-':>15s}")
-            flip = len({np.sign(per_era[name][e][0]) for e in eras
-                        if e in per_era.get(name, {})}) > 1
-            print(f"{name:26s} " + " ".join(cells) + ("   SIGN FLIPS" if flip else ""))
-        print("  A signal whose sign flips across eras is not one pooled "
-              "estimation has helped.")
-        print(f"  per-era t is against |t| >= {bar:.2f} (11 signals); "
+            # Amendment D5, as the charter implements it -- not a local rule.
+            ok, why = charter.pooled_estimate_admissible(
+                {e: (v[0], v[1]) for e, v in per_era.get(name, {}).items()})
+            verdicts[name] = (ok, why)
+            print(f"{name:26s} " + " ".join(cells) +
+                  ("" if ok else "   D5: REFUSED"))
+        n_ok = sum(1 for ok, _ in verdicts.values() if ok)
+        print(f"\n  Amendment D5 admits {n_ok} of {len(verdicts)} pooled "
+              f"estimates. Reasons for the rest:")
+        for name, (ok, why) in verdicts.items():
+            if not ok:
+                print(f"    {name:26s} {why[0]}")
+        print(f"\n  per-era t is against |t| >= {bar:.2f} (11 signals); "
               f"across both windows and three eras the honest bar is higher.")
 
     print(f"\nreference: T2 says rank IC ~0.04 reaches A5's floor 0.8, "

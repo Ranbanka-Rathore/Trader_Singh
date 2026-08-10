@@ -980,6 +980,31 @@ the `modern` era began, and **no amount of pooled history recovers it** — beca
 the history that carries it is the history that no longer describes the market.
 Arena 3 is better measured than it was and no closer to supplying a strategy.
 
+#### Amendment D5 now enforces this, and admits 0 of 11
+
+The diagnostic became a charter rule the same day
+(`charter.pooled_estimate_admissible`, 16 tests). Run against the table above:
+
+```
+Amendment D5 admits 0 of 11 pooled estimates.
+  mom_252_21   D5.2 early carries it: dropping early moves the estimate 63% (+0.0263 -> +0.0097)
+  mom_126_21   D5.2 early carries it: dropping early moves the estimate 76% (+0.0193 -> +0.0046)
+  high_52w     D5.1 sign flip: pooled +0.0258 but ramp -0.0072
+  mom_63_21    D5.1 sign flip: pooled +0.0171 but modern -0.0106
+  lowvol_63    D5.1 sign flip: pooled +0.0113 but modern -0.0236, ramp -0.0067
+  ... 6 more
+```
+
+**Not one pooled estimate in arena 3 may be relied on.** That is not D5 being
+over-strict — its tests include stable estimates that pass, and two-era cases
+with moderate spread that pass. It is this data genuinely being heterogeneous.
+
+The net of Amendment D, honestly stated: it was proposed to make arena 3
+answerable, it did buy the power it promised (detectable IC 0.0561 → 0.0315), and
+**it changed no conclusion**, because everything the extra power reached turned
+out to be inadmissible. The arena's verdict after all of it is exactly what it
+was after T2b — measured, underdetermined, and not supplying a strategy.
+
 ### Not drafted, and why
 
 **A new signal on the index universe.** N_eff 1.06 means it needs a per-bet

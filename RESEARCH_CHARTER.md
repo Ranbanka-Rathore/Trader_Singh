@@ -515,6 +515,49 @@ manufactured.
 
 ---
 
+### D5. A pooled estimate must earn the pooling — added 2026-08-10, same day
+
+**D2 as first written was wrong, and this narrows it.** The pooled IC re-run it
+authorised (`research/ARENAS.md` T2c) showed **nine of eleven signals flipping
+sign across eras**, with the entire pooled number carried by `early`: momentum
+ICs of 0.05–0.07 in 2016–2019 collapsing to ~0.00 in both ramp and modern. The
+pooled figure described no market that has ever existed.
+
+The measurement D2 rested on was correct and still stands — for stock futures the
+era-defining property is 100.00% in every year, and ρ̄, breadth, vol and dispersion
+are continuous. The **inference** was wrong:
+
+> **Flat instrument properties do not imply flat signal properties.** The same
+> instrument, with the same liquidity, breadth and correlation structure, can
+> stop being predictable. Structure and predictability are different things, and
+> D2 assumed the first governed the second.
+
+So D2's permission is now conditional. **A pooled estimate may be relied on only
+if both of these hold; otherwise the per-era estimates are reported and the
+pooled number is discarded.** Fails closed: an era with too few observations to
+estimate makes the pooled figure unverifiable, and an unverifiable condition is
+not a satisfied one.
+
+- **D5.1 — sign consistency.** Every per-era estimate must share the sign of the
+  pooled estimate. A pooled mean taken across a sign change is an average of
+  opposite effects and means nothing.
+- **D5.2 — no single-era dominance.** Removing any one era must not change the
+  pooled estimate by more than **50%** — the materiality figure Amendment B
+  already uses, applied as a leave-one-out jackknife, which is the same stress
+  the walk-forward already applies to folds. An estimate that survives only while
+  one era is included is that era's result wearing a pooled label.
+
+Both are mechanical and both are implemented as `charter.pooled_estimate_admissible`,
+so this cannot quietly stop being applied the way a prose threshold does. Neither
+rule requires *proof of heterogeneity* to block pooling: with three eras and wide
+per-era standard errors, a formal heterogeneity test has almost no power, and
+failing to reject homogeneity is not evidence of it. The burden sits on the
+pooled estimate to justify itself, which is the same direction of proof the rest
+of the charter uses.
+
+**This tightens; it does not license anything new.** Nothing that failed under
+D1–D4 passes under D5.
+
 ## Amendment Log
 
 *(append-only; date + reason + what changed. An amendment made after seeing a
@@ -553,3 +596,16 @@ result it would change invalidates that result.)*
   `modern` against a ~0.04–0.05 requirement, so arena 3 could not answer its own
   question — and it changes which observations may be counted, not what counts as
   passing (D4). The table it rests on contains no strategy result.
+- 2026-08-10 — **Amendment D5** added, same day, **narrowing D2**. Reason: the
+  pooled re-run D2 authorised flipped sign across eras for nine of eleven signals,
+  with the whole pooled figure carried by `early` — momentum ICs of 0.05–0.07 in
+  2016–2019 collapsing to ~0.00 in ramp and modern. The pooled number described
+  no market that has ever existed, which is the very thing B3 forbids. D2's
+  measurement was correct and stands; its **inference** was wrong — flat
+  *instrument* properties do not imply flat *signal* properties. A pooled estimate
+  is now admissible only if every per-era estimate shares its sign (D5.1) and no
+  single era's removal moves it by more than 50% (D5.2, reusing Amendment B's
+  materiality figure). Implemented as `charter.pooled_estimate_admissible` with
+  16 tests, so it cannot quietly stop being applied. **Tightens only — nothing
+  that failed under D1–D4 passes under D5.** Applied to the run that prompted it,
+  it admits **0 of 11** estimates.

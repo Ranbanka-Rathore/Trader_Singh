@@ -106,6 +106,68 @@ def era_window(name: str, cap: Optional[datetime.date] = None
     return e.start, end
 
 
+# ── Amendment D5: a pooled estimate must earn the pooling ────────────────────
+# D2 permitted pooling eras for signal-property estimation on an instrument whose
+# era-defining property is flat. Stock futures qualify. The pooled IC re-run that
+# permission authorised then flipped sign across eras for nine of eleven signals,
+# with the whole pooled number carried by `early` — a figure describing no market
+# that has ever existed. D2's measurement was right; its inference was not. Flat
+# INSTRUMENT properties do not imply flat SIGNAL properties.
+#
+# So the permission is conditional, and the two conditions are here rather than in
+# prose because a criterion written only in prose is one that quietly stops being
+# applied — the same lesson `requirements.py` exists for.
+POOLED_DOMINANCE_LIMIT = 0.50   # D5.2; Amendment B's materiality figure reused
+
+
+def pooled_estimate_admissible(per_era: Dict[str, Tuple[float, int]]
+                               ) -> Tuple[bool, List[str]]:
+    """(admissible, reasons) — may a pooled estimate be relied on? Amendment D5.
+
+    `per_era` maps era name -> (estimate, n_observations). The pooled estimate is
+    the n-weighted mean, which is what pooling the underlying observations gives.
+
+    Fails closed throughout. Fewer than two eras cannot be cross-checked; an era
+    with no observations makes the pooled figure unverifiable; and an estimate
+    indistinguishable from zero has no sign to be consistent with. In each case
+    the answer is "not admissible", because an unverifiable condition is not a
+    satisfied one.
+    """
+    reasons: List[str] = []
+    clean = {e: (float(v), int(n)) for e, (v, n) in (per_era or {}).items() if int(n) > 0}
+    if len(clean) < 2:
+        return False, [f"only {len(clean)} era(s) with observations; a pooled "
+                       f"estimate cannot be cross-checked against itself"]
+
+    total_n = sum(n for _, n in clean.values())
+    pooled = sum(v * n for v, n in clean.values()) / total_n
+    if abs(pooled) < 1e-12:
+        return False, ["pooled estimate is zero; nothing to rely on"]
+
+    # D5.1 — sign consistency.
+    off = {e: v for e, (v, _) in clean.items()
+           if (v > 0) != (pooled > 0) or v == 0.0}
+    if off:
+        detail = ", ".join(f"{e} {v:+.4f}" for e, v in sorted(off.items()))
+        reasons.append(f"D5.1 sign flip: pooled {pooled:+.4f} but {detail}")
+
+    # D5.2 — no single era may carry the estimate (leave-one-out jackknife).
+    for e in sorted(clean):
+        rest = {k: val for k, val in clean.items() if k != e}
+        rest_n = sum(n for _, n in rest.values())
+        if rest_n <= 0:
+            reasons.append(f"D5.2 unverifiable: dropping {e} leaves no observations")
+            continue
+        without = sum(v * n for v, n in rest.values()) / rest_n
+        drift = abs(without - pooled) / abs(pooled)
+        if drift > POOLED_DOMINANCE_LIMIT:
+            reasons.append(
+                f"D5.2 {e} carries it: dropping {e} moves the estimate "
+                f"{drift:.0%} ({pooled:+.4f} -> {without:+.4f})")
+
+    return (not reasons), reasons
+
+
 # ── Section 4: multiple comparisons ──────────────────────────────────────────
 def noise_threshold(n_configs: int) -> float:
     """Expected max |t| across `n_configs` pure-noise configurations.
