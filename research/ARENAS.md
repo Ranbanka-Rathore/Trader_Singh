@@ -626,6 +626,107 @@ and it is better known now than after sourcing the calendars.
 
 ---
 
+## W1 — weekly calendar — DRAFTED, **BLOCKED**, and NOT RECOMMENDED
+
+Drafted 2026-08-10 on request. Two things came out of writing it that matter more
+than the command: it **cannot be run today**, and even once it can, the prior
+against it is strong enough that it should probably not be spent.
+
+### Blocker 1 — the engine cannot enter a calendar unconditionally
+
+`CALENDAR_SPREAD` is reachable by exactly one path,
+`regime_filters.classify_entry`:
+
+```python
+if allow_calendar and iv > 0 and ivr < CAL_IVR_MAX and er < CAL_ER_MAX:
+    return "CALENDAR_SPREAD", f"cheap_vol_ivr_{ivr:.2f}"
+```
+
+`CAL_IVR_MAX = 0.30`, `CAL_ER_MAX = 0.25` — cheap vol **and** no trend. And with
+`use_gates=False` the fallback branch emits only `BULL_PUT_SPREAD` or
+`BEAR_CALL_SPREAD`, so the calendar becomes unreachable rather than
+unconditional.
+
+So `--set enable_calendar=true` does not produce a weekly unconditional calendar.
+**It reproduces `cal-cheapvol-modern` exactly** — the hypothesis that already
+died. Registering the command below against today's engine would put a
+fingerprint in the kill log describing a run that cannot happen, which is the
+failure the trend engine's "unknown signal refused at registration" guard exists
+to prevent.
+
+*The change needed is small* — a `cal_unconditional` flag that bypasses the
+regime branch for the calendar — but it has to exist, be tested, and be **refused
+at registration when absent**, before the command is honest.
+
+### Blocker 2 — the honest prior, and it is not close
+
+`cal-cheapvol-modern`: 67 trades, **−Rs 95,272, PF 0.34, t −2.77**. It did not
+die on supply; it died on expectancy, decisively.
+
+A long calendar is **net long vega**. The cheap-vol filter it was gated on
+(IV rank < 0.30) is the *most favourable* condition such a structure can have —
+enter when vol is cheap, profit if it expands. Removing that filter means being
+long vega unconditionally, which systematically **pays** the variance risk
+premium instead of collecting it.
+
+> So the unconditional version should perform **worse** than the gated one, and
+> the gated one was already dead at t −2.77. This is not a hypothesis with an
+> open question; it is a structure whose best case has been measured and lost.
+
+It would also carry `--supersedes cal-cheapvol-modern` under Section 7 and B4, so
+its ancestor's budget compounds — and it spends one of the **at most three**
+configurations the modern era can afford before A5's floor stops being detectable.
+
+### The command, for when the blocker clears
+
+```
+python -m research.loop register --id cal-weekly-modern \
+  --arena index_structures --engine real_backtester --era modern \
+  --gate strict_legacy \
+  --configs 1 --supersedes cal-cheapvol-modern \
+  --set enable_calendar=true --set cal_unconditional=true \
+  --set min_days_to_expiry=2 \
+  --require 'n_trades>=116' \
+  --require 'max_drawdown<=100000' \
+  --require 'sharpe>=1.00' \
+  --claim "A long ATM calendar entered on every weekly NIFTY expiry, without a regime filter, has positive per-trade expectancy in the modern era under a real fill rule, and reaches a book Sharpe of 1.0 on the >=116 trades Amendment A5's 100-OOS-trade rule requires." \
+  --kill "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 116 trades — which would mean the structure cannot reach A5's sample whatever its edge — a drawdown past Rs 1,00,000, or a book Sharpe below 1.0."
+```
+
+Why each part is what it is:
+
+| choice | reason |
+|---|---|
+| `--gate strict_legacy` | `strict` refuses all of 2023 on `txns_unknown` — measured to empty the option book too, not just stock futures |
+| `--configs 1` + `--supersedes` | effective budget 2, noise bar 1.18, detectable Sharpe 0.62 — still below A5's floor, so a real strategy stays visible |
+| `--require n_trades>=116` | A5 needs 100 OOS trades; the anchored walk-forward makes that ~116 total at 32.2/yr |
+| `--require sharpe>=1.00` | A5's *preferred* individual bar; the screen is in-sample and biased high against the OOS 0.8 that actually governs |
+| `--set min_days_to_expiry=2` | so `nearest_expiry` selects the weekly rather than the monthly |
+
+**`n_trades>=116` is doing real work here.** Supply (52/yr) and capacity (96.9%)
+were measured as *opportunities*, not as engine entries. With `max_open=1` and
+TP/SL at ±40% of debit, the realised rate depends on hold times, which nothing
+has measured. The requirement is what converts that gap into a kill instead of a
+surprise.
+
+### Recommendation: do not register this
+
+Arena 1's remaining paths all need code, and this is the weakest of them:
+
+1. **unconditional long calendar** — needs a flag; prior says it loses, and worse
+   than the version that already lost;
+2. **reverse calendar** (buy near, sell far) — needs the same flag plus a sign
+   change, but *collects* the variance risk premium rather than paying it, which
+   is the right side of the trade this arena keeps finding;
+3. **ratio** — needs a whole sizing rule for undefined risk (see above).
+
+Section 8's "one genuinely open question" in this arena was the calendar. It has
+now been asked and answered: the calendar was tested in its best regime and lost.
+What remains is not an open question but three pieces of unwritten code, and
+**(2) is the only one with a prior pointing the right way.**
+
+---
+
 ## Drafted hypotheses — NOT REGISTERED
 
 To register, run the command. To change one, change it before running: after the
