@@ -56,6 +56,12 @@ multiple-comparisons budget must reflect **eleven** looks, not one. The correct
 form for any of them is a confirmatory registration, as `trend-donchian-modern`
 was.
 
+**And to arena 1's term structure (2026-08-10).** The VRP measurement under W2
+spent knowledge of a live arena: NIFTY's near and far ATM implied vol against
+subsequent realised, 187 weekly cycles — near +2.38 vol points, far +1.84, and a
+term-structure difference of −0.00020 at t −0.14. A registration in arena 1 is
+now made by someone who knows the premium is real, small, and flat across tenor.
+
 **And to arena 1's trade supply (2026-08-10).** The weekly-expiry measurement
 below spent knowledge that a near-ATM NIFTY pair is openable on ~52 expiries a
 year while the other three indices fell to ~12 after SEBI's 2024 rationalisation.
@@ -695,7 +701,67 @@ lots the structure is **margin-bound**, so its P&L scales differently from
 anything else in this arena, and `--require max_drawdown<=100000` is checking a
 genuinely different regime.
 
-### Recommendation: measure the prior before writing the code
+### MEASURED 2026-08-10 — there is no term-structure edge to trade
+
+`scratch/arena1_term_vrp.py`, 187 weekly cycles across the modern era, entering
+5–8 days before the near expiry (what `min_days_to_expiry=4` already makes the
+engine do). Computed in **variance**, not vol: realised vol over a 5-day near leg
+comes from a handful of returns, and the sqrt of an unbiased variance estimator
+is biased *low* by Jensen — a bias that would land almost entirely on the near
+leg and manufacture the very answer being tested for.
+
+| tenor | mean IV | mean RV | IV − RV |
+|---|---|---|---|
+| near (~7d) | 12.88% | 10.50% | **+2.38 vol pts** |
+| far (~30d) | 13.10% | 11.26% | **+1.84 vol pts** |
+
+| quantity | mean | t |
+|---|---|---|
+| VRP near (variance units) | +0.00266 | +1.44 |
+| VRP far | +0.00246 | +1.90 |
+| **VRP far − VRP near** | **−0.00020** | **−0.14** |
+| vega-weighted net (far/near vega = 1.41×) | +0.96 | +0.48 |
+
+**The objection raised against W2 was directionally right and economically
+negligible.** The near leg *is* richer, by 0.0002 variance units — a difference
+indistinguishable from zero at t −0.14, with far richer on 51.9% of cycles, which
+is a coin flip. The vega weighting does flip the net positive (+0.96, 71.1% of
+cycles) but at t +0.48 that is nothing either.
+
+So the prior is not "ambiguous pending measurement" any more. It is **measured,
+and measured to be flat**:
+
+> A calendar — in either direction — trades the *difference* between two variance
+> risk premia. On weekly NIFTY across 187 cycles that difference is
+> −0.00020 ± noise. **There is no term-structure signal here to build a structure
+> around**, and three code changes cannot manufacture one.
+
+### The finding underneath, which is bigger than W2
+
+Both tenors carry a real, positive VRP: **+2.38 and +1.84 vol points**, with the
+far leg's the more statistically reliable of the two (t +1.90 against +1.44,
+because near-leg realised vol is estimated from ~5 returns). NIFTY options are
+overpriced at both tenors, as theory expects.
+
+The signal in this arena is therefore in the **level** of implied vol, not its
+term structure — and **a calendar is precisely the structure that nets the level
+out.** That reframes arena 1's remaining options:
+
+| way to harvest the level | status |
+|---|---|
+| vanilla credit spread | **excluded by Section 8** — this arena is defined as everything else |
+| iron condor | **already rejected**, 2026-07-04: 18 OOS trades, net −Rs 4,936, double the friction of a directional spread |
+| naked / ratio short vol | needs the undefined-risk sizing rule that does not exist |
+| calendar, either direction | **measured flat above** |
+
+So arena 1's bind is structural rather than a matter of finding the right
+parameters: the premium is real but small, every *defined-risk* route to it is
+either excluded by the charter or already dead on friction, and the remaining
+routes need sizing machinery the engine does not have. Note the iron condor
+result is the relevant precedent — 2 vol points is thin, and the one structure
+tested to harvest it lost to costs.
+
+### Recommendation, superseded: measure the prior before writing the code
 
 Three code changes — a reverse flag, an unconditional flag, a margin and max-loss
 treatment — is a lot to spend on an ambiguous prior. The ambiguity is **cheaply
@@ -710,6 +776,11 @@ resolvable first**, in exactly the way the arena-3 survey resolved its own:
 
 That is a measurement, spends no config budget, needs no engine change, and would
 take one script. It should come first.
+
+**It was run, and it returned flat — see above. W2 is not recommended, and the
+three code changes it needs should not be made for this reason.** The
+recommendation to measure first was worth making: one script replaced a margin
+treatment, a max-loss rule and two config flags.
 
 ---
 
