@@ -36,6 +36,17 @@ temptation to re-present them. But the knowledge is spent either way:
   known result into the log so the arena's history is complete and the
   multiple-comparisons budget is charged for it.
 
+**Measurements, 2026-08-09 and 2026-08-10 — knowledge spent without a hypothesis.**
+Three studies measured the instrument set rather than any strategy: the
+independent-bets survey (Findings 1–4), the passive benchmark (Findings 5–7), and
+the arena-3 signal-quality ceiling (T2). None registered a claim or spent config
+budget, and all are reproducible from `scratch/arena3_*.py`. They still spent
+knowledge, and the same rule applies: **the arena-3 ceiling result — that a
+21-day-hold book needs IC ≈ 0.05 to reach Sharpe 1.0, and that tsmom's measured
+IC there is ≈ 0.000 — cannot be re-presented later as the discovery of a
+hypothesis.** Anything registered in arena 3 from now on is registered by someone
+who already knows the shape of the answer.
+
 The cross-sectional run above also used a leverage default that was afterwards
 judged infeasible (4x gross, producing a drawdown larger than the account) and
 lowered to 2x. That change was made on risk grounds, before any registration, and
@@ -381,6 +392,14 @@ looking for. 0.62 per name across eight names is demanding but not absurd.
 **This is the reason to draft on the stock universe rather than the index one**,
 and it is arithmetic from measured correlations, not preference.
 
+> **Do not read this table as closing the stock arena — it does not (2026-08-10).**
+> The "~2.6 independent bets" framing invited the conclusion that arena 3 is
+> capped below A5's bar whatever the signal, and T2 was drafted on exactly that
+> reading. Measuring the ceiling directly refuted it: at `max_open=8` with these
+> correlations, a 21-day-hold book reaches Sharpe 1.0 at **IC ≈ 0.05**, and the
+> perfect-foresight oracle reaches **8.9**. N_eff constrains how much a *given*
+> per-bet edge is worth; it does not cap the arena. See T2 below.
+
 > **Correction, 2026-08-10 — read the two numbers above in the right units.**
 > As first written this table said "standalone Sharpe needed for portfolio 1.0"
 > and cited Section 2. Both halves were wrong, and the second one flattered the
@@ -713,14 +732,91 @@ redirection and silently writes a junk file.*
 
 ### T2 — the honest null: is arena 3 huntable at all?
 
-Findings 2 and 3 together say the reachable ceiling in 1-leg futures is ~2.6
-independent bets. In the corrected units that means a **per-bet** Sharpe of 0.50
-to reach A5's individual floor of 0.8, or 0.62 to reach its preferred 1.0. If T1
-comes back below that, the finding is not "tsmom does not work" but **"this arena
-cannot supply an A5-admissible strategy at Rs 15L, whatever the signal"** — which
-closes the arena rather than one hypothesis, and is worth more than another
-variant. Register it only after T1, and only with the ceiling argument stated in
-advance so it is a prediction rather than a consolation.
+**The prediction, as it was written before the measurement existed:**
+
+> Findings 2 and 3 together say the reachable ceiling in 1-leg futures is ~2.6
+> independent bets. In the corrected units that means a **per-bet** Sharpe of 0.50
+> to reach A5's individual floor of 0.8, or 0.62 to reach its preferred 1.0. If T1
+> comes back below that, the finding is not "tsmom does not work" but **"this arena
+> cannot supply an A5-admissible strategy at Rs 15L, whatever the signal"** — which
+> closes the arena rather than one hypothesis.
+
+T1 came back at 0.27, far below. So the pre-registered reading says: close the
+arena.
+
+#### It was not registered, because it could not be
+
+The claim is universal over signals. `research.loop register` requires `--engine`
+plus a concrete config and screens exactly one, so registering "whatever the
+signal" against a single run would put a statement in the kill log broader than
+the run supports — the exact claim/measurement mismatch Section 6 exists to
+catch. And Section 7 forbids tuning a closed hypothesis, which is what a third
+tsmom variant would have been.
+
+What *can* address a claim over all signals is a **bound**. Any selection rule,
+whatever its internals, is summarised by its information coefficient — the
+cross-sectional correlation between its score and the forward return. So
+parameterise over IC and ask what IC would be *required* to reach A5's bar here,
+then compare that against the IC signals actually have.
+`scratch/arena3_ceiling.py`, T1's exact window, gate and universe. **A
+measurement, not a hypothesis: no config budget was spent.**
+
+The bound is deliberately generous, so failing it would be decisive while
+clearing it proves nothing: no whole-lot granularity (arena 2 measured 35%
+capacity fill), no margin constraint, no capacity refusal, and a 0 bps row.
+
+#### RESULT — the prediction is REFUTED, 2026-08-10
+
+Book Sharpe by signal quality, 21-day hold, 35 rebalances, median of 200 noise
+draws (0 bps; the 5 bps rows differ only at noise level, so **friction is not
+what limits this arena either**):
+
+| IC | long-only 8 | long/short 4+4 |
+|---|---|---|
+| 0.00 | 0.344 (p95 0.810) | **−0.017** (p95 0.954) |
+| 0.02 | 0.581 | 0.438 |
+| 0.05 | 0.912 | 0.978 |
+| 0.10 | 1.359 | 1.990 |
+| 0.20 | 2.354 | 3.325 |
+| 1.00 | **8.939** (oracle) | 8.637 (oracle) |
+
+**Required IC ≈ 0.04 for A5's floor of 0.8, and ≈ 0.05–0.06 for its preferred
+1.0** at a 21-day hold. At 63 days the arena is harder — 0.09 and ~0.12 — but
+that row rests on 11 rebalances and is too thin to lean on.
+
+**Arena 3 is not capped below A5's bar. It is signal-starved.** The oracle reaches
+Sharpe 8.9, so mechanics are nowhere near binding; friction is irrelevant; and
+N_eff 2.59 does **not** prevent an 8-name book from reaching 1.0. The "~2.6
+independent bets" framing made this arena sound closed. It is not. The binding
+constraint is signal quality, and nothing else measured here.
+
+**Why T1 died, stated sharply:** the measured IC of its own trailing-return score
+in this universe is **+0.0009 at 21 days and −0.0113 at 63 days**. Not weak —
+absent. That is a far more useful epitaph than "PF 1.16, t 0.47", and it says
+nothing whatever about signals that are not tsmom.
+
+Four limits on this result, so it is not over-read:
+
+1. **It refutes a closure argument; it does not supply an edge.** Required IC
+   0.04–0.06 sustained out-of-sample is demanding — it sits at the upper end of
+   what published cross-sectional equity signals achieve. "Hard but open" is the
+   verdict, not "easy".
+2. **IC is cross-sectional; T1's rule was time-series.** The framing is apt
+   because T1 was capacity-bound — 141,339 entries skipped for `max_open` forced
+   near-arbitrary selection among many candidates — but it is not identical to
+   what T1 computed.
+3. **The bound's generosity is the point and also its weakness.** Whole lots and
+   margin at Rs 15L would degrade every row; arena 2's 35% capacity fill suggests
+   materially so.
+4. **Low IC is nearly undetectable in one backtest.** At IC 0 the long/short p95
+   is already 0.954. Distinguishing IC 0.02 from 0.05 needs far more evidence
+   than a single screen — which is what A5's ">= 100 OOS trades" is for.
+
+#### What this changes
+
+Arena 3 stays **open**, on evidence rather than on hope, and the next hypothesis
+in it should be judged on measured IC before it is judged on P&L — IC is cheap,
+needs no position sizing, and would have killed tsmom in minutes.
 
 ### Not drafted, and why
 
