@@ -130,10 +130,47 @@ interest is credited on the ~85% of equity not posted as margin (so long P&L is
 understated and short P&L overstated by roughly the carry rate); and stops are
 checked and filled at the close, so a gap through the level books the whole gap.
 
-**Status: two hypotheses closed, both on signal rather than plumbing.**
+## **ARENA CLOSED — 2026-08-10, charter Section 7**
+
+Two hypotheses registered, both killed, both on signal rather than plumbing:
 `trend-donchian-modern` (index, confirmatory) and `tsmom-stock-modern` (stocks,
-the redraw). See the T1 result below — it is the most instructive kill in the
-survey so far, because it is the only one that made money.
+the redraw). Registration into this arena is now refused by
+`registry.close_arena`, not by anyone remembering.
+
+**The grounds matter more than the fact, so they are stated exactly.** This arena
+is closed on **resolvability and throughput — NOT on demonstrated absence of
+edge.** T2 established that it is not structurally capped: the perfect-foresight
+oracle reaches Sharpe 8.9, friction is irrelevant, and N_eff 2.59 does not stop
+an 8-name book reaching 1.0. An IC of ~0.05 would suffice.
+
+What closes it is that **the question cannot be answered with the data
+available**:
+
+- on `modern`, the smallest detectable IC (0.0551) *exceeds* the IC required to
+  be tradeable (~0.04–0.05) — the detection and profitability thresholds are the
+  same size;
+- pooling more history is inadmissible under Amendment D5, which admits **0 of
+  11** estimates, because signal properties are not stable across eras even where
+  instrument properties are;
+- eleven candidate signals were measured and the largest reached |t| 1.56 against
+  a 2.19 bar.
+
+**Reopening requires** either a dataset that lifts the smallest detectable IC
+materially below 0.04 *within a single era* — a longer modern era, higher-frequency
+observations, or a materially wider universe — or a signal class whose IC is
+pre-registered and then measured above 0.05 on `modern` alone, without pooling.
+Section 7 allows no extensions, so either route is a charter amendment rather
+than a registration.
+
+**A gap in Section 7, recorded rather than filled.** Its trigger is "after its
+allotted screens", and Section 8 says arenas come "each with pre-registered
+screens" without ever fixing a number for any of them. The trigger therefore
+cannot fire mechanically, and this closure is an operator decision recorded with
+its grounds. Inventing an allotment now, after the decision, would be fitting the
+rule to the outcome — so the gap is left visible.
+
+See the T1 result below — the most instructive kill in the survey, because it is
+the only one that made money.
 
 ---
 

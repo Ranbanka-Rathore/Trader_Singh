@@ -439,6 +439,16 @@ def cmd_list(a) -> int:
     tp = registry.throughput()
     print(f"\n{tp['registered']} registered | {tp.get('killed', 0)} killed | "
           f"{tp.get('survived', 0)} survived | {tp['open']} open")
+
+    closed = {n: registry.arena_closure(n) for n in sorted(charter.ARENAS)}
+    shut = {n: r for n, r in closed.items() if r}
+    if shut:
+        print(f"\narenas closed ({len(shut)} of {len(charter.ARENAS)}) — "
+              f"Section 7 allows no extensions:")
+        for n, r in shut.items():
+            print(f"  {n:<20} {r['closed_at'][:10]}  {r['grounds'][:70]}"
+                  f"{'...' if len(r['grounds']) > 70 else ''}")
+    print(f"arenas open: {', '.join(n for n, r in closed.items() if not r) or 'NONE'}")
     return 0
 
 
@@ -589,6 +599,28 @@ def cmd_revoke(a) -> int:
     return 0
 
 
+def cmd_close_arena(a) -> int:
+    """Charter Section 7, 'Per arena'. Permanent, and refuses to be vague."""
+    ev = [s.strip() for s in (a.evidence or "").split(",") if s.strip()]
+    rec = registry.close_arena(a.arena, grounds=a.grounds,
+                               reopen_requires=a.reopen_requires, evidence=ev)
+    print(f"CLOSED arena '{a.arena}' — {charter.ARENAS[a.arena]}")
+    print(f"  hypotheses it registered: {len(rec['hypotheses'])} "
+          f"({', '.join(rec['hypotheses']) or 'none'})")
+    print(f"  grounds: {rec['grounds']}")
+    print(f"  reopening requires: {rec['reopen_requires']}")
+    if rec["evidence"]:
+        print(f"  evidence: {', '.join(rec['evidence'])}")
+    still_open = [n for n in sorted(charter.ARENAS)
+                  if not registry.arena_closure(n)]
+    print(f"\n  arenas still open: {len(still_open)} of {len(charter.ARENAS)} "
+          f"({', '.join(still_open) or 'none'})")
+    if not still_open:
+        print("  ALL FOUR ARENAS CLOSED — charter Section 8's named failure "
+              "branch. Section 7's project-level rule applies.")
+    return 0
+
+
 def cmd_throughput(a) -> int:
     tp = registry.throughput()
     if not tp["registered"]:
@@ -671,6 +703,23 @@ def main(argv=None) -> int:
     s.set_defaults(fn=cmd_show)
 
     sub.add_parser("throughput", help="hypotheses closed per week").set_defaults(fn=cmd_throughput)
+
+    ca = sub.add_parser("close-arena",
+                        help="charter Section 7: close an arena to further "
+                             "registration. Permanent — no extensions.")
+    ca.add_argument("--arena", required=True, choices=sorted(charter.ARENAS))
+    ca.add_argument("--grounds", required=True,
+                    help="WHY it is closed. 'no edge was demonstrated' and 'the "
+                         "question cannot be resolved with the data available' "
+                         "are different claims; say which one this is.")
+    ca.add_argument("--reopen-requires", required=True,
+                    help="the evidence that would justify the charter amendment "
+                         "needed to reopen it. A closure with no reopening "
+                         "condition is unfalsifiable.")
+    ca.add_argument("--evidence", default="",
+                    help="comma-separated pointers to the record, e.g. "
+                         "'ARENAS T2,ARENAS T2b'")
+    ca.set_defaults(fn=cmd_close_arena)
 
     # ── the promotion gate (charter Section 5) ───────────────────────────────
     p = sub.add_parser("promote", help="research -> paper, from a survived hypothesis")

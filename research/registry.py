@@ -44,11 +44,12 @@ class RegistryError(Exception):
 # ── persistence ──────────────────────────────────────────────────────────────
 def load() -> Dict[str, Any]:
     if not os.path.exists(KILL_LOG_PATH):
-        return {"version": LOG_VERSION, "hypotheses": []}
+        return {"version": LOG_VERSION, "hypotheses": [], "arenas": {}}
     with open(KILL_LOG_PATH, "r", encoding="utf-8") as f:
         log = json.load(f)
     log.setdefault("version", LOG_VERSION)
     log.setdefault("hypotheses", [])
+    log.setdefault("arenas", {})
     return log
 
 
@@ -143,6 +144,66 @@ def effective_configs(h: Dict[str, Any]) -> int:
     return total
 
 
+# ── arena closure (charter Section 7, "Per arena") ───────────────────────────
+# Section 7 says a spent arena "is closed. No extensions." Nothing was bound to
+# that sentence, which is the same shape of hole that let the ladder reach live:
+# a rule existed and no code consulted it. These three functions are the binding.
+#
+# Note what Section 7 does NOT supply. Its trigger is "after its allotted
+# screens", and Section 8 says arenas come "each with pre-registered screens"
+# without ever fixing a number for any of them. So the trigger cannot fire
+# mechanically, and closure is an operator decision recorded with its grounds.
+# Inventing an allotment now, after the fact, would be fitting the rule to a
+# decision already taken — so the gap is recorded rather than filled.
+def arena_closure(arena: str) -> Optional[Dict[str, Any]]:
+    """The closure record for `arena`, or None if it is open."""
+    return (load().get("arenas") or {}).get(arena)
+
+
+def close_arena(arena: str, grounds: str, reopen_requires: str,
+                evidence: Optional[List[str]] = None) -> Dict[str, Any]:
+    """Close an arena to further registration. Charter Section 7.
+
+    `grounds` is mandatory and is the whole point: an arena closed on
+    "demonstrated absence of edge" and one closed on "cannot be resolved with the
+    data available" are different claims, and only one of them is usually true.
+    `reopen_requires` names the evidence that would justify the charter amendment
+    Section 7's "no extensions" otherwise forbids.
+    """
+    if arena not in charter.ARENAS:
+        raise RegistryError(
+            f"unknown arena '{arena}'; charter Section 8 lists {sorted(charter.ARENAS)}")
+    if not grounds.strip() or not reopen_requires.strip():
+        raise RegistryError(
+            "closing an arena needs both the grounds and what would reopen it. "
+            "A closure with no stated grounds cannot be audited later, and one "
+            "with no reopening condition is unfalsifiable.")
+    log = load()
+    log.setdefault("arenas", {})
+    if arena in log["arenas"]:
+        raise RegistryError(f"arena '{arena}' is already closed "
+                            f"({log['arenas'][arena]['closed_at']}).")
+    ids = [h["id"] for h in log["hypotheses"] if h["arena"] == arena]
+    open_ids = [h["id"] for h in log["hypotheses"]
+                if h["arena"] == arena and h["status"] not in CLOSED]
+    if open_ids:
+        raise RegistryError(
+            f"arena '{arena}' still has unresolved hypotheses: {open_ids}. "
+            f"Close them before closing the arena, or the arena's record claims "
+            f"a verdict its own hypotheses have not reached.")
+    rec = {
+        "status": "closed",
+        "closed_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "grounds": grounds.strip(),
+        "reopen_requires": reopen_requires.strip(),
+        "evidence": list(evidence or []),
+        "hypotheses": ids,
+    }
+    log["arenas"][arena] = rec
+    save(log)
+    return rec
+
+
 # ── registration ─────────────────────────────────────────────────────────────
 def register(hid: str, arena: str, claim: str, kill_criterion: str,
              window: List[str], gate: str = "strict", n_configs: int = 1,
@@ -161,6 +222,14 @@ def register(hid: str, arena: str, claim: str, kill_criterion: str,
         raise RegistryError(
             f"unknown arena '{arena}'; charter Section 8 lists "
             f"{sorted(charter.ARENAS)}. A new arena is an amendment, not a flag.")
+    closed = (log.get("arenas") or {}).get(arena)
+    if closed:
+        raise RegistryError(
+            f"arena '{arena}' was closed on {closed['closed_at'][:10]} and "
+            f"Section 7 allows no extensions.\n"
+            f"  grounds: {closed['grounds']}\n"
+            f"  reopening it requires: {closed['reopen_requires']}\n"
+            f"That is a charter amendment, not a registration.")
     if not claim.strip() or not kill_criterion.strip():
         raise RegistryError(
             "a hypothesis needs both a falsifiable claim and the result that "

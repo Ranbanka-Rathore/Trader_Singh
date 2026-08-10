@@ -845,5 +845,24 @@
    ],
    "fingerprint": "sha256:2de74ce8cb130dcbe79fbecad306defd"
   }
- ]
+ ],
+ "arenas": {
+  "futures_trend": {
+   "status": "closed",
+   "closed_at": "2026-08-10T15:33:44",
+   "grounds": "Closed on resolvability and throughput, NOT on demonstrated absence of edge. T2 established the arena is not structurally capped: the perfect-foresight oracle reaches Sharpe 8.9, friction is irrelevant, and N_eff 2.59 does not prevent an 8-name book reaching 1.0 \u2014 IC ~0.05 would suffice. What closes it is that the question cannot be answered with the data available. On modern the smallest detectable IC (0.0551) exceeds the IC required to be tradeable (~0.04-0.05), and pooling more history is inadmissible under Amendment D5, which admits 0 of 11 estimates because signal properties are not stable across eras even where instrument properties are. Eleven candidate signals were measured and the largest was |t| 1.56 against a 2.19 bar. Two hypotheses registered, two killed, both on signal rather than plumbing.",
+   "reopen_requires": "Either (a) a dataset that lifts the smallest detectable IC materially below 0.04 within a SINGLE era \u2014 a longer modern era, higher-frequency observations, or a materially wider universe \u2014 or (b) a signal class whose IC is pre-registered and then measured above 0.05 on modern alone, without pooling. Section 7 allows no extensions, so either route is a charter amendment rather than a registration.",
+   "evidence": [
+    "ARENAS T2 (ceiling)",
+    "ARENAS T2b (11-signal IC)",
+    "ARENAS T2c (pooled + D5)",
+    "trend-donchian-modern",
+    "tsmom-stock-modern"
+   ],
+   "hypotheses": [
+    "trend-donchian-modern",
+    "tsmom-stock-modern"
+   ]
+  }
+ }
 }
