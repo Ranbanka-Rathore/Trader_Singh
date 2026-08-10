@@ -638,6 +638,116 @@ and it is better known now than after sourcing the calendars.
 
 ---
 
+## W3 — weekly iron butterfly — DRAFTED, and it exposed an arena-wide blocker
+
+Drafted 2026-08-10 on request, as the structure the friction measurement opened.
+Checking it before writing the command found two blockers, and the second is not
+about the butterfly at all — it applies to **every structure in this arena** and
+is the most important thing on this page.
+
+### Blocker 1 — the engine cannot place a butterfly's strikes
+
+`_pick_short_strike` selects the short leg by walking outward from ATM:
+
+```python
+for i in range(1, 40):
+    strike = float(atm + i * step)
+```
+
+`i` starts at **1**, so the nearest strike it can ever return is one interval OTM.
+An iron butterfly needs **both shorts at ATM**. It is not a delta-target away, it
+is unreachable — no value of `short_delta` makes `i` start at zero.
+
+*This corrects the previous section's "needs no new code".* That claim came from
+the engine emitting four-legged structures, without checking it could place them
+where a butterfly needs them. The condor's `_enter_ic` is close — it already
+builds four legs, prices them and sizes them — so the change is small, but it is
+not zero.
+
+### Blocker 2 — every arena-1 structure is regime-gated, and that is why none reaches A5's sample
+
+`_try_enter` routes **every** structure through `regime_filters.classify_entry`,
+and each branch carries a conjunction of conditions:
+
+| structure | conditions to fire |
+|---|---|
+| calendar | `ivr < 0.30` **and** `er < 0.25` |
+| iron condor | `vrp_gate` passes **and** `gex_sign >= 0` **and** middle PCR **and** `er < IC_ER_MAX` |
+| credit spread | `vrp_gate` **and** directional PCR **and** trend confirm |
+
+With `use_gates=False` the fallback emits only `BULL_PUT_SPREAD` /
+`BEAR_CALL_SPREAD`, so turning the gates off does not make a structure
+unconditional — it makes it *unavailable*.
+
+**The measured consequence is already in the kill log.** `cal-cheapvol-modern`
+managed **18.6 trades/year** and the iron condor validation run **18 OOS trades**.
+A5 needs **32.3/year**. Weekly supply is 52/year and capacity fill is 96.9%, so
+the market offers the sample and the *regime gate* is what discards it.
+
+> **Arena 1 cannot reach Amendment A5's sample with any structure the engine can
+> currently express — not because the market is thin, but because every entry
+> path is regime-gated to roughly half the required rate.** That is architectural,
+> and it is the same blocker that stopped W1 and contributed to W2. Three drafts,
+> one cause.
+
+The fix is a single focused change rather than three: an **unconditional entry
+mode** that bypasses `classify_entry` and enters the chosen structure every
+cycle. It unblocks W1, W3, and any future weekly structure at once, and it is
+strictly more valuable than any one of them.
+
+### The command, for when both clear
+
+```
+python -m research.loop register --id fly-weekly-modern \
+  --arena index_structures --engine real_backtester --era modern \
+  --gate strict_legacy \
+  --configs 1 \
+  --set enable_iron_butterfly=true --set entry_unconditional=true \
+  --set width_intervals=6 --set min_days_to_expiry=2 \
+  --require 'n_trades>=116' \
+  --require 'max_drawdown<=100000' \
+  --require 'sharpe>=1.00' \
+  --claim "A weekly ATM iron butterfly with 6-interval wings on NIFTY, entered every cycle without a regime filter, has positive per-trade expectancy in the modern era under a real fill rule, and reaches a book Sharpe of 1.0 on the >=116 trades Amendment A5 requires." \
+  --kill "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 116 trades, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0."
+```
+
+`width_intervals=6` is not a free parameter — it is the wing width the friction
+measurement found viable (1.60 vol points of cost against a 2.38 premium). At 4
+intervals the same structure costs 4.42 and is dead before it starts, so
+registering a narrower one would be spending a config on a known answer.
+
+**No `--supersedes`.** The butterfly is a distinct structure from the iron condor
+— ATM shorts rather than delta-targeted OTM shorts, and a different risk shape.
+If it is judged a retry of the condor idea, add `--supersedes` and the bar rises.
+
+### The honest prior, and the reason to be careful
+
+Better than W1's and W2's, but not good. In its favour: the premium is real
+(+2.38 vol points, measured), the wing width is chosen on measured friction rather
+than guessed, and supply and capacity are established. Against it:
+
+- **A short-vol book earns a thin steady credit and repays it in rare large
+  losses.** The friction measurement compared *means*; nothing has measured the
+  left tail, and that tail is what decides A5's Sharpe. An ATM butterfly is the
+  most gamma-negative structure in the list — it is short exactly the move that
+  hurts most.
+- **Retained edge is 0.78 vol points**, about a third of the premium. At ~380
+  Rs/vol-point that is roughly **Rs 296 per lot per cycle** before any loss.
+- The most crowded arena available to Indian retail, per Section 8's own prior.
+
+### Recommendation
+
+Build the unconditional entry mode — it is one change that unblocks the whole
+arena and converts an architectural dead end into a testable question. Then
+register W3 and nothing else here, because it is the only remaining structure
+with both measured friction viability and no sizing rewrite.
+
+If that change is not going to be made, then **arena 1 should close**, and the
+grounds would be clean: the market supplies the sample, the engine's regime gates
+discard half of it, and no expressible structure can reach A5.
+
+---
+
 ## W2 — reverse weekly calendar — DRAFTED, blocked on three code changes
 
 Drafted 2026-08-10 as the better-motivated alternative to W1. It is better
@@ -817,11 +927,15 @@ entirely on a loss distribution nothing here has measured.
 
 The **iron butterfly has never been tested** — `ARENAS.md`'s dead list covers the
 ladder, the 35–45 DTE band and the iron *condor*, not the butterfly. It has the
-best friction economics measured here, it is inside Section 8's remit (not a
-vanilla credit spread), it needs **no new code** (the engine already emits
-four-legged structures), and weekly supply and capacity are already established at
-52/yr and 96.9%. That makes it arena 1's only remaining candidate that is
-registrable today rather than after a sizing rewrite.
+best friction economics measured here, and it is inside Section 8's remit.
+
+> ~~It needs **no new code** (the engine already emits four-legged structures)...
+> registrable today.~~ **Wrong, corrected 2026-08-10 — see W3 below.** The engine
+> cannot emit a butterfly at all: `_pick_short_strike` loops `range(1, 40)` from
+> ATM, so every short strike it returns is at least one interval OTM and the ATM
+> short a butterfly requires is unreachable. The claim was made from the fact that
+> the engine emits *four-legged* structures, without checking that it can place
+> them where a butterfly needs them.
 
 ### Recommendation, superseded: measure the prior before writing the code
 
