@@ -626,6 +626,93 @@ and it is better known now than after sourcing the calendars.
 
 ---
 
+## W2 — reverse weekly calendar — DRAFTED, blocked on three code changes
+
+Drafted 2026-08-10 as the better-motivated alternative to W1. It is better
+motivated, but by less than was claimed when it was proposed, and the correction
+matters more than the draft.
+
+### First, a correction to the reason it was proposed
+
+W1's recommendation said a reverse calendar "collects the variance risk premium
+rather than paying it". That is too clean, and half of it is wrong.
+
+- **Right:** long near + short far is **net short vega**, because the far leg
+  carries more vega. A parallel fall in implied vol helps it. That is the correct
+  side of the VRP on a vega-weighted basis.
+- **Wrong, and omitted:** the VRP is richest at the **shortest** tenor — weekly
+  options are the most overpriced relative to what they go on to realise. A
+  reverse calendar **buys the weekly** and sells the monthly, so it is paying the
+  richest premium in the chain and collecting a thinner one.
+
+Which effect dominates is an empirical question about NIFTY's term structure,
+**not something to assert**. The honest prior is therefore *ambiguous*, not
+positive. That still beats W1, whose prior is a measured t −2.77 — but "better
+than a known loser" is a low bar and should not be dressed as conviction.
+
+### The risk asymmetry that makes this a different structure
+
+A long calendar is hedged because **the long leg outlives the short**. A reverse
+calendar inverts that: the long near leg **expires first**, leaving a naked short
+far option. Three consequences, all of which the current engine gets wrong:
+
+1. **Margin.** `margin.py` refuses `reverse_calendar` today, correctly. The
+   treatment it needs is *naked on the far leg* — Rs 225,000/lot at Rs 15L,
+   allowing **2 lots** against a calendar's 4 and a vertical's 40. Conservative
+   because the hedge lapses exactly when it would be needed.
+2. **Max loss.** Not `(width − credit) × lot`. The loss is bounded — deep ITM both
+   legs converge to the same intrinsic, so the position value approaches minus the
+   far leg's time value — but it is *maximised near the strike at near expiry* and
+   is not a width. `_size_lots` cannot compute it, so `l_risk` and `l_kelly` are
+   as undefined here as they are for a ratio.
+3. **Entry path.** Same blocker as W1: `classify_entry` is the only route to a
+   calendar and it is gated on cheap vol plus range.
+
+### The command, for when all three clear
+
+```
+python -m research.loop register --id revcal-weekly-modern \
+  --arena index_structures --engine real_backtester --era modern \
+  --gate strict_legacy \
+  --configs 1 \
+  --set enable_calendar=true --set cal_reverse=true \
+  --set cal_unconditional=true --set min_days_to_expiry=2 \
+  --require 'n_trades>=116' \
+  --require 'max_drawdown<=100000' \
+  --require 'sharpe>=1.00' \
+  --claim "A reverse ATM calendar — long the weekly, short the following expiry — entered on every weekly NIFTY cycle has positive per-trade expectancy in the modern era under a real fill rule, and reaches a book Sharpe of 1.0 on the >=116 trades Amendment A5 requires." \
+  --kill "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 116 trades, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0."
+```
+
+**No `--supersedes`.** This is a different structure from `cal-cheapvol-modern`,
+not a re-parameterisation of it — opposite sign, opposite vega, different risk
+shape. Superseding would misdescribe it. That is a judgement worth stating rather
+than burying: if it is thought to be a retry of the calendar idea, add
+`--supersedes cal-cheapvol-modern` and the bar rises accordingly.
+
+*Note the margin constraint binds here where it did not for the other two.* At 2
+lots the structure is **margin-bound**, so its P&L scales differently from
+anything else in this arena, and `--require max_drawdown<=100000` is checking a
+genuinely different regime.
+
+### Recommendation: measure the prior before writing the code
+
+Three code changes — a reverse flag, an unconditional flag, a margin and max-loss
+treatment — is a lot to spend on an ambiguous prior. The ambiguity is **cheaply
+resolvable first**, in exactly the way the arena-3 survey resolved its own:
+
+> Measure NIFTY's near-vs-far implied vol against what each tenor went on to
+> realise, on weekly cycles across the modern era. If the weekly leg's VRP
+> systematically exceeds the far leg's by more than the vega weighting recovers,
+> the reverse calendar is on the wrong side and none of the three code changes is
+> worth making. If it does not, the prior turns positive and the work is
+> justified.
+
+That is a measurement, spends no config budget, needs no engine change, and would
+take one script. It should come first.
+
+---
+
 ## W1 — weekly calendar — DRAFTED, **BLOCKED**, and NOT RECOMMENDED
 
 Drafted 2026-08-10 on request. Two things came out of writing it that matter more
