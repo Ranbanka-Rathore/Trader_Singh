@@ -23,7 +23,7 @@ sys.path.insert(0, r"D:\Projects\Agentic_Trader")
 from backtest import futures
 from research import charter
 
-GATE = "strict"
+GATE = sys.argv[1] if len(sys.argv) > 1 else "strict"
 MIN_BARS = 200        # a name needs real history to join the book
 MIN_NAMES_PER_DAY = 20
 BOOT_DRAWS = 2000

@@ -474,31 +474,72 @@ Two consequences:
 
 Finding 4 prescribed `--require sharpe>=X` at "the passive Sharpe over the
 identical window" but only measured the *index*. Here is the stock number
-(`scratch/arena3_passive_bench.py`, same `futures.build_panel` path as the survey).
-248 names, 640 sessions, buy-and-hold, no signal:
+(`scratch/arena3_passive_bench.py [gate]`, same `futures.build_panel` path as the
+survey). Long-only, buy-and-hold, roll-adjusted, no signal.
 
-| passive long book | Sharpe |
-|---|---|
-| equal-weight, all 248 names | **0.243** (+2.80%/yr, vol 18.07%) |
-| random 8-name books | median **0.202**, p05 −0.345, p95 0.757 |
-| NIFTY / BANKNIFTY, same window | −0.044 / +0.027 |
+**The benchmark depends on the gate, because the gate chooses the window.** This
+is Finding 5 biting immediately: under `strict` the sample is 2024+ and misses
+2023; under `strict_legacy` it is the whole modern era. Both are shown because
+getting this wrong once already produced a bar four times weaker than it looked.
+
+| | `strict` (2024-01 → 2026-08, 248 names, 640 days) | `strict_legacy` (2023-01 → 2026-08, 255 names, 884 days) |
+|---|---|---|
+| EW all names | 0.243 (+2.80%/yr, vol 18.07%) | **0.629** (+9.53%/yr, vol 16.71%) |
+| random 8-name books | median 0.202, p05 −0.345, p95 0.757 | median **0.509**, p05 −0.060, p95 **1.007** |
+| NIFTY / BANKNIFTY | −0.044 / +0.027 | — |
 
 The number that matters is not the median but the **tail**, because a `--require`
 bar is only worth declaring if a book with no signal fails it:
 
-| bar | share of random 8-name buy-and-hold books that already clear it |
-|---|---|
-| `sharpe>=0.30` | **38.6%** |
-| `sharpe>=0.50` | 19.5% |
-| `sharpe>=0.62` | 10.9% |
-| `sharpe>=0.80` | **4.0%** |
-| `sharpe>=1.00` | 0.8% |
+| bar | false-pass under `strict` | false-pass under `strict_legacy` ← T1's window |
+|---|---|---|
+| `sharpe>=0.30` | 38.6% | **74.0%** |
+| `sharpe>=0.50` | 19.5% | 50.9% |
+| `sharpe>=0.62` | 10.9% | 36.1% |
+| `sharpe>=0.80` | 4.0% | **17.8%** |
+| `sharpe>=1.00` | 0.8% | **5.5%** |
 
-This kills the `sharpe>=0.30` in T1's original draft. It was justified against the
+Two conclusions.
+
+**The `sharpe>=0.30` of T1's original draft is dead.** It was justified against the
 *index* passive Sharpe of ≈0.03, which is the wrong comparator for a stock book:
-stock dispersion means one 8-name draw in three clears 0.30 on luck alone. The
-single-name index figure understates the bar by an order of magnitude in
-false-pass terms.
+three out of four random 8-name draws clear it on luck alone. A single-name index
+figure understates a diversified-book bar by an order of magnitude in false-pass
+terms.
+
+**A5's floor of 0.8 is not automatically sufficient either.** On T1's actual
+window it admits 17.8% of no-signal books. The bar was therefore set at **1.00**,
+where two independent anchors agree: it is A5's *preferred* individual Sharpe,
+and it is the passive p95 (1.007) — "beat 95% of random buy-and-hold books" and
+"clear the charter's preferred individual bar" turn out to be the same number
+here. False-pass 5.5%.
+
+*Caveat, recorded rather than smoothed over: T1's book is long/short, so a
+long-only passive comparator is not an exact null. The false-pass column is still
+the right question — it asks what Sharpe this universe and window hand out for
+free — but it is a statement about achievable magnitudes, not a matched control.*
+
+### Finding 7 — does passive beta ever clear A5? (the Amendment D question)
+
+If some era pays passive Sharpe above A5's 0.8, then in that era a book that
+harvests beta and does nothing else is charter-admissible, and anchoring to A5
+alone stops being safe. That is the rule Amendment D would exist to impose, so it
+was settled by measurement (`scratch/arena3_passive_by_era.py`, EW long, all
+names, `gate=strict_legacy`):
+
+| era | window | names | passive drift | passive Sharpe |
+|---|---|---|---|---|
+| early | 2016-01-01 → 2019-12-31 | 218 | −3.93%/yr | **−0.113** |
+| ramp | 2020-01-01 → 2022-12-31 | 205 | +13.69%/yr | **0.644** |
+| modern | 2023-01-01 → 2026-08-10 | 262 | +9.57%/yr | **0.629** |
+
+**No era clears 0.8.** An A5-anchored bar dominates passive beta everywhere in
+this archive, so Amendment D is not needed to protect the stock-futures arena and
+is not proposed. Two limits on that conclusion, so it is not over-read: it is a
+fact about *whole-universe* passive Sharpe, and the 8-name tail still reaches
+1.007 in the modern era — which is why T1's bar is anchored at the tail rather
+than at the mean. And it says nothing about arenas whose passive comparator is not
+a stock-futures book.
 
 ---
 
@@ -547,15 +588,20 @@ inherited default:
 | parameter | chosen | why |
 |---|---|---|
 | `--gate` | `strict_legacy` | Finding 5 — `strict` deletes all of 2023 for want of a `txns` column, and buys 3 bars of filtering for a year of data |
-| `--require sharpe` | `>=0.80` | Finding 6 — A5's individual floor; 4.0% passive false-pass, against 38.6% at the drafted 0.30 |
+| `--require sharpe` | `>=1.00` | Finding 6 — A5's *preferred* individual Sharpe, which coincides with the passive p95 of 1.007 on this exact window. 5.5% false-pass, against 17.8% at A5's floor and 74.0% at the drafted 0.30 |
 | `allow_short` | left at engine default `True` | tests the claim symmetrically — whether trailing return predicts in *both* directions, not only when the market rises |
 | `max_open` / `risk_frac` | `8` / `0.0075` inherited | the Rs 1,00,000 budget is enforced by `--require max_drawdown<=100000` at screen and A3's `mc_bootstrap_dd` p99 at walk-forward, which bind on the realised path rather than on an analytic guess |
 
-The Sharpe bar is anchored to **A5's individual floor of 0.8**, not to the passive
-number. That is the deliberate choice: with `allow_short=True` the book is not
-purely long, so passive-long is a floor rather than the right comparator — and
-0.8 is the bar the charter already requires of any strategy admitted to the
-portfolio. It happens to be the stricter of the two, at 4.0% passive false-pass.
+**The gate and the bar interact, and that is why the bar moved twice.** Choosing
+`strict_legacy` restored 2023 — a strong year — which lifted the passive
+benchmark from 0.243 to 0.629 and, with it, the false-pass rate of every
+candidate bar. A5's floor of 0.8 was 4.0% false-pass on the `strict` window but
+**17.8%** on the window `strict_legacy` actually produces. The bar was raised to
+1.00 in response, not to make the hypothesis harder for its own sake but because
+that is where A5's preferred individual Sharpe and the measured passive p95
+(1.007) coincide. Recorded because the first version of this table quoted the
+`strict` figure for a `strict_legacy` registration, which would have declared a
+1-in-6 bar while believing it was 1-in-25.
 
 ```
 python -m research.loop register --id tsmom-stock-modern \
@@ -565,16 +611,21 @@ python -m research.loop register --id tsmom-stock-modern \
   --set signal=tsmom --set max_open=8 \
   --require 'capacity_fill_rate_pct>=50' \
   --require 'max_drawdown<=100000' \
-  --require 'sharpe>=0.80' \
-  --claim "Time-series momentum on single-stock futures has positive per-trade expectancy at Rs 15L in the modern era, after whole lots, margin and a real fill rule, and reaches a book Sharpe of 0.8 — Amendment A5's individual admissibility floor." \
-  --kill "Screen t below the Section 4 bar, any Section 6 check fails, capacity fill below 50%, a drawdown past Rs 1,00,000, or a book Sharpe below A5's individual floor of 0.8."
+  --require 'sharpe>=1.00' \
+  --claim "Time-series momentum on single-stock futures has positive per-trade expectancy at Rs 15L in the modern era, after whole lots, margin and a real fill rule, and reaches a book Sharpe of 1.0 — Amendment A5's preferred individual bar, which on this window is also the 95th percentile of random 8-name buy-and-hold books." \
+  --kill "Screen t below the Section 4 bar, any Section 6 check fails, capacity fill below 50%, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0 — the level at which 95% of no-signal 8-name books in this window are excluded."
 ```
 
-*What a pass means, stated before the number exists: tsmom clearing 0.8 makes it
-**one admissible strategy**, not a solved portfolio. Amendment A still wants 6–15
-of them at ρ̄ ≤ 0.15 to reach portfolio 1.4/2.0/3.0. See the correction under
-Finding 3 — the older "0.62 clears Section 2" framing was a unit error and must
-not be cited to argue a pass means more than this.*
+*What a pass means, stated before the number exists: tsmom clearing 1.0 at screen
+makes it **worth one walk-forward**, and clearing A5 out-of-sample afterwards
+would make it **one admissible strategy** — not a solved portfolio. Amendment A
+still wants 6–15 of them at ρ̄ ≤ 0.15 to reach portfolio 1.4/2.0/3.0. Note the
+screen bar (1.0, in-sample) sits above the OOS bar A5 actually requires (0.8):
+in-sample Sharpe is biased high, and a screen can only kill, so the stricter
+number is the precondition for spending a walk-forward rather than a redefinition
+of admissibility. See the correction under Finding 3 — the older "0.62 clears
+Section 2" framing was a unit error and must not be cited to argue a pass means
+more than this.*
 
 *Quote the `--require` arguments in bash — an unquoted `>` is eaten by shell
 redirection and silently writes a junk file.*
