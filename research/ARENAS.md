@@ -249,6 +249,51 @@ far long is what makes the near short safe. The conservative direction is not
 automatically the correct one, and here it was not. The pessimistic view remains
 selectable as `MarginModel(calendar_short_is_naked=True)`.
 
+#### Calendar: sizes identically. Ratio: cannot be sized at all (2026-08-10)
+
+The 96.9% fill was probed with a **vertical**, the one structure Section 8
+excludes here, so the two admissible ones were checked separately
+(`scratch/arena1_cal_ratio_sizing.py`). They gave opposite answers.
+
+**The calendar transfers exactly** — same construction the engine uses (ATM CE,
+sell near, buy the next expiry within 35 days):
+
+| year | near expiries | sized | per yr | fill % |
+|---|---|---|---|---|
+| 2023 | 53 | 52 | 52.0 | 98.1% |
+| 2024 | 52 | 52 | 51.9 | 100.0% |
+| 2025 | 55 | 53 | 53.0 | 96.4% |
+| 2026 | 34 | 31 | 51.0 | 91.2% |
+
+**188/194 = 96.9%, identical to the vertical**, and clearing A5's 32.2/year in
+every year. It sizes to *more* lots than the vertical, not fewer — median 4
+against 2 — because a same-strike calendar's max loss is its debit
+(median Rs 5,460) against a 200-point vertical's Rs 8,808. Margin per lot equals
+max loss per lot exactly, by construction, so the calendar is **risk-bound**
+(`l_risk` 4 against `l_margin` 82) just as the vertical is.
+
+**A ratio cannot be measured, and that is the finding.** `margin.py` refuses it,
+as designed — but the margin refusal is the smaller half:
+
+> `_size_lots` derives every constraint from `max_loss_per_lot = (width − credit)
+> × lot`. A ratio has an uncovered short leg and therefore **no max loss**;
+> `width` is not defined for it. So `l_risk` and `l_kelly` are not wrong for a
+> ratio, they are *undefined*, and the hard-cap exception cannot fire either.
+
+A ratio is therefore **not a configuration change to arena 1**. It needs a margin
+treatment — the easy half, since `margin.py` already has the naked arithmetic —
+and a **risk** treatment, which is a genuinely new sizing rule: the current model
+assumes defined risk everywhere and has no concept of sizing against an unbounded
+tail. For scale, a naked-margined leg costs Rs 225,000/lot at Rs 15L, allowing
+**2 lots** within a 30% budget. A ratio would be **margin-bound where the other
+two are risk-bound** — a different regime, not a different number.
+
+**Consequence for the next registration.** A calendar structure is registrable on
+supply, capacity and sizing today. A ratio is not registrable at all until
+someone writes a sizing rule for undefined-risk positions, and doing that is a
+larger piece of work than it appears — it touches the Kelly estimator and the
+`risk_frac` hard-cap exception, both of which assume a bounded loss.
+
 > **Precondition for the next arena-1 registration:** demonstrate the
 > configuration can supply ~116 trades on `modern`, and declare it as
 > `--require n_trades>=116`. `n_trades` is already a standard screen metric, so

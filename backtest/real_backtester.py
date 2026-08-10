@@ -574,9 +574,10 @@ class RealBacktester:
         row = chain["options"].get((expiry, atm, "CE")) or {}
         lot = int(row.get("lot") or 0) or 75
 
-        # max loss = debit paid. Margin is a different question and a much
-        # larger number: the near short leg is margined as if unhedged, because
-        # NSE's calendar benefit lapses at the near expiry (see backtest/margin.py).
+        # max loss = debit paid, and margin is the same figure: the far long sits
+        # at the SAME strike as the near short, so it covers assignment and the
+        # economic risk is the debit. See backtest/margin.py for why the first
+        # draft's naked treatment was wrong.
         lots, sizing = self._size_lots(width=debit, credit=0.0, lot=lot,
                                        spot=spot, dnet=0.05,
                                        structure="calendar")
