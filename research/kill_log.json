@@ -736,8 +736,113 @@
    "supersedes": null,
    "note": "",
    "registered_at": "2026-08-10T11:42:37",
-   "status": "registered",
-   "events": [],
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-10T11:44:56",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 181,
+        "net_pnl": 540028.82,
+        "expectancy": 2983.58,
+        "profit_factor": 1.16,
+        "win_rate": 0.309,
+        "sharpe": 0.27,
+        "max_drawdown": 634856.1,
+        "t": 0.47,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "max_open",
+        "extras": {
+         "symbols_traded": 129,
+         "open_at_end": 8,
+         "panel_symbols": 285,
+         "panel_missing_lot": 0
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 181,
+        "net_pnl": 540028.82,
+        "expectancy": 2983.58,
+        "profit_factor": 1.16,
+        "win_rate": 0.309,
+        "sharpe": 0.27,
+        "max_drawdown": 634856.1,
+        "t": 0.47,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "max_open",
+        "extras": {
+         "symbols_traded": 129,
+         "open_at_end": 8,
+         "panel_symbols": 285,
+         "panel_missing_lot": 0
+        }
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 181,
+        "net_pnl": 540028.82,
+        "expectancy": 2983.58,
+        "win_rate": 0.309,
+        "profit_factor": 1.16,
+        "t": 0.47
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "181 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "181 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 1.16 on 181 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": true,
+        "detail": "expectancy +2,984 (off) -> +2,984 (strict_legacy) \u2014 the edge does not depend on the fill rule"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = 0.47 vs threshold 1.18 for 1 configuration(s)"
+       },
+       {
+        "check": "require_symbols_traded_ge_20",
+        "passed": true,
+        "detail": "symbols_traded = 129, required >=20 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 634,856, required <=100,000 (declared at registration)"
+       },
+       {
+        "check": "require_sharpe_ge_1",
+        "passed": false,
+        "detail": "sharpe = 0.27, required >=1 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "clears_noise_threshold",
+       "require_max_drawdown_le_100000",
+       "require_sharpe_ge_1"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
    "fingerprint": "sha256:2de74ce8cb130dcbe79fbecad306defd"
   }
  ]

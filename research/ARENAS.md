@@ -110,6 +110,11 @@ interest is credited on the ~85% of equity not posted as margin (so long P&L is
 understated and short P&L overstated by roughly the carry rate); and stops are
 checked and filled at the close, so a gap through the level books the whole gap.
 
+**Status: two hypotheses closed, both on signal rather than plumbing.**
+`trend-donchian-modern` (index, confirmatory) and `tsmom-stock-modern` (stocks,
+the redraw). See the T1 result below — it is the most instructive kill in the
+survey so far, because it is the only one that made money.
+
 ---
 
 ## Arena 4 — event-driven volatility — **OPEN (earnings half)**
@@ -635,6 +640,62 @@ from a broad universe. If the book only ever touches a dozen names, that premise
 is false, the per-bet arithmetic behind the 1.0 bar collapses, and the hypothesis
 should die on it. 20 is 2.5× `max_open` — a floor that catches pathological
 concentration rather than a bar tuned toward an answer nobody has seen yet.
+
+#### RESULT — KILLED at screen, 2026-08-10
+
+```
+181 trades   +Rs 540,029   exp +Rs 2,984/trade   PF 1.16   win rate 30.9%   t 0.47
+gate off  ==  gate strict_legacy, identical in every figure, fill 100.0%
+symbols_traded 129 / 285   max_drawdown Rs 634,856   sharpe 0.27
+top skips: max_open 141,339 | warmup 27,768 | one_lot_exceeds_risk_cap 651
+
+[FAIL] clears_noise_threshold          t 0.47 vs 1.18
+[FAIL] require_max_drawdown_le_100000  Rs 634,856 vs Rs 1,00,000
+[FAIL] require_sharpe_ge_1             0.27 vs 1.00
+[  ok] require_symbols_traded_ge_20    129
+```
+
+**This is the first hypothesis in the survey to die with a large profit**, and it
+is the one worth understanding properly.
+
+*+Rs 540,029 is the trap, not the result.* It is ~Rs 154,000/yr on Rs 15L —
+about 10%/yr, a number that would headline as a success in any naive backtest
+report. It is also statistically indistinguishable from zero (t 0.47 against a
+1.18 bar), and it cost a **Rs 634,856 drawdown** to collect: 6.3× the budget that
+would actually cause the system to be switched off, and 42% of the account. This
+is precisely the case Amendment A was written for — return is not the variable,
+and a CAGR target would have promoted this.
+
+*The signal lost to buying and holding.* Book Sharpe 0.27 against a passive
+full-universe 0.629 and a random-8-name median of 0.509 on the identical window
+(Finding 6). The timing rule did not merely fail to add value; it **subtracted**
+it relative to holding the same instruments and doing nothing. Recorded with the
+caveat already noted in Finding 6 — the passive comparator is long-only and this
+book is long/short, so this is a magnitude comparison rather than a matched
+control.
+
+*It died on signal, not on plumbing.* `gate off` and `gate strict_legacy` agree
+in every single figure, at 100.0% fill. This is the **first hypothesis in the
+whole survey where the liquidity gate changed literally nothing** — three of the
+first five showed the ungated→gated expectancy sign flip that killed the ladder.
+Finding 1 predicted exactly this and it held at the strategy level, not just at
+the panel level. The engine did its job; the idea is empty.
+
+*The diversification premise held — the ceiling argument did not save it.*
+`symbols_traded` 129 of 285, so the N_eff 2.59 arithmetic was sound and the
+`>=20` guard was never in danger. The book was **capacity-bound rather than
+signal-bound**: 141,339 entries were skipped for `max_open`, meaning tsmom was
+long or short *something* on the large majority of symbol-days and the 8 slots
+were filled essentially arbitrarily from a large candidate pool. That is close to
+being a random 8-name draw by construction — which is why the comparison against
+the passive random-8 distribution is the apt one, and why it lost.
+
+*What the corrected bar did and did not do.* Stated plainly: **the raised bar did
+not change this verdict.** At Sharpe 0.27 it would have failed even the original
+draft's `sharpe>=0.30`, and it failed the drawdown and noise checks independently.
+The Finding 5/6 work was not what killed T1. Its value is prospective — a future
+variant scoring 0.75 will now be killed correctly instead of advanced on a bar
+that 18% of no-signal books clear.
 
 *What a pass means, stated before the number exists: tsmom clearing 1.0 at screen
 makes it **worth one walk-forward**, and clearing A5 out-of-sample afterwards
