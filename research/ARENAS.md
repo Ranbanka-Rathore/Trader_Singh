@@ -903,6 +903,83 @@ Three ways to buy power, none of them free, none taken yet:
    an unknown one.
 3. **Accept less confidence**, which is what the charter exists to prevent.
 
+### T2c — the pooled re-run, and what it says about Amendment D
+
+Amendment D permitted this: `scratch/arena3_signal_ic.py pooled`, 2016-01-01 →
+2026-08-06, 2,614 sessions, 363 symbols, **111 rebalances** against 29.
+Power improved exactly as predicted — **detectable IC 0.0315, down from 0.0551**,
+now genuinely below the ~0.04–0.05 requirement.
+
+| signal | pooled rank IC | t |
+|---|---|---|
+| `mom_252_21` (12-1) | +0.0263 | +1.51 |
+| `high_52w` | +0.0258 | +1.42 |
+| `mom_126_21` (T1's) | +0.0193 | +1.29 |
+| `mom_63_21` | +0.0171 | +1.17 |
+| `accel` | −0.0145 | −1.01 |
+| `rev_5` | −0.0135 | −0.98 |
+| others | \|IC\| < 0.012 | \|t\| < 0.7 |
+
+**Still nothing clears the bar** — largest |t| is 1.51 against 2.19, and against
+2.49 once this is priced as the second look at the same eleven.
+
+#### The per-era diagnostic fails, and it fails hard
+
+| signal | early | ramp | modern | |
+|---|---|---|---|---|
+| `mom_252_21` | **+0.0636** t+2.19 | +0.0052 t+0.13 | +0.0137 t+0.66 | |
+| `mom_63_21` | **+0.0601** t+2.34 | +0.0082 t+0.28 | −0.0106 t−0.52 | flips |
+| `mom_126_21` | **+0.0525** t+2.13 | +0.0015 t+0.05 | +0.0073 t+0.38 | |
+| `lowvol_63` | **+0.0724** t+1.98 | −0.0067 t−0.18 | −0.0236 t−0.85 | flips |
+| `high_52w` | **+0.0638** t+1.81 | −0.0072 t−0.18 | +0.0232 t+1.23 | flips |
+| `rev_5` | +0.0227 t+0.87 | −0.0516 t−2.29 | −0.0100 t−0.45 | flips |
+
+**Nine of eleven signals flip sign across eras.** The entire pooled signal is
+carried by `early`: every momentum-family IC is 0.05–0.07 in 2016–2019 — *above*
+the 0.04–0.05 required to be tradeable — and collapses to ~0.00 in both ramp and
+modern.
+
+So the pooled mean of +0.0263 for 12-1 momentum **describes no market that has
+ever existed.** It is an average of one era where momentum worked and two where
+it did not — precisely the "average over three different markets" that B3 was
+written to forbid.
+
+#### This means Amendment D's premise was incomplete
+
+D2 permitted pooling because the *instrument* properties are flat for stock
+futures: gate pass 100% every year, ρ̄ 0.18–0.42 with no trend, breadth, vol and
+dispersion continuous. All of that remains true and correctly measured. The
+inference drawn from it does not hold:
+
+> **Flat instrument properties do not imply flat signal properties.** The same
+> instrument, with the same liquidity, breadth and correlation structure, stopped
+> being predictable somewhere around 2020. Structure and predictability are
+> different things, and D2 assumed the first governed the second.
+
+The diagnostic that caught this was written into the pooled run before it was
+executed, for exactly this reason. It worked, so the honest response is to act on
+it rather than to keep the number it discredits.
+
+#### What is and is not a finding here
+
+*Not a finding:* momentum works in Indian stock futures. The early-era t values
+(2.34, 2.19, 2.13, 1.98) sit at or below the 11-signal bar of 2.19 and nowhere
+near the honest bar once eleven signals × three eras × two windows are priced.
+Suggestive, era-bound, and in the era furthest from today's market.
+
+*A finding, and it corrects T2b:* **the "every momentum lookback is negative in
+modern" pattern was noise.** The pooled run's modern slice — same era, more
+rebalances (41 vs 29), different date grid because warmup no longer eats the
+first 273 days of the era — gives +0.0137, +0.0073, −0.0106 and +0.0289 for the
+same four lookbacks. Re-gridding one era flips the signs. T2b recorded that
+pattern as "a possibility, not a finding"; it is now demonstrably the sampling
+noise that hedge anticipated.
+
+*The real finding:* whatever edge momentum had in this market, it was gone before
+the `modern` era began, and **no amount of pooled history recovers it** — because
+the history that carries it is the history that no longer describes the market.
+Arena 3 is better measured than it was and no closer to supplying a strategy.
+
 ### Not drafted, and why
 
 **A new signal on the index universe.** N_eff 1.06 means it needs a per-bet

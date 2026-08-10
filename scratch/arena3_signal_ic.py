@@ -164,7 +164,14 @@ def implied_sharpe(ic_val):
 
 
 def main():
-    start, end = charter.era_window("modern", cap=dt.date.today())
+    pooled = len(sys.argv) > 1 and sys.argv[1] == "pooled"
+    if pooled:
+        # Amendment D2: signal-property estimation may pool eras for an
+        # instrument whose era-defining property has been measured flat.
+        # Stock futures qualify (scratch/arena3_era_break.py).
+        start, end = dt.date(2016, 1, 1), dt.date.today()
+    else:
+        start, end = charter.era_window("modern", cap=dt.date.today())
     dates = futures.trading_dates(start, end)
     panel = futures.build_panel(dates, kind=KIND, gate=GATE)
     syms = sorted(panel.series)
@@ -194,9 +201,9 @@ def main():
     print(f"multiple-comparisons bar for {len(sigs)} signals: "
           f"|t| >= sqrt(2 ln N) = {bar:.2f}\n")
 
-    rows = []
+    rows, per_era = [], {}
     for name, fn in sigs.items():
-        rank_ics, pear_ics = [], []
+        rank_ics, pear_ics, by_era = [], [], {}
         for t in rebals:
             fwd = window_ret(R, t, t + HORIZON)
             sc = fn(R, V, O, t)
@@ -205,6 +212,7 @@ def main():
             a, b = ic(sc, fwd, True), ic(sc, fwd, False)
             if a is not None:
                 rank_ics.append(a)
+                by_era.setdefault(charter.era_of(dates[t]) or "?", []).append(a)
             if b is not None:
                 pear_ics.append(b)
         if len(rank_ics) < 5:
@@ -213,6 +221,12 @@ def main():
         t_stat = r.mean() / (r.std(ddof=1) / np.sqrt(len(r))) if r.std(ddof=1) > 0 else 0.0
         rows.append((name, r.mean(), float(np.mean(pear_ics)), t_stat,
                      float((r > 0).mean()), len(r), float(r.std(ddof=1))))
+        per_era[name] = {}
+        for k, v in by_era.items():
+            a = np.array(v)
+            s = a.std(ddof=1) if len(a) > 1 else 0.0
+            te = a.mean() / (s / np.sqrt(len(a))) if s > 0 else 0.0
+            per_era[name][k] = (float(a.mean()), len(a), float(te))
 
     rows.sort(key=lambda x: -abs(x[1]))
     print(f"{'signal':26s} {'rankIC':>8} {'pearsIC':>8} {'t':>7} "
@@ -237,8 +251,37 @@ def main():
     print(f"  -> the detection threshold and the profitability threshold are "
           f"the SAME SIZE. This window cannot confirm a tradeable signal here.")
 
+    if pooled:
+        # DIAGNOSTIC on Amendment D, not a justification for it. D was decided
+        # on instrument properties and deliberately never looked at signal ICs
+        # by era. This is the check: if a signal's IC swings wildly across eras
+        # the pooled mean is an average over different markets after all, and
+        # that must be said out loud rather than buried in the pooled number.
+        print(f"\nPER-ERA BREAKDOWN (diagnostic on Amendment D's pooling)")
+        eras = ["early", "ramp", "modern"]
+        print(f"{'signal':26s} " + " ".join(f"{e:>16s}" for e in eras))
+        print("-" * 78)
+        for name, ric, *_ in rows:
+            cells = []
+            for e in eras:
+                m = per_era.get(name, {}).get(e)
+                cells.append(f"{m[0]:+8.4f} t{m[2]:+5.2f}" if m else f"{'-':>15s}")
+            flip = len({np.sign(per_era[name][e][0]) for e in eras
+                        if e in per_era.get(name, {})}) > 1
+            print(f"{name:26s} " + " ".join(cells) + ("   SIGN FLIPS" if flip else ""))
+        print("  A signal whose sign flips across eras is not one pooled "
+              "estimation has helped.")
+        print(f"  per-era t is against |t| >= {bar:.2f} (11 signals); "
+              f"across both windows and three eras the honest bar is higher.")
+
     print(f"\nreference: T2 says rank IC ~0.04 reaches A5's floor 0.8, "
           f"~0.05 reaches its preferred 1.0")
+    if pooled:
+        b2 = np.sqrt(2 * np.log(2 * len(sigs)))
+        print(f"NOTE: these eleven were already measured on `modern` "
+              f"(ARENAS T2b). This is a SECOND look at the same set, so "
+              f"anything chosen from across both windows is priced at "
+              f"{2*len(sigs)} looks, |t| >= {b2:.2f}, not {bar:.2f}.")
     print("[ROLL] = front-contract volume/OI, which drops at every monthly roll; "
           "a 21d change spans one, so those two rows are contaminated by "
           "construction and are shown, not trusted.")
