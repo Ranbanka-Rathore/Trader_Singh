@@ -205,8 +205,49 @@ any two-leg NIFTY weekly, but its **sizing** half is only established for
 vertical-shaped risk. And the engine models no margin whatsoever (`grep margin`
 finds nothing in `real_backtester.py` or `engines/options.py`), which is close to
 harmless for a vertical, where broker margin ≈ max loss, and is not harmless for
-a ratio. That gap should be closed before a ratio structure is registered, not
-after.
+a ratio.
+
+#### The margin gap is closed — and it was latent, not active (2026-08-10)
+
+`backtest/margin.py`, wired into `_size_lots` as a fourth constraint alongside
+`l_risk`, `l_vol` and `l_kelly`. The important part is not the numbers but the
+refusal: **a structure whose margin treatment has not been decided raises
+`MarginError` instead of defaulting to zero.** Adding a ratio now fails loudly at
+sizing rather than silently assuming margin is free.
+
+| structure | margin per lot | basis |
+|---|---|---|
+| vertical | `(width − credit) × lot`, capped at naked | arithmetic |
+| iron condor | worse side's max loss, not the sum | arithmetic |
+| calendar | net debit paid | arithmetic |
+| anything else | **refused** | — |
+| naked exposure | `naked_frac × spot × lot`, `naked_frac = 0.12` | **estimate, not measured** |
+
+`naked_frac` is the one estimated number and is labelled as such in the module:
+the archive carries no margin data, so it is anchored to the 0.15 that
+`xsection.py` already uses for SPAN+exposure on stock futures, adjusted down for
+lower index vol. It should not be quoted as if measured.
+
+**Checked after building it: none of the three structures the engine currently
+emits carries unhedged exposure.** Vertical and condor are strike-hedged within
+one expiry; the calendar is short near / long far *at the same strike*, so the
+long covers assignment on the short. Margin equals max loss in all three, and
+`l_margin` runs about 40 lots against `l_risk`'s 2 — slack by more than an order
+of magnitude. **Every result already in the kill log is unchanged**, which the
+773 other passing checks confirm.
+
+So the honest description is that the gap was **latent**. It would have bitten the
+moment a ratio or naked leg was added — exactly the structures Section 8 points
+this arena at — and it would have bitten silently, because zero margin is
+indistinguishable from cheap margin in a P&L.
+
+*One correction worth keeping.* The first draft defaulted a calendar's short leg
+to naked margin, reasoning that NSE's spread benefit lapses at the near expiry.
+`tests/test_real_backtester.py` rejected it: at Rs 5L the calendar became
+untradeable, which is a modelling artefact rather than a market fact, since the
+far long is what makes the near short safe. The conservative direction is not
+automatically the correct one, and here it was not. The pessimistic view remains
+selectable as `MarginModel(calendar_short_is_naked=True)`.
 
 > **Precondition for the next arena-1 registration:** demonstrate the
 > configuration can supply ~116 trades on `modern`, and declare it as

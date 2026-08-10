@@ -39,6 +39,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from backend.app.core import bs_math, friction_model, regime_filters as rf
 from backtest import bhavcopy
+from backtest import margin as margin_mod
 from backtest.liquidity_gate import LiquidityGate, gate_by_name
 
 SETTLEMENT_STT_RATE = 0.00125
@@ -103,6 +104,11 @@ class Config:
     use_gex: bool = False
     # sizing
     equity0: float = 500_000.0
+    # Margin (added 2026-08-10). Before this the engine modelled none, so an
+    # unhedged short cost nothing to hold and could be sized without limit.
+    # `max_margin_frac` mirrors xsection.py's `max_gross_margin_frac`.
+    margin_model: margin_mod.MarginModel = margin_mod.DEFAULT
+    max_margin_frac: float = 0.30
     risk_frac: float = 0.015
     # Indian F&O has no sub-lot sizing: if 1 lot exceeds risk_frac but stays
     # under this absolute per-trade cap, trade the single lot; above it, skip.
@@ -258,7 +264,8 @@ class RealBacktester:
         return p - (1 - p) / b
 
     def _size_lots(self, *, width: float, credit: float, lot: int,
-                   spot: float, dnet: float) -> Tuple[int, Dict[str, Any]]:
+                   spot: float, dnet: float, structure: str = "vertical",
+                   call_width: float = 0.0) -> Tuple[int, Dict[str, Any]]:
         cfg = self.cfg
         max_loss_per_lot = max((width - credit) * lot, 1.0)
         l_risk = int(cfg.risk_frac * self._equity / max_loss_per_lot)
@@ -278,9 +285,24 @@ class RealBacktester:
         else:
             l_kelly = int(cfg.kelly_frac * f_star * self._equity / max_loss_per_lot)
 
-        candidates = [l_risk, l_vol] + ([l_kelly] if l_kelly is not None else [])
+        # Margin. Before 2026-08-10 this constraint did not exist, which meant an
+        # unhedged short was treated as free to hold. For a vertical it is
+        # slack by a wide margin — max loss is ~Rs 8,800 against a Rs 4.5L budget,
+        # so l_margin lands near 50 while l_risk lands near 2 — and every result
+        # already in the kill log is therefore unchanged. It binds where it
+        # should: on a calendar's naked-margined short leg.
+        margin, basis = margin_mod.margin_per_lot(
+            structure, lot=lot, spot=spot, width=width, credit=credit,
+            call_width=call_width, model=cfg.margin_model)
+        l_margin = margin_mod.lots_within_budget(
+            margin, self._equity, cfg.max_margin_frac)
+
+        candidates = [l_risk, l_vol, l_margin] + ([l_kelly] if l_kelly is not None else [])
         lots = max(0, min(min(candidates), cfg.max_lots))
         return lots, {"l_risk": l_risk, "l_vol": l_vol, "l_kelly": l_kelly,
+                      "l_margin": l_margin,
+                      "margin_per_lot": round(margin, 2),
+                      "margin_basis": basis,
                       "f_star": round(f_star, 4) if f_star is not None else None,
                       "max_loss_per_lot": round(max_loss_per_lot, 2)}
 
@@ -503,7 +525,9 @@ class RealBacktester:
 
             width = off  # per side; only one side can be ITM at expiry
             lots, sizing = self._size_lots(width=width, credit=credit, lot=lot,
-                                           spot=spot, dnet=0.05)
+                                           spot=spot, dnet=0.05,
+                                           structure="iron_condor",
+                                           call_width=off)
             if lots < 1:
                 last_reason = "sizing_zero"
                 continue
@@ -550,9 +574,12 @@ class RealBacktester:
         row = chain["options"].get((expiry, atm, "CE")) or {}
         lot = int(row.get("lot") or 0) or 75
 
-        # max loss = debit paid
+        # max loss = debit paid. Margin is a different question and a much
+        # larger number: the near short leg is margined as if unhedged, because
+        # NSE's calendar benefit lapses at the near expiry (see backtest/margin.py).
         lots, sizing = self._size_lots(width=debit, credit=0.0, lot=lot,
-                                       spot=spot, dnet=0.05)
+                                       spot=spot, dnet=0.05,
+                                       structure="calendar")
         if lots < 1:
             self._skip("sizing_zero")
             return None
