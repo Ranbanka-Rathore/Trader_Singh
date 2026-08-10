@@ -47,6 +47,15 @@ IC there is ≈ 0.000 — cannot be re-presented later as the discovery of a
 hypothesis.** Anything registered in arena 3 from now on is registered by someone
 who already knows the shape of the answer.
 
+**This extends to the eleven candidate signals of T2b (2026-08-10).** Their rank
+ICs in this universe are now known — momentum at 21/63/126/252-day lookbacks,
+short-term reversal at 5 and 21 days, low-volatility, 52-week-high proximity,
+acceleration, and two roll-contaminated volume/OI signals. Registering any of
+them in arena 3 is registering a prediction whose answer has been seen, and the
+multiple-comparisons budget must reflect **eleven** looks, not one. The correct
+form for any of them is a confirmatory registration, as `trend-donchian-modern`
+was.
+
 The cross-sectional run above also used a leverage default that was afterwards
 judged infeasible (4x gross, producing a drawdown larger than the account) and
 lowered to 2x. That change was made on risk grounds, before any registration, and
@@ -817,6 +826,79 @@ Four limits on this result, so it is not over-read:
 Arena 3 stays **open**, on evidence rather than on hope, and the next hypothesis
 in it should be judged on measured IC before it is judged on P&L — IC is cheap,
 needs no position sizing, and would have killed tsmom in minutes.
+
+### T2b — IC of eleven candidate signals, and the power problem
+
+Acting on exactly that: `scratch/arena3_signal_ic.py`, T1's window, gate and
+universe, 29 rebalances, 21-day forward return. Rank IC is the headline because
+returns are fat-tailed and Pearson IC is dominated by a few outliers. **A
+measurement, not a hypothesis — no claim registered, no config budget spent.**
+
+| signal | rank IC | Pearson IC | t | hit% | implied Sharpe |
+|---|---|---|---|---|---|
+| `mom_63_21` | **−0.0359** | −0.0271 | −1.56 | 48.3% | 0.72 |
+| `mom_252_21` (12-1) | −0.0286 | −0.0255 | −1.08 | 44.8% | 0.59 |
+| `vol_trend_21` **[ROLL]** | +0.0236 | +0.0155 | +1.48 | 62.1% | 0.50 |
+| `oi_chg_21` **[ROLL]** | +0.0203 | +0.0293 | +1.22 | 51.7% | 0.44 |
+| `mom_21_0` | −0.0190 | −0.0141 | −0.67 | 48.3% | 0.42 |
+| `rev_21` | +0.0190 | +0.0141 | +0.67 | 51.7% | 0.42 |
+| `accel` (21d−126d) | +0.0151 | +0.0180 | +0.71 | 55.2% | 0.33 |
+| `mom_126_21` (T1's) | −0.0146 | −0.0215 | −0.69 | 44.8% | 0.32 |
+| `rev_5` | +0.0132 | +0.0101 | +0.52 | 48.3% | 0.28 |
+| `high_52w` | −0.0066 | −0.0117 | −0.23 | 55.2% | 0.13 |
+| `lowvol_63` | +0.0009 | −0.0076 | +0.02 | 41.4% | 0.00 |
+
+**Nothing clears anything.** The multiple-comparisons bar for 11 candidates is
+|t| ≥ √(2 ln 11) = 2.19; the largest is 1.56. The required IC is ~0.04–0.05; the
+largest |rank IC| is 0.0359 — and that one is *negative*.
+
+**Every momentum lookback has a negative point estimate.** −0.036, −0.029,
+−0.019, −0.015 across 63/252/21/126-day windows. If real, cross-sectional
+momentum in NSE stock futures *reverses* over this window, which would explain
+both closed hypotheses at once — `tsmom-stock-modern` and `xsect-mom-modern`
+(12-1, killed at t +0.13) were both betting on the wrong sign. Stated as a
+possibility, not a finding: none is individually significant, and the lookbacks
+overlap heavily, so this is nothing like four independent confirmations. The
+`rev_*` rows are the exact mirror of the `mom_*` rows by construction and are not
+extra evidence.
+
+**The `[ROLL]` rows scored well and are still not trusted.** `vol_trend_21` has
+the best hit rate in the table (62.1%) and the second-largest |t|. It was flagged
+as roll-contaminated in the script *before it was run* — front-contract volume
+and OI collapse at every monthly roll, and a 21-day change spans one. Arguing now
+that it is probably fine because it scored well would be tuning the standard to
+the result, which is the one thing this project does not do.
+
+#### The power problem — this partly re-closes what T2 opened
+
+| quantity | value |
+|---|---|
+| median per-period IC standard deviation | 0.1355 |
+| rebalances available | 29 |
+| **smallest IC this window can distinguish from zero** (at the MC bar) | **0.0551** |
+| **IC required to be worth trading** (T2) | **~0.04–0.05** |
+
+**The detection threshold and the profitability threshold are the same size.**
+A signal sitting exactly at the level that would make arena 3 tradeable is one
+this sample would fail to confirm roughly half the time. So T2's "arena 3 is
+open" needs its companion: it is open in principle and **not demonstrable on
+2023–2026 alone**. Absence of evidence here really is close to no evidence
+either way — which is the honest reading of all eleven rows above, including the
+momentum-reversal pattern.
+
+Three ways to buy power, none of them free, none taken yet:
+
+1. **More history.** ~35 rebalances would detect IC 0.05 and ~55 would detect
+   0.04, against 29 today. The ramp era would supply them — but Amendment B3
+   forbids pooling across liquidity eras. Whether B3 *binds here* is a real
+   question rather than a formality: the eras were drawn on NIFTY **option**
+   liquidity, and Finding 1 measured stock futures passing at 100% in both ramp
+   and modern. That is a charter question to settle deliberately, not a
+   convenience to assume.
+2. **Shorter horizon**, giving more rebalances — but T2 measured 21 days as the
+   favourable hold and did not measure 5, so this trades a known-good horizon for
+   an unknown one.
+3. **Accept less confidence**, which is what the charter exists to prevent.
 
 ### Not drafted, and why
 
