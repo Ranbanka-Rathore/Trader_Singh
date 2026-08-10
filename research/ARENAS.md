@@ -297,6 +297,17 @@ presented as one.
 
 Run: `futures.build_panel` over 2016-01-01 → 2026-08-08, `gate=strict_legacy`.
 
+**Reproduce with** `scratch/arena3_survey.py` and `scratch/arena3_stock_indep.py`
+(Findings 1–4), `scratch/arena3_passive_bench.py` and
+`scratch/arena3_gate_year.py` (Findings 5–6). These were originally written to a
+session scratchpad and were nearly lost; a finding whose reproduction path is a
+temporary directory is not reproducible, so they now live in the repo.
+
+Note the survey's "modern" window was **2024-01-01** → 2026-08-08, which is not
+`charter.era_window("modern")`'s 2023-01-01. Finding 5 explains why the two
+coincide in practice under `--gate strict`, and why they must not be conflated
+when a registration declares a threshold "over the identical window".
+
 ### Finding 1 — the liquidity gate does not bind on futures at all
 
 | universe | window | bars checked | fillable | pass rate |
@@ -352,18 +363,47 @@ established that Rs 15L holds **6–8 names**, so the reachable ceiling is
 third time — but note the shape is different here: it caps the *diversification*
 rather than refusing the trade.
 
-What that ceiling costs, stated in the charter's own units. Section 2 wants OOS
-Sharpe ≥ 1.0. A portfolio of k equally-good bets reaches Sharpe ≈ s·√N_eff, so:
+What that ceiling costs, stated in the charter's own units. A book of k
+equally-good bets reaches Sharpe ≈ s·√N_eff, so:
 
-| universe | N_eff | standalone Sharpe needed per bet for portfolio 1.0 |
+| universe | N_eff | standalone Sharpe needed **per bet** for a book Sharpe of 1.0 |
 |---|---|---|
 | index futures | 1.06 | **0.97** |
 | stock futures @ 8 held | 2.59 | **0.62** |
 
-A timing rule with standalone Sharpe 0.97 on NIFTY is not a realistic thing to
-go looking for. 0.62 per name across eight names is demanding but not absurd.
+A timing rule with per-bet Sharpe 0.97 on NIFTY is not a realistic thing to go
+looking for. 0.62 per name across eight names is demanding but not absurd.
 **This is the reason to draft on the stock universe rather than the index one**,
 and it is arithmetic from measured correlations, not preference.
+
+> **Correction, 2026-08-10 — read the two numbers above in the right units.**
+> As first written this table said "standalone Sharpe needed for portfolio 1.0"
+> and cited Section 2. Both halves were wrong, and the second one flattered the
+> result.
+>
+> 1. **1.0 is not a portfolio target.** Amendment A supersedes Section 2
+>    (`RESEARCH_CHARTER.md:199`) and sets portfolio minimum-viable at **1.4**,
+>    worth-it 2.0, target 3.0. Portfolio Sharpe 1.0 is A4's explicitly *named
+>    failure branch* — ~3.6% CAGR, Rs 54,000/yr, losing to the FD. 1.0 is the
+>    **preferred individual** bar of A5 (floor 0.8), which is what these numbers
+>    actually reach.
+> 2. **The √N_eff conversion does not apply to the `sharpe` a screen reports.**
+>    `engines/__init__.py:112` divides the whole book's daily P&L by `equity0`
+>    and annualises — identical construction to the OOS Sharpe checked against
+>    A5 at `walkforward.py:112` / `loop.py:141`. Diversification across the eight
+>    names is *already inside* that number. So a `--require sharpe>=X` threshold
+>    is in book units and must be compared to A5's 0.8/1.0 directly. The per-bet
+>    column above explains *why* a book Sharpe of 0.8 is reachable on stocks and
+>    not on the index; it is not itself a threshold anything can be set to.
+>
+> Net effect: clearing 0.62 per bet makes tsmom **one admissible strategy**, with
+> 6–15 more still needed at ρ̄ ≤ 0.15 to reach the portfolio target. It does not
+> mean the target is met.
+>
+> A third slip, in Finding 2 rather than here: concurrent risk across k positions
+> scales as **k/√N_eff**, not k/N_eff. At `max_open=8` and ρ̄ 0.298 that is
+> **4.97×** nominal per-position risk, not ~3×. At `risk_frac=0.0075` the 1σ
+> concurrent figure is ~Rs 56,000 against the Rs 1,00,000 budget, not ~Rs 36,000.
 
 ### Finding 4 — roll-adjusted drift IS excess return, and the modern era has none
 
@@ -402,6 +442,63 @@ a standard screen metric, so it goes into the fingerprint and is enforced at
 verdict like any other threshold. A hypothesis that beats zero but loses to
 holding the thing is then killed by the machinery instead of by whoever happens
 to remember.
+
+### Finding 5 — `--gate strict` silently deletes 2023 from the "modern" era
+
+Measured 2026-08-10 (`scratch/arena3_gate_year.py`), stock panel, 2023-01-01 → today:
+
+```
+gate=strict         pass= 73.90%  fillable bars by year: {2024: 45493, 2025: 53607, 2026: 30522}
+gate=strict_legacy  pass=100.00%  fillable bars by year: {2023: 45767, 2024: 45496, 2025: 53607, 2026: 30522}
+```
+
+`txns` is NaN before 2024, and the unevaluable-floor fix correctly refuses what it
+cannot evaluate — so **every one of 2023's 45,767 bars is refused as
+`txns_unknown`**. `charter.era_window("modern")` returns 2023-01-01, so a run
+registered `--era modern --gate strict` is labelled with an era a third of which
+is not in the sample. Nothing in the kill log says so.
+
+Two consequences:
+
+- **The `txns` floor earns nothing on this instrument.** Across 2024+ the two
+  gates differ by **3 bars** out of ~130,000. `strict_legacy`'s floors — `traded`,
+  `volume`, `oi` — are real liquidity tests; the `txns` floor here only decides
+  which schema era survives. On stock futures `strict_legacy` is strictly better
+  information, not a weaker gate.
+- **The four closed `--era modern --gate strict` hypotheses ran on 2024+ only.**
+  They are closed and stay closed — but a smaller sample makes a t-bar *harder*
+  to clear, so this is a reason those kills might have been premature, not a
+  reason to doubt them in the other direction. Recorded rather than reopened.
+
+### Finding 6 — the passive stock benchmark, measured (what Finding 4's fix needs)
+
+Finding 4 prescribed `--require sharpe>=X` at "the passive Sharpe over the
+identical window" but only measured the *index*. Here is the stock number
+(`scratch/arena3_passive_bench.py`, same `futures.build_panel` path as the survey).
+248 names, 640 sessions, buy-and-hold, no signal:
+
+| passive long book | Sharpe |
+|---|---|
+| equal-weight, all 248 names | **0.243** (+2.80%/yr, vol 18.07%) |
+| random 8-name books | median **0.202**, p05 −0.345, p95 0.757 |
+| NIFTY / BANKNIFTY, same window | −0.044 / +0.027 |
+
+The number that matters is not the median but the **tail**, because a `--require`
+bar is only worth declaring if a book with no signal fails it:
+
+| bar | share of random 8-name buy-and-hold books that already clear it |
+|---|---|
+| `sharpe>=0.30` | **38.6%** |
+| `sharpe>=0.50` | 19.5% |
+| `sharpe>=0.62` | 10.9% |
+| `sharpe>=0.80` | **4.0%** |
+| `sharpe>=1.00` | 0.8% |
+
+This kills the `sharpe>=0.30` in T1's original draft. It was justified against the
+*index* passive Sharpe of ≈0.03, which is the wrong comparator for a stock book:
+stock dispersion means one 8-name draw in three clears 0.30 on luck alone. The
+single-name index figure understates the bar by an order of magnitude in
+false-pass terms.
 
 ---
 
@@ -443,43 +540,63 @@ panel. What it does:
   60 for a 20-bar channel. Getting this wrong does not error — it silently starves
   the early folds and reports "does not trade".
 
-Still to decide at registration: set `max_open` deliberately, and state the
-concurrency-adjusted risk per Finding 2 rather than inheriting `risk_frac=0.0075`
-as if it meant 0.75%.
+**Four parameters settled 2026-08-10, before the run, on the evidence in Findings
+5 and 6.** Recorded here so each is a decision with a reason rather than an
+inherited default:
+
+| parameter | chosen | why |
+|---|---|---|
+| `--gate` | `strict_legacy` | Finding 5 — `strict` deletes all of 2023 for want of a `txns` column, and buys 3 bars of filtering for a year of data |
+| `--require sharpe` | `>=0.80` | Finding 6 — A5's individual floor; 4.0% passive false-pass, against 38.6% at the drafted 0.30 |
+| `allow_short` | left at engine default `True` | tests the claim symmetrically — whether trailing return predicts in *both* directions, not only when the market rises |
+| `max_open` / `risk_frac` | `8` / `0.0075` inherited | the Rs 1,00,000 budget is enforced by `--require max_drawdown<=100000` at screen and A3's `mc_bootstrap_dd` p99 at walk-forward, which bind on the realised path rather than on an analytic guess |
+
+The Sharpe bar is anchored to **A5's individual floor of 0.8**, not to the passive
+number. That is the deliberate choice: with `allow_short=True` the book is not
+purely long, so passive-long is a floor rather than the right comparator — and
+0.8 is the bar the charter already requires of any strategy admitted to the
+portfolio. It happens to be the stricter of the two, at 4.0% passive false-pass.
 
 ```
 python -m research.loop register --id tsmom-stock-modern \
-  --arena futures_trend --engine futures_trend --era modern --gate strict \
+  --arena futures_trend --engine futures_trend --era modern --gate strict_legacy \
   --configs 1 \
   --set kind=stock --set universe= \
   --set signal=tsmom --set max_open=8 \
-  --require capacity_fill_rate_pct>=50 \
-  --require max_drawdown<=100000 \
-  --require sharpe>=0.30 \
-  --claim "Time-series momentum on single-stock futures has positive per-trade expectancy at Rs 15L in the modern era, after whole lots, margin and a real fill rule." \
-  --kill "Screen t below the Section 4 bar, any Section 6 check fails, capacity fill below 50%, a drawdown past Rs 1,00,000, or a Sharpe that fails to beat holding the underlying."
+  --require 'capacity_fill_rate_pct>=50' \
+  --require 'max_drawdown<=100000' \
+  --require 'sharpe>=0.80' \
+  --claim "Time-series momentum on single-stock futures has positive per-trade expectancy at Rs 15L in the modern era, after whole lots, margin and a real fill rule, and reaches a book Sharpe of 0.8 — Amendment A5's individual admissibility floor." \
+  --kill "Screen t below the Section 4 bar, any Section 6 check fails, capacity fill below 50%, a drawdown past Rs 1,00,000, or a book Sharpe below A5's individual floor of 0.8."
 ```
 
-*On `sharpe>=0.30`: the modern-era index passive Sharpe is ≈0.03 (Finding 4), so
-a beta-harvesting long book has almost nothing to inherit in this window and 0.30
-is a genuine hurdle rather than a formality. Quote the `--require` arguments in
-bash — an unquoted `>` is eaten by shell redirection and silently writes a junk
-file.*
+*What a pass means, stated before the number exists: tsmom clearing 0.8 makes it
+**one admissible strategy**, not a solved portfolio. Amendment A still wants 6–15
+of them at ρ̄ ≤ 0.15 to reach portfolio 1.4/2.0/3.0. See the correction under
+Finding 3 — the older "0.62 clears Section 2" framing was a unit error and must
+not be cited to argue a pass means more than this.*
+
+*Quote the `--require` arguments in bash — an unquoted `>` is eaten by shell
+redirection and silently writes a junk file.*
 
 ### T2 — the honest null: is arena 3 huntable at all?
 
 Findings 2 and 3 together say the reachable ceiling in 1-leg futures is ~2.6
-independent bets, needing standalone Sharpe 0.62 per name to clear Section 2. If
-T1 comes back below that, the finding is not "tsmom does not work" but **"this
-arena cannot reach Section 2's Sharpe at Rs 15L, whatever the signal"** — which
+independent bets. In the corrected units that means a **per-bet** Sharpe of 0.50
+to reach A5's individual floor of 0.8, or 0.62 to reach its preferred 1.0. If T1
+comes back below that, the finding is not "tsmom does not work" but **"this arena
+cannot supply an A5-admissible strategy at Rs 15L, whatever the signal"** — which
 closes the arena rather than one hypothesis, and is worth more than another
 variant. Register it only after T1, and only with the ceiling argument stated in
 advance so it is a prediction rather than a consolation.
 
 ### Not drafted, and why
 
-**A new signal on the index universe.** N_eff 1.06 means it needs a standalone
-Sharpe of 0.97 on essentially one instrument to clear Section 2. Section 3's
+**A new signal on the index universe.** N_eff 1.06 means it needs a per-bet
+Sharpe of 0.78 on essentially one instrument to reach A5's floor of 0.8, and 0.97
+to reach its preferred 1.0 — the correction under Finding 3 does not rescue this
+arena, because with no diversification to contribute the book Sharpe and the
+per-bet Sharpe are very nearly the same number. Section 3's
 corollary — discard effects too small to detect in ~30 trades — applies in the
 other direction here: the effect required is so *large* that finding it would be
 more surprising than not finding it. The index universe is where arena 3 should
