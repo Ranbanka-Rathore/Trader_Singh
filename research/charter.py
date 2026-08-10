@@ -180,6 +180,62 @@ def noise_threshold(n_configs: int) -> float:
     return math.sqrt(2 * math.log(max(int(n_configs), 2)))
 
 
+# ── power: Section 4's bar and Amendment A5's floor are one constraint ───────
+# For a strategy with annualised Sharpe S observed over Y years, the t-statistic
+# of its mean is approximately S * sqrt(Y), independent of trade frequency --
+# trading more often buys more trades but each carries proportionally less.
+# Checked against all six closed hypotheses on 2026-08-10: predicted/actual
+# ratios spanned 0.83-1.32, mean 1.01. Good to about +/-30%, which is enough to
+# reason with and not enough to cite to two decimal places.
+#
+# The consequence is not obvious and is worth stating plainly: Section 4's
+# multiple-comparisons bar and Amendment A5's Sharpe floor are the SAME
+# constraint seen twice. Widening a sweep raises the bar, which raises the
+# smallest Sharpe the window can see, which can push A5's own floor out of
+# reach. On the modern era that happens at four configurations.
+def detectable_sharpe(n_configs: int, years: float) -> float:
+    """Smallest annualised Sharpe distinguishable from noise. sqrt(2 ln N)/sqrt(Y)."""
+    if years <= 0:
+        return float("inf")
+    return noise_threshold(n_configs) / math.sqrt(years)
+
+
+def max_configs_for_detectability(years: float,
+                                  sharpe: Optional[float] = None) -> int:
+    """Largest config budget that still leaves `sharpe` (default A5's floor) visible.
+
+    Returns 0 when even a single configuration cannot see it -- which is not a
+    quibble about budgets but a statement that the window is too short to answer
+    the question at all.
+    """
+    target = MIN_OOS_SHARPE if sharpe is None else sharpe
+    if years <= 0:
+        return 0
+    ceiling = target * math.sqrt(years)
+    best = 0
+    for n in range(1, 1000):
+        if noise_threshold(n) <= ceiling:
+            best = n
+        else:
+            break
+    return best
+
+
+def trades_needed_for_a5(years: float, train_months: int = 6) -> float:
+    """Total trades a window must produce to yield A5's >= 100 OOS trades.
+
+    `walk_forward` is anchored with a `train_months` warm-up and one-month test
+    folds, so every month after the first is out-of-sample. A hypothesis whose
+    configuration cannot supply this cannot satisfy A5 whatever its edge, and
+    that is checkable before registration rather than after a walk-forward.
+    """
+    months = years * 12.0
+    oos_months = months - train_months
+    if oos_months <= 0:
+        return float("inf")
+    return MIN_OOS_TRADES * months / oos_months
+
+
 # ── Section 6: what does not count as evidence ───────────────────────────────
 # 6.4 — n < 20 trades is an unsampled tail, not an edge.
 MIN_TRADES_FOR_EVIDENCE = 20

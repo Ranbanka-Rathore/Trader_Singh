@@ -104,6 +104,105 @@ left in this arena, and it is a narrow one.
 the thing that has already failed here failed in its most liquid corner. Section
 8's structural bet says the edge is unlikely to be here.
 
+### Does arena 3's problem close this arena? **No — but the next registration has a precondition**
+
+`cal-cheapvol-modern` produced 18.6 trades/year against the 32.3/year A5 needs —
+**1.7× short**, so it could never have satisfied A5 whatever its edge. Power is
+not the issue: at `--configs 1` this window detects Sharpe 0.62, comfortably below
+A5's floor.
+
+**The shortfall is a property of the configuration, not the arena.** A calendar
+spread gated on a cheap-vol regime fires only when the regime is on — that is
+the point of it — and a structure that trades on a condition cannot also trade
+often. But arena 1 is "index-option structures" broadly, and NIFTY now lists
+weekly expiries: a structure trading a weekly cycle would clear 32.3/year without
+difficulty.
+
+> **Precondition for the next arena-1 registration:** demonstrate the
+> configuration can supply ~116 trades on `modern`, and declare it as
+> `--require n_trades>=116`. `n_trades` is already a standard screen metric, so
+> it enters the fingerprint and is enforced at verdict. A structure that cannot
+> clear this is unregistrable in the honest sense — it can be killed, but it can
+> never be promoted, so registering it spends budget for a verdict that was
+> foreclosed before the run.
+
+Note this cuts against the one genuinely open question above. The calendar
+spread's regime gate is exactly what makes it too infrequent, so testing it
+*again* on a wider regime definition is a different hypothesis, not a retry.
+
+---
+
+## The constraint that binds every arena — measured 2026-08-10
+
+Checking whether arena 3's problem also closed `event_vol` and
+`index_structures` found something more general. IC was the wrong instrument for
+those two — one sells volatility into scheduled events, the other trades
+structures in a regime, and neither is a selection rule. The question that *does*
+generalise is: **is the effect a strategy needs larger or smaller than the effect
+this data can distinguish from zero?**
+
+For a strategy with annualised Sharpe `S` observed over `Y` years, the
+t-statistic of its mean is approximately **`t ≈ S·√Y`**, independent of trade
+frequency. Checked against all six closed hypotheses rather than asserted
+(`scratch/arena_detectability.py`):
+
+| hypothesis | Sharpe | years | predicted t | actual t | ratio |
+|---|---|---|---|---|---|
+| `cal-cheapvol-modern` | −1.41 | 3.60 | −2.68 | −2.77 | 1.03 |
+| `evol-earnings-modern` | −1.36 | 3.60 | −2.58 | −2.15 | 0.83 |
+| `evol-earnings-pre2024` | −1.96 | 8.00 | −5.54 | −7.29 | 1.32 |
+| `trend-donchian-modern` | −1.12 | 3.60 | −2.13 | −2.38 | 1.12 |
+| `tsmom-stock-modern` | +0.27 | 3.61 | +0.51 | +0.47 | 0.92 |
+| `xsect-mom-modern` | +0.08 | 3.60 | +0.15 | +0.13 | 0.83 |
+
+Ratios span 0.83–1.32, mean 1.01. Good to about ±30% — enough to reason with,
+not enough to quote to two decimals.
+
+### Section 4's bar and Amendment A5's floor are one constraint
+
+`S_min = √(2 ln N) / √Y`. Widening a sweep raises the noise bar, which raises the
+smallest Sharpe the window can see, which can push **A5's own floor out of
+reach**:
+
+| N configs | noise bar | detectable Sharpe on `modern` (3.60y) |
+|---|---|---|
+| 1–2 | 1.18 | **0.62** |
+| 3 | 1.48 | **0.78** |
+| 4 | 1.67 | 0.88 |
+| 8 | 2.04 | 1.07 |
+| 11 | 2.19 | 1.15 |
+
+> **On the modern era, at most THREE configurations may be tested if a strategy
+> sitting at A5's floor of 0.8 is to be detectable at all.** At four, a genuinely
+> admissible strategy produces a t its own registration cannot clear, and the
+> kill means "too little data", not "no edge".
+
+Every closed hypothesis was registered at `--configs 1` (detectable Sharpe 0.62),
+so the survey's discipline holds up. It is arena 3's *eleven-signal IC sweep*
+that this indicts — detectable Sharpe 1.15, well above the floor it was looking
+for. `charter.detectable_sharpe`, `max_configs_for_detectability` and
+`trades_needed_for_a5` now implement this, and `research.loop register` prints it
+with a warning when the budget is too wide, because afterwards is too late.
+
+### A5's sample supply is a second, independent gate
+
+`walk_forward` is anchored with a 6-month train and monthly test folds, so every
+month after the first six is out-of-sample. A5 needs ≥ 100 OOS trades, so the
+modern era needs **~116 trades total — 32.3/year.** What the arenas actually
+produced:
+
+| hypothesis | arena | trades/yr | est. OOS trades | verdict |
+|---|---|---|---|---|
+| `tsmom-stock-modern` | futures_trend | 50.2 | 156 | OK |
+| `xsect-mom-modern` | cross_sectional | 41.9 | 130 | OK |
+| `trend-donchian-modern` | futures_trend | 21.9 | 68 | 1.5× short |
+| `cal-cheapvol-modern` | **index_structures** | 18.6 | 58 | **1.7× short** |
+| `evol-earnings-modern` | **event_vol** | 16.1 | 50 | **2.0× short** |
+| `evol-earnings-pre2024` | event_vol | 11.1 | 83 | 1.2× short |
+
+**Both remaining option arenas are short of A5's sample**, and the escape route
+is blocked in one of them but not the other — see each arena's own section below.
+
 ---
 
 ## Arena 2 — cross-sectional equities
@@ -317,6 +416,37 @@ Budget dates, then a second FOMC source to cross-check the three short years
 against. Until then, a macro hypothesis is registrable only inside 2024-02 to
 2026-02, which is roughly 40 events across all three sources in one liquidity
 era: enough to look, not enough to conclude.
+
+### Does arena 3's problem close this arena? **Not yet — but this is the tightest of the three**
+
+`evol-earnings-modern` produced 16.1 trades/year against 32.3 needed — **2.0×
+short**, the worst of any hypothesis in the log. As with arena 1, power is fine
+at one config (detectable Sharpe 0.62); the failure is supply.
+
+**Unlike arena 1, the escape route is blocked.** Over the full archive A5 needs
+only 9.9 trades/year, and `evol-earnings-pre2024` managed 11.1 — so pooling
+2016–2026 *would* satisfy A5 arithmetically. It is not available:
+
+> Amendment D2 scoped B3 out for stock futures **because their gate pass rate is
+> flat at 100% in every year**. The option book is the instrument B3 was written
+> about, and its era break is the real one — 10% of legs tradeable in 2016
+> against 64% in 2026. D2 cannot be extended here, and D5 would refuse the pooled
+> estimate anyway.
+
+So arena 4's earnings half must reach ~32/year **inside the modern era**, and
+`evol-earnings-modern` reached half that. The binding constraint is capacity, not
+event supply: there are 6,000–9,000 earnings events a year and the engine filled
+**6.6%** of the straddles it wanted at Rs 15L. The question for the next
+registration is therefore not "is there an earnings vol premium" but **"is there
+a structure that can actually be filled on more than 6.6% of events at Rs 15L"** —
+a cheaper structure, a wider strike, or a narrower liquid universe.
+
+The macro half is worse on this measure and it is worth saying plainly: ~40
+events in one era cannot reach 100 OOS trades by any route. **Even with a perfect
+RBI and Budget calendar, the macro half is unregistrable against A5** unless it
+is combined with the earnings half into a single event-vol strategy rather than
+run as its own hypothesis. That reframes what finishing the data work is worth,
+and it is better known now than after sourcing the calendars.
 
 ---
 

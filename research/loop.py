@@ -403,6 +403,33 @@ def cmd_register(a) -> int:
         print(f"  machine-checked: {', '.join(h['requires'])}"
               f"  — any of these failing kills it at screen")
     print(f"  fingerprint {h['fingerprint']}")
+
+    # What this window can actually see. Section 4's bar and Amendment A5's floor
+    # are one constraint: widening a sweep raises the bar, which raises the
+    # smallest Sharpe the window can distinguish, and past a point A5's own floor
+    # goes out of reach. Printed at registration because afterwards it is too
+    # late -- this is a property of the design, not of the result.
+    yrs = ((datetime.date.fromisoformat(h["window"][1])
+            - datetime.date.fromisoformat(h["window"][0])).days / 365.25)
+    n_cfg = registry.effective_configs(h)
+    s_min = charter.detectable_sharpe(n_cfg, yrs)
+    need = charter.trades_needed_for_a5(yrs)
+    print(f"\n  power over {yrs:.2f} years at {n_cfg} config(s):")
+    print(f"    smallest detectable Sharpe: {s_min:.2f}"
+          f"  (A5 floor {charter.MIN_OOS_SHARPE})")
+    if s_min > charter.MIN_OOS_SHARPE:
+        cap = charter.max_configs_for_detectability(yrs)
+        print(f"    WARNING: a strategy sitting exactly at A5's floor would NOT "
+              f"clear this bar.")
+        print(f"    This window supports at most {cap} configuration(s) before "
+              f"A5's floor stops being")
+        print(f"    detectable. A kill here may mean 'too little data', not "
+              f"'no edge'.")
+    print(f"    A5 needs >= {charter.MIN_OOS_TRADES} OOS trades, so this window "
+          f"needs ~{need:.0f} trades")
+    print(f"    total ({need / yrs:.1f}/year). A configuration that cannot "
+          f"supply that cannot satisfy")
+    print(f"    A5 whatever its edge.")
     print(f"\nrun it with:  python -m research.loop run {h['id']}")
     return 0
 
