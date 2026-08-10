@@ -56,6 +56,15 @@ multiple-comparisons budget must reflect **eleven** looks, not one. The correct
 form for any of them is a confirmatory registration, as `trend-donchian-modern`
 was.
 
+**And it extends to arena 2, which is still OPEN (2026-08-10).** The
+cross-sectional ceiling measurement spent knowledge of a live arena: 12-1
+momentum's rank IC at arena 2's own horizon (−0.0139, t −0.66), the IC required
+at its real post-capacity breadth (0.054 for Sharpe 0.8 at 2+2 with friction),
+and the detectability margin that keeps the arena open. Anything registered in
+arena 2 from now on is registered by someone who knows all three — and
+**registering 12-1 momentum again would be registering a prediction whose answer
+is known**, so it must take the confirmatory form.
+
 The cross-sectional run above also used a leverage default that was afterwards
 judged infeasible (4x gross, producing a drawdown larger than the account) and
 lowered to 2x. That change was made on risk grounds, before any registration, and
@@ -112,6 +121,59 @@ exhausted and **counts the shortfall**, so if the arena dies on capacity rather
 than on signal, that shows up as a number instead of as a mystery.
 
 No survivorship bias: the universe is whatever the bhavcopy listed that day.
+
+### Does arena 3's IC problem close this arena too? **No — measured 2026-08-10**
+
+Arena 3 closed because its detection threshold exceeded its profitability
+threshold. Arena 2 draws on the same stock-futures universe, so the question is
+live. `scratch/arena2_ceiling.py`, `modern`, `strict_legacy`, at arena 2's own
+15-trading-day horizon (its `rebalance_days=21` is **calendar** days), 40
+rebalances. **A measurement, not a hypothesis — but it spends arena-2 knowledge
+while the arena is OPEN, so see the disclosure at the top of this file.**
+
+| | arena 3 (closed) | arena 2 |
+|---|---|---|
+| horizon | 21 trading days | 15 trading days |
+| rebalances on `modern` | 29 | **40** |
+| per-period IC sd | 0.1355 | 0.1336 |
+| **detectable IC**, 1 pre-registered signal | 0.0374 | **0.0249** |
+| **detectable IC**, fishing across 11 | 0.0551 | 0.0463 |
+
+Required IC, from the dollar-neutral ceiling (generous bound: no whole lots, no
+margin cap, no per-name lot limit):
+
+| construction | Sharpe 0.8 | Sharpe 1.0 |
+|---|---|---|
+| 5+5 names, 0 bps | 0.035 | 0.044 |
+| 5+5 names, 10 bps | 0.044 | 0.054 |
+| **2+2 names, 10 bps** — what Rs 15L actually delivered | **0.054** | **0.068** |
+
+The 2+2 row is the honest one: `xsect-mom-modern` filled **35%** of the positions
+it wanted, so `n_per_side=5` bought ~2 names a side. Lower breadth means a
+*higher* required IC, and arena 2's capacity constraint is worse than arena 3's.
+
+**The verdict, and it turns on one thing.** For a **single pre-registered
+signal**, detectable IC 0.0249 sits comfortably below the 0.054 required — arena
+2 *can* answer its own question, where arena 3 could not. But that margin comes
+almost entirely from the multiple-comparisons bar (|t| 1.18 for one signal against
+2.19 for eleven), not from better data. Fish across eleven signals here and the
+detectable IC becomes 0.0463 against a required 0.054 — **arena 3's situation
+exactly**.
+
+> **Arena 2 stays open on the condition that it is not searched.** One signal,
+> pre-registered, measured. The moment it becomes a hunt across candidates, the
+> detectability margin is spent and this arena closes for the same reason arena 3
+> did. That is a real constraint on how the remaining budget may be used, not a
+> caveat.
+
+Two further findings, recorded so they are not rediscovered:
+
+- **12-1 momentum, arena 2's own registered signal, has rank IC −0.0139 (t −0.66)
+  at its own horizon.** No edge, consistent with `xsect-mom-modern` dying at
+  t +0.13. Whatever reopens this arena, it is not 12-1 momentum.
+- **A no-skill dollar-neutral book still reaches Sharpe ~0.85–0.93 at the 95th
+  percentile** (IC 0.00 rows). A single good-looking backtest here is worth
+  nothing on its own, which is what A5's ">= 100 OOS trades" is for.
 
 ---
 
