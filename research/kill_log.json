@@ -844,6 +844,143 @@
     }
    ],
    "fingerprint": "sha256:2de74ce8cb130dcbe79fbecad306defd"
+  },
+  {
+   "id": "fly-weekly-modern",
+   "arena": "index_structures",
+   "claim": "A weekly ATM iron butterfly on NIFTY with 6-interval (300pt) wings, entered every cycle at 5-8 DTE without a regime filter and held to the time stop, has positive per-trade expectancy in the modern era under a real fill rule, and reaches a book Sharpe of 1.0 on the >=116 trades Amendment A5 requires.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 116 trades, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0.",
+   "engine": "real_backtester",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-13"
+   ],
+   "gate": "strict_legacy",
+   "n_configs": 1,
+   "config": {
+    "enable_iron_butterfly": true,
+    "entry_unconditional": true,
+    "use_gates": false,
+    "sl_mode": "none",
+    "width_fallbacks": [
+     6
+    ],
+    "min_days_to_expiry": 4
+   },
+   "sweep": null,
+   "requires": [
+    "n_trades>=116",
+    "max_drawdown<=100000",
+    "sharpe>=1"
+   ],
+   "supersedes": null,
+   "note": "",
+   "registered_at": "2026-08-13T09:39:38",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-13T09:41:27",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 179,
+        "net_pnl": -126128.3,
+        "expectancy": -704.63,
+        "profit_factor": 0.68,
+        "win_rate": 0.486,
+        "sharpe": -1.02,
+        "max_drawdown": 146552.65,
+        "t": -1.949,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "warmup",
+        "extras": {
+         "positions_with_unreachable_mark_stop": 0
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 179,
+        "net_pnl": -126128.3,
+        "expectancy": -704.63,
+        "profit_factor": 0.68,
+        "win_rate": 0.486,
+        "sharpe": -1.02,
+        "max_drawdown": 146552.65,
+        "t": -1.949,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "warmup",
+        "extras": {
+         "positions_with_unreachable_mark_stop": 0
+        }
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 179,
+        "net_pnl": -126128.3,
+        "expectancy": -704.63,
+        "win_rate": 0.486,
+        "profit_factor": 0.68,
+        "t": -1.949
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "179 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "179 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.68 on 179 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": true,
+        "detail": "expectancy -705 (off) -> -705 (strict_legacy) \u2014 the edge does not depend on the fill rule"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -1.949 vs threshold 1.18 for 1 configuration(s)"
+       },
+       {
+        "check": "require_n_trades_ge_116",
+        "passed": true,
+        "detail": "n_trades = 179, required >=116 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 146,553, required <=100,000 (declared at registration)"
+       },
+       {
+        "check": "require_sharpe_ge_1",
+        "passed": false,
+        "detail": "sharpe = -1.02, required >=1 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "clears_noise_threshold",
+       "require_max_drawdown_le_100000",
+       "require_sharpe_ge_1"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:81fafd15ed7a175eed6116ca2c6c23b7"
   }
  ],
  "arenas": {

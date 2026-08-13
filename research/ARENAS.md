@@ -695,7 +695,43 @@ mode** that bypasses `classify_entry` and enters the chosen structure every
 cycle. It unblocks W1, W3, and any future weekly structure at once, and it is
 strictly more valuable than any one of them.
 
-### The command, for when both clear
+### BUILT 2026-08-13 — and the draft command above was wrong in four places
+
+Both blockers are cleared: `entry_unconditional` bypasses `classify_entry`
+(keeping warmup and the event blackout, which are risk filters rather than regime
+opinions), and `_enter_fly` places both shorts at ATM without going through
+`_pick_short_strike` at all — the butterfly takes its strike from spot the way
+the calendar does, so the `i=1` problem never arises.
+
+Writing it exposed **three more silent no-ops** in the drafted command, plus a
+fourth mismatch against the measurement that motivated it. Every one of them
+would have produced a plausible number rather than an error.
+
+| # | the draft said | what it would actually have done |
+|---|---|---|
+| 3 | `--set width_intervals=6` | **Nothing.** Width comes from `width_fallbacks`; `width_intervals` was read by one print statement and no entry path. The run would have used **4 intervals — the width the friction work measured as DEAD** (4.42 vol points of cost against a 2.38 premium). |
+| 4 | *(no `sl_mode`)* | Inherited `strike_touch`, which on an ATM butterfly is `spot <= put_short or spot >= call_short` with both shorts AT spot — **a tautology that fires on the entry bar of every cycle.** |
+| 5 | *(no `sl_mark_mult`)* | Even on `sl_mode=mark`, the stop **cannot fire.** 1.5 × a 221.72 credit asks for a 332.58/share loss inside a 300-wide wing that caps the loss at 78.28. |
+| 6 | `--set min_days_to_expiry=2` | Entered at 3–6 DTE. The 2.38-point premium and 1.60-point friction were both measured at **5–8 DTE** (`ENTRY_DTE = (7,6,8,5)` in `arena1_friction_vol_points.py`), which is `min_days_to_expiry=4`. |
+
+Blocker 5 is the one that would have survived review. `sl_mark_mult=1.5` is
+calibrated for a **vertical**, where the credit is small against the width
+(credit ~30 inside 200 → the stop binds at 45 against a 170 max loss). An ATM
+butterfly **inverts that ratio** — it collects most of the width as premium — so
+the declared stop sits past the worst case the structure can produce. Any
+structure whose credit exceeds ~40% of its width has this at the default. The
+trace would have been a *missing exit reason*, not an error.
+
+Fixed by stating the choice rather than tuning a number into range:
+`sl_mode="none"` means **the wing is the stop** and the position runs to the time
+stop. That is defensible for defined risk and adds no free parameter. Where a
+mark stop is declared, `mark_stop_binds` is now recorded per position and
+`positions_with_unreachable_mark_stop` reaches the screen report.
+
+`Config.__post_init__` refuses all of the above, and `width_intervals` was
+*removed* rather than wired up, so `screen.coerce` now rejects the name outright.
+
+### The command, as registered
 
 ```
 python -m research.loop register --id fly-weekly-modern \
@@ -703,18 +739,33 @@ python -m research.loop register --id fly-weekly-modern \
   --gate strict_legacy \
   --configs 1 \
   --set enable_iron_butterfly=true --set entry_unconditional=true \
-  --set width_intervals=6 --set min_days_to_expiry=2 \
+  --set use_gates=false --set sl_mode=none \
+  --set width_fallbacks=6 --set min_days_to_expiry=4 \
   --require 'n_trades>=116' \
   --require 'max_drawdown<=100000' \
   --require 'sharpe>=1.00' \
-  --claim "A weekly ATM iron butterfly with 6-interval wings on NIFTY, entered every cycle without a regime filter, has positive per-trade expectancy in the modern era under a real fill rule, and reaches a book Sharpe of 1.0 on the >=116 trades Amendment A5 requires." \
-  --kill "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 116 trades, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0."
+  --claim "..." --kill "..."
 ```
 
-`width_intervals=6` is not a free parameter — it is the wing width the friction
-measurement found viable (1.60 vol points of cost against a 2.38 premium). At 4
-intervals the same structure costs 4.42 and is dead before it starts, so
-registering a narrower one would be spending a config on a known answer.
+`width_fallbacks=6` is a *single* value, which means "this width or no trade" —
+deliberate, because a fallback to 4 or 2 would silently trade the structure the
+friction work already found dead. The width is not a free parameter: it is the
+one measured viable (1.60 vol points of cost against a 2.38 premium).
+
+`--gate strict_legacy` is kept from the draft, and it is the right call for the
+reason Finding 5 established: `charter.era_window("modern")` starts at
+2023-01-01, `txns` is NaN before 2024, and `strict` therefore refuses all of 2023
+as `txns_unknown` — silently running a "modern era" hypothesis on 2024+ only.
+`strict_legacy` keeps the three floors that are actual liquidity tests (`traded`,
+`volume`, `oi`) and drops only the one that is unevaluable on the legacy schema.
+It is more sample at the same honesty, not a weaker gate.
+
+Worth stating plainly: `cal-cheapvol-modern` — this arena's closest comparable,
+same engine and same nominal window — was registered `--gate strict` and so ran
+on 2024+ only. Its 18.6 trades/year was measured on roughly two-thirds of the
+window it is labelled with. That does not reopen it (a smaller sample makes the
+t-bar *harder*, so the kill stands), but W3's trade count is not directly
+comparable to it.
 
 **No `--supersedes`.** The butterfly is a distinct structure from the iron condor
 — ATM shorts rather than delta-targeted OTM shorts, and a different risk shape.
@@ -735,16 +786,79 @@ than guessed, and supply and capacity are established. Against it:
   Rs/vol-point that is roughly **Rs 296 per lot per cycle** before any loss.
 - The most crowded arena available to Indian retail, per Section 8's own prior.
 
-### Recommendation
+### RESULT — KILLED at screen, 2026-08-13
 
-Build the unconditional entry mode — it is one change that unblocks the whole
-arena and converts an architectural dead end into a testable question. Then
-register W3 and nothing else here, because it is the only remaining structure
-with both measured friction viability and no sizing rewrite.
+Registered and run the same day. **179 trades, net −Rs 1,26,128, expectancy
+−Rs 705/trade, PF 0.68, Sharpe −1.02, t = −1.95** against a noise bar of +1.18.
+Failed three checks: the noise threshold, the Rs 1,00,000 drawdown requirement
+(actual Rs 1,46,553) and the Sharpe floor.
 
-If that change is not going to be made, then **arena 1 should close**, and the
-grounds would be clean: the market supplies the sample, the engine's regime gates
-discard half of it, and no expressible structure can reach A5.
+**The architectural fix worked, and that is the first thing to record.** 179
+trades over 3.61 years is **49.6/year**, against A5's requirement of 32.3 and
+`cal-cheapvol-modern`'s regime-gated 18.6. The claim in the previous section —
+that arena 1's sample famine was the engine's gates rather than the market — is
+confirmed. Removing them supplied 2.7× the trades.
+
+It supplied them to a structure that loses.
+
+```
+gate            trades      net P&L   exp/trade     PF       t   fill%
+off                179     -126,128        -705   0.68   -1.95   100.0
+strict_legacy      179     -126,128        -705   0.68   -1.95   100.0
+```
+
+**Not a fill artefact, and not a friction story.** The two gates agree to the
+rupee at a 100% fill rate — ATM NIFTY weeklies are the most liquid contracts in
+the country, so the liquidity gate that killed the ladder does not bind here at
+all. And the structure is negative *before* costs: gross −Rs 84,720, friction
+−Rs 41,408. Zero-cost execution would not save it.
+
+**The honest prior was right, and the friction analysis was wrong in sign.** That
+analysis projected 0.78 vol points retained ≈ Rs 296 per lot per cycle. Actual:
+−Rs 705. It compared the *mean* IV against the *mean* RV and inferred profit from
+the gap; the gap is real (+2.38 points) and the structure that harvests it most
+directly still loses, because the payoff is not linear in that gap. The warning
+recorded in the draft — "the friction work compared MEANS and nothing has
+measured the left tail" — is exactly what happened:
+
+```
+win rate           48.6%   (87 wins / 92 losses)
+avg win           +3,095   avg loss  -4,298     ratio 0.72
+median trade        -287   worst   -19,991      best  +15,210
+10 worst trades  -109,336  = 87% of the entire net loss
+net excluding them -16,793 = roughly the friction bill
+```
+
+Strip the ten worst weeks out of 179 and the book is flat-minus-costs. The loss
+**is** the tail. This is the classic short-gamma payoff and it is priced in, not
+mispriced.
+
+One detail worth keeping, because it generalises past this structure: exits were
+`TIME_STOP_T1` 161 times out of 179 and `TAKE_PROFIT` **4 times**. With
+`sl_mode=none` (deliberate — the wing is the stop) and a TP at 0.5 × a ~203
+credit that the structure almost never reaches before T−1, the position is
+effectively *held to expiry every week*. Average hold 6.47 days on a 5–8 DTE
+entry. So what was tested is not really "a managed butterfly" — it is
+**unmanaged weekly short gamma**, and that is the thing that has now been
+measured and killed.
+
+### Recommendation — DONE 2026-08-13
+
+The unconditional entry mode is built, W3 is registered, and nothing else in this
+arena will be. The alternative branch of the recommendation — close arena 1 — no
+longer applies, because the ground it rested on (no expressible structure can
+reach A5's sample) was an artefact of the engine and has been removed.
+
+**One standing caution about what that change means.** Six drafts into this
+arena, five of the blockers found were configurations that would have *run* and
+produced a number, not errors. The count matters more than any individual one:
+`width_intervals`, `strike_touch`, `sl_mark_mult`, `min_days_to_expiry` and
+`use_gates` were all things the drafted command said and the engine did not do.
+The pattern is that this engine's defaults were tuned around **one** structure —
+the vertical credit spread — and every parameter that transfers badly to a
+different structure transfers *silently*. Anything registered here in future
+should be checked parameter by parameter against the structure actually being
+built, not against the default that happens to be inherited.
 
 ---
 
