@@ -50,7 +50,7 @@ correct one, and here it was not.
 from dataclasses import dataclass
 from typing import Tuple
 
-STRUCTURES = ("vertical", "iron_condor", "calendar")
+STRUCTURES = ("vertical", "iron_condor", "iron_butterfly", "calendar")
 
 
 class MarginError(Exception):
@@ -108,12 +108,20 @@ def margin_per_lot(structure: str, *, lot: int, spot: float,
         m = max((float(width) - float(credit)) * lot, 1.0)
         return min(m, naked), ("spread_max_loss" if m <= naked else "naked_cap")
 
-    if structure == "iron_condor":
+    if structure in ("iron_condor", "iron_butterfly"):
         # Only one side can be breached at expiry, so the requirement is the
         # worse side's max loss rather than the sum of both.
+        #
+        # The butterfly shares this arithmetic exactly. Collapsing the two shorts
+        # onto ATM does not change what can be lost — one side still finishes in
+        # the money and the other worthless — it changes only how much premium is
+        # collected against that same width. Listed separately in STRUCTURES so
+        # that adding it was a decision rather than a string match, which is the
+        # whole point of this module refusing unknown names.
         worse = max(float(width), float(call_width))
         m = max((worse - float(credit)) * lot, 1.0)
-        return min(m, naked), ("condor_worse_side" if m <= naked else "naked_cap")
+        basis = "condor_worse_side" if structure == "iron_condor" else "fly_worse_side"
+        return min(m, naked), (basis if m <= naked else "naked_cap")
 
     # calendar
     if model.calendar_short_is_naked:

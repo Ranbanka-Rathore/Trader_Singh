@@ -44,6 +44,16 @@ from backtest.liquidity_gate import LiquidityGate, gate_by_name
 
 SETTLEMENT_STT_RATE = 0.00125
 
+# Structures whose shorts sit at the same strike on both sides, or at different
+# strikes on both sides: either way four legs, one expiry, and only one side can
+# finish in the money. Every exit, mark and settlement path treats them alike, so
+# they are named once here rather than compared against by string in six places.
+FOUR_LEG = ("IRON_CONDOR", "IRON_BUTTERFLY")
+
+
+class ConfigError(Exception):
+    """A config that would run something other than what it declares."""
+
 
 @dataclass
 class Config:
@@ -57,9 +67,18 @@ class Config:
     # structure
     delta_target: float = 0.18        # grid: {0.15, 0.20}
     delta_band: Tuple[float, float] = (0.10, 0.28)
-    width_intervals: int = 4          # 200 pts on NIFTY
     # adaptive width: fall back to narrower spreads when 1 lot of the wide
-    # structure exceeds the account's per-trade loss cap (small accounts)
+    # structure exceeds the account's per-trade loss cap (small accounts).
+    # SINGLE SOURCE OF TRUTH for every structure's width, in strike intervals.
+    #
+    # There used to be a `width_intervals: int = 4` field beside this one. It was
+    # read in exactly one place — a line in print_report — and never by any entry
+    # path, so `--set width_intervals=6` at registration was a silent no-op that
+    # ran a 4-interval structure while the registration said 6. Removed 2026-08-13
+    # rather than fixed, so that `screen.coerce` now rejects the name outright
+    # ("not a Config field") instead of accepting an override nothing reads.
+    # A one-element tuple means "this width or no trade" — which is what a width
+    # chosen from a friction measurement requires.
     width_fallbacks: Tuple[int, ...] = (4, 2)
     min_days_to_expiry: int = 4       # -> 5-8 DTE weekly entries
     credit_floor_abs: float = 8.0     # Rs/share
@@ -68,6 +87,13 @@ class Config:
     # 50% win, net -4,936, friction 2x directional). Kept for research only.
     enable_iron_condor: bool = False
     ic_credit_floor: float = 12.0     # 4 legs pay ~2x the friction of 2
+    # iron butterfly — UNTESTED as of 2026-08-13. Both shorts AT ATM, wings
+    # `width_fallbacks` intervals out on each side. Distinct from the condor:
+    # the condor's shorts are delta-targeted OTM, the butterfly's are struck at
+    # the money, which is a different risk shape (more premium, more gamma) and
+    # not a retry of the same idea.
+    enable_iron_butterfly: bool = False
+    fly_credit_floor: float = 12.0    # 4 legs, same reasoning as the condor's
     # calendar spread — UNVALIDATED (0 OOS trades in the same WF run; its
     # cheap-vol regime never fired in a test month). Research only.
     enable_calendar: bool = False
@@ -76,7 +102,24 @@ class Config:
     cal_sl_ratio: float = 0.40        # -40% of debit
     # exits
     tp_ratio: float = 0.5             # grid: {0.5, 0.6}
-    sl_mode: str = "strike_touch"     # grid: {"strike_touch", "mark"}
+    # "strike_touch" | "mark" | "none".
+    # "none" means the structure's own defined risk IS the stop and the position
+    # runs to the time stop. That is a real choice for a four-legged structure
+    # whose max loss is capped by construction, and it is stated rather than
+    # arrived at by setting a threshold that cannot be reached — see
+    # `sl_mark_mult` below.
+    sl_mode: str = "strike_touch"
+    # Multiple of the CREDIT at which a mark stop fires. Calibrated for a
+    # vertical, where credit is small against width (credit ~30 on a 200-wide
+    # spread, so 1.5x credit = 45 against a 170 max loss — it binds).
+    #
+    # It does NOT transfer to an ATM butterfly, which inverts that ratio: a
+    # measured 221.72 credit inside a 300-wide wing caps the loss at 78.28, while
+    # 1.5 x credit asks for 332.58. The stop sits past the worst case the
+    # structure can produce and therefore never fires. Any structure whose credit
+    # exceeds 40% of its width has this problem at the default multiplier.
+    # `_size_lots` records `mark_stop_binds` per position so it is visible in the
+    # report instead of being discovered by reading the exit-reason histogram.
     sl_mark_mult: float = 1.5
     time_stop_days: int = 1           # exit at T-1 before expiry
     # ── LADDER MODE (income structure; all fixed a priori, none in grid) ──
@@ -97,6 +140,26 @@ class Config:
     liquidity_gate: str = "traded"
     # gates
     use_gates: bool = True
+    # Unconditional entry (added 2026-08-13). Enters the single enabled structure
+    # EVERY cycle, bypassing `regime_filters.classify_entry` entirely.
+    #
+    # Why this exists. Every arena-1 structure routed through classify_entry, and
+    # each of its branches is a conjunction (the calendar needs ivr<0.30 AND
+    # er<0.25; the condor needs vrp_gate AND gex>=0 AND middle PCR AND er<max).
+    # The measured effect was a ~50% duty cycle: cal-cheapvol-modern reached 18.6
+    # trades/year and the iron condor 18 OOS trades, against Amendment A5's
+    # requirement of 32.3/year — while weekly supply is 52/year at 96.9% capacity
+    # fill. The market offered the sample and the regime gate discarded it.
+    #
+    # `use_gates=False` does NOT do this. Its fallback emits only BULL_PUT/
+    # BEAR_CALL by PCR, so switching gates off makes a four-legged structure
+    # unavailable rather than unconditional. That is the trap this flag replaces.
+    #
+    # What it does NOT bypass: warmup and the event blackout. Those are risk
+    # filters, not regime opinions — trading blind on a thin closes series, or
+    # through a scheduled event, is not "unconditional entry", it is a different
+    # and worse hypothesis. The ladder drew the same line.
+    entry_unconditional: bool = False
     # GEX off by default in backtest: the naive OI-sign convention (dealers
     # long calls / short puts) directly contradicts the PCR reading this
     # system trades (heavy put OI = written puts = support). The live worker
@@ -120,6 +183,62 @@ class Config:
     kelly_probe_lots: int = 1         # f*<=0 -> probe size, keeps estimator alive
     max_lots: int = 20
     max_open: int = 1
+
+    def __post_init__(self):
+        """Refuse configurations that would run something other than they say.
+
+        Every check here is a mistake this project has actually made or come one
+        step from making. A config that silently does nothing is worse than one
+        that crashes: it produces a result, and the result gets believed.
+        """
+        structures = [n for n, on in (
+            ("enable_iron_butterfly", self.enable_iron_butterfly),
+            ("enable_iron_condor", self.enable_iron_condor),
+            ("enable_calendar", self.enable_calendar)) if on]
+
+        if self.enable_iron_butterfly and not self.entry_unconditional:
+            raise ConfigError(
+                "enable_iron_butterfly=True with entry_unconditional=False does "
+                "nothing: classify_entry has no butterfly branch, so the "
+                "structure is unreachable and the run would silently be a "
+                "vanilla credit-spread run. Set entry_unconditional=True.")
+
+        if self.entry_unconditional:
+            if len(structures) != 1:
+                raise ConfigError(
+                    "entry_unconditional=True enters ONE structure every cycle, "
+                    f"but {len(structures)} are enabled: {structures or 'none'}. "
+                    "A directional spread has no unconditional form — choosing "
+                    "BULL_PUT vs BEAR_CALL is itself a regime read — so exactly "
+                    "one of enable_iron_butterfly / enable_iron_condor / "
+                    "enable_calendar must be set.")
+            if self.use_gates:
+                raise ConfigError(
+                    "entry_unconditional=True and use_gates=True contradict each "
+                    "other. Set use_gates=False so the report cannot claim a "
+                    "regime filter was applied when it was bypassed.")
+
+        if self.enable_iron_butterfly and self.sl_mode == "strike_touch":
+            raise ConfigError(
+                "an ATM iron butterfly cannot use sl_mode='strike_touch'. Both "
+                "shorts sit AT the money, so the touch test "
+                "(spot <= put_short or spot >= call_short) is a tautology and "
+                "fires on the entry bar of every cycle — the structure would "
+                "stop out the day it is opened, every time, and report a book "
+                "of instant losses as a strategy result. Use sl_mode='mark'.")
+
+        if self.sl_mode not in ("strike_touch", "mark", "none"):
+            raise ConfigError(
+                f"sl_mode='{self.sl_mode}' is not a stop rule. Known: "
+                "strike_touch, mark, none. A typo here matches no branch in "
+                "_try_exit and silently removes the stop loss.")
+
+        if not self.width_fallbacks:
+            raise ConfigError("width_fallbacks is empty: no structure has a width")
+        if any(int(w) < 1 for w in self.width_fallbacks):
+            raise ConfigError(
+                f"width_fallbacks={self.width_fallbacks} contains a width below "
+                "one strike interval; a zero-width wing is not a hedge")
 
 
 @dataclass
@@ -197,6 +316,8 @@ class RealBacktester:
         self._cur_interval: float = float(self.cfg.strike_interval)
         self._last_entry_week: Optional[Tuple[int, int]] = None  # ladder cadence
         self._open_max_loss: float = 0.0                         # portfolio cap
+        # positions opened whose declared mark stop could not be reached
+        self._unreachable_stops: int = 0
         self.skip_reasons: Dict[str, int] = {}
         self.gate = LiquidityGate(gate_by_name(self.cfg.liquidity_gate))
 
@@ -299,12 +420,24 @@ class RealBacktester:
 
         candidates = [l_risk, l_vol, l_margin] + ([l_kelly] if l_kelly is not None else [])
         lots = max(0, min(min(candidates), cfg.max_lots))
+
+        # Can the declared stop actually fire? A mark stop triggers at
+        # sl_mark_mult x credit of loss, but the structure cannot lose more than
+        # (width - credit). Where the second is smaller the stop is unreachable
+        # and the config describes a risk control that does not exist. Recorded
+        # per position rather than assumed, because it depends on the credit
+        # received and so cannot be settled at config time.
+        max_loss_ps = max_loss_per_lot / max(lot, 1)
+        binds = (None if cfg.sl_mode != "mark"
+                 else bool(cfg.sl_mark_mult * credit <= max_loss_ps))
+
         return lots, {"l_risk": l_risk, "l_vol": l_vol, "l_kelly": l_kelly,
                       "l_margin": l_margin,
                       "margin_per_lot": round(margin, 2),
                       "margin_basis": basis,
                       "f_star": round(f_star, 4) if f_star is not None else None,
-                      "max_loss_per_lot": round(max_loss_per_lot, 2)}
+                      "max_loss_per_lot": round(max_loss_per_lot, 2),
+                      "mark_stop_binds": binds}
 
     # ── entry ──────────────────────────────────────────────────────────────
     def _skip(self, reason: str):
@@ -364,7 +497,24 @@ class RealBacktester:
                 self._last_entry_week = wk
             return pos
 
-        if cfg.use_gates:
+        if cfg.entry_unconditional:
+            # The two filters kept are risk filters, not regime opinions. Trading
+            # on a closes series too thin to compute RV/EMA is not a hypothesis
+            # about volatility, it is a hypothesis about garbage; and entering
+            # through a scheduled event is a different bet from the one being
+            # registered. Everything classify_entry would have said about IV
+            # rank, VRP, PCR, GEX and efficiency ratio is bypassed.
+            if len(self._closes) < max(rf.EMA_PERIOD, rf.RV_LOOKBACK + 1):
+                self._skip("warmup")
+                return None
+            ok, why = rf.event_gate(d)
+            if not ok:
+                self._skip(why)
+                return None
+            strategy = ("IRON_BUTTERFLY" if cfg.enable_iron_butterfly
+                        else "IRON_CONDOR" if cfg.enable_iron_condor
+                        else "CALENDAR_SPREAD")
+        elif cfg.use_gates:
             gex = 0
             if cfg.use_gex:
                 gex = rf.naive_gex_sign(spot, expiry, d, chain["options"])
@@ -383,6 +533,8 @@ class RealBacktester:
                 self._skip("no_side")
                 return None
 
+        if strategy == "IRON_BUTTERFLY":
+            return self._enter_fly(d, chain, expiry, spot, pcr)
         if strategy == "IRON_CONDOR":
             return self._enter_ic(d, chain, expiry, spot, pcr)
         if strategy == "CALENDAR_SPREAD":
@@ -547,6 +699,82 @@ class RealBacktester:
         self._skip(last_reason)
         return None
 
+    def _enter_fly(self, d, chain, expiry, spot, pcr) -> Optional[Position]:
+        """Iron butterfly: BOTH shorts at ATM, wings `width_fallbacks` out.
+
+        Structurally an iron condor whose two short strikes have collapsed onto
+        the same strike, so max loss is still (wing width - credit) and only one
+        side can finish in the money. The difference that matters is economic:
+        ATM shorts collect the most premium and carry the most gamma, which is
+        why the friction work found it the best-earning four-legged structure
+        and why nothing here says it is a good one.
+
+        It does NOT go through `_pick_short_strike`. That function walks outward
+        from ATM starting at `i=1`, so the nearest strike it can return is one
+        interval OTM — no delta target reaches the money. The butterfly does not
+        want a delta target at all: its strike is defined by the spot, exactly as
+        the calendar's is.
+        """
+        cfg = self.cfg
+        atm = float(round(spot / self._cur_interval) * self._cur_interval)
+
+        row = chain["options"].get((expiry, atm, "PE")) or {}
+        lot = int(row.get("lot") or 0) or 75
+
+        last_reason = "sizing_zero"
+        for w_int in cfg.width_fallbacks:
+            off = w_int * self._cur_interval
+            pe_b, ce_b = atm - off, atm + off
+            legs = []
+            fills = {}
+            ok = True
+            for strike, typ, side in ((atm, "PE", "SELL"), (pe_b, "PE", "BUY"),
+                                      (atm, "CE", "SELL"), (ce_b, "CE", "BUY")):
+                f = self._leg_fills(chain, expiry, strike, typ)
+                if f is None:
+                    ok = False
+                    break
+                fill = f[0] if side == "SELL" else f[1]
+                fills[(strike, typ)] = fill
+                legs.append({"side": side, "opt_type": typ.lower(),
+                             "price": fill, "quantity": lot})
+            if not ok:
+                last_reason = "fly_leg_missing"
+                continue
+
+            credit = round(fills[(atm, "PE")] - fills[(pe_b, "PE")]
+                           + fills[(atm, "CE")] - fills[(ce_b, "CE")], 2)
+            if credit < cfg.fly_credit_floor:
+                last_reason = "fly_credit_below_floor"
+                continue
+
+            # Both shorts are ATM, so net delta is ~0 by construction and the
+            # 0.05 the condor uses as a nominal dnet is if anything generous
+            # here. Kept identical so the two structures are sized by the same
+            # rule and any difference in result is the structure, not the sizer.
+            lots, sizing = self._size_lots(width=off, credit=credit, lot=lot,
+                                           spot=spot, dnet=0.05,
+                                           structure="iron_butterfly",
+                                           call_width=off)
+            if lots < 1:
+                last_reason = "sizing_zero"
+                continue
+
+            quantity = lots * lot
+            entry_friction = friction_model.basket_friction(
+                [{**l, "quantity": quantity} for l in legs])["total"]
+            sizing["width_intervals"] = w_int
+
+            return Position(
+                entry_date=d, expiry=expiry, strategy="IRON_BUTTERFLY", opt_type="PE",
+                sell_strike=atm, buy_strike=pe_b, call_sell=atm, call_buy=ce_b,
+                entry_credit=credit, lots=lots, quantity=quantity, lot_size=lot,
+                entry_friction=entry_friction, entry_spot=spot,
+                pcr=round(pcr, 3), short_delta=0.5, sizing=sizing,
+            )
+        self._skip(last_reason)
+        return None
+
     def _enter_calendar(self, d, chain, expiry, spot, pcr) -> Optional[Position]:
         """ATM CE calendar: SELL near expiry, BUY the next expiry out.
         Debit-defined risk (max loss = debit paid). Long vol / long term
@@ -601,11 +829,13 @@ class RealBacktester:
 
     # ── exit ───────────────────────────────────────────────────────────────
     def _intrinsic(self, pos: Position, spot: float) -> float:
-        """Settlement liability per share. IC: put side + call side (only one
-        can be ITM). Calendar handled separately (far leg is not expiring)."""
+        """Settlement liability per share. Four-legged: put side + call side
+        (only one can be ITM). Calendar handled separately (far leg is not
+        expiring). A butterfly is the condor case with both shorts at ATM, so
+        the same arithmetic settles it."""
         put_side = max(pos.sell_strike - spot, 0.0) - max(pos.buy_strike - spot, 0.0)
         call_side = max(spot - pos.sell_strike, 0.0) - max(spot - pos.buy_strike, 0.0)
-        if pos.strategy == "IRON_CONDOR":
+        if pos.strategy in FOUR_LEG:
             put_leg = max(pos.sell_strike - spot, 0.0) - max(pos.buy_strike - spot, 0.0)
             call_leg = max(spot - pos.call_sell, 0.0) - max(spot - pos.call_buy, 0.0)
             return put_leg + call_leg
@@ -644,7 +874,7 @@ class RealBacktester:
             return {"value": far_sellout - near_buyback,
                     "legs": [{"side": "BUY", "opt_type": "ce", "price": near_buyback, "quantity": q},
                              {"side": "SELL", "opt_type": "ce", "price": far_sellout, "quantity": q}]}
-        if pos.strategy == "IRON_CONDOR":
+        if pos.strategy in FOUR_LEG:
             p = self._side_mark(chain, pos.expiry, pos.sell_strike, pos.buy_strike, "PE")
             c = self._side_mark(chain, pos.expiry, pos.call_sell, pos.call_buy, "CE")
             if p is None or c is None:
@@ -685,7 +915,7 @@ class RealBacktester:
                      "quantity": pos.quantity}])["total"]
                 return self._close(pos, d, spot, proceeds, xf, "EXPIRY_SETTLEMENT")
             exit_cost = self._intrinsic(pos, spot)
-            if pos.strategy == "IRON_CONDOR":
+            if pos.strategy in FOUR_LEG:
                 long_itm = (max(pos.buy_strike - spot, 0.0)
                             + max(spot - pos.call_buy, 0.0))
             else:
@@ -717,6 +947,15 @@ class RealBacktester:
             if pnl_ps >= cfg.tp_ratio * pos.entry_credit:
                 reason = "TAKE_PROFIT"
             elif cfg.sl_mode == "strike_touch":
+                if pos.strategy == "IRON_BUTTERFLY":
+                    # Unreachable: Config.__post_init__ refuses this pairing. Kept
+                    # as a raise rather than a fall-through because the degenerate
+                    # answer here is not an error, it is `True` — both shorts are
+                    # at ATM, so the touch test is satisfied on the entry bar and
+                    # the run would look like a strategy that always stops out.
+                    raise ConfigError(
+                        "strike_touch on an ATM butterfly is a tautology; "
+                        "sl_mode='mark' is the only defined stop for it")
                 if pos.strategy == "IRON_CONDOR":
                     breached = spot <= pos.sell_strike or spot >= pos.call_sell
                 else:
@@ -800,6 +1039,8 @@ class RealBacktester:
                 if pos:
                     open_pos.append(pos)
                     self._open_max_loss += pos.sizing.get("max_loss_total", 0.0)
+                    if pos.sizing.get("mark_stop_binds") is False:
+                        self._unreachable_stops += 1
 
             # update state AFTER decisions (no lookahead)
             if spot > 0:
@@ -919,6 +1160,12 @@ class RealBacktester:
                 "final_equity": round(self._equity, 2),
                 "per_strategy": per_strategy,
                 "exit_reasons": per_reason,
+                # Surfaced to the screen report via schema.metrics()["extras"],
+                # so a run whose stop loss could never fire says so on its own
+                # face rather than being inferred from a missing exit reason.
+                "engine_extras": {
+                    "positions_with_unreachable_mark_stop": self._unreachable_stops,
+                },
             },
         }
 
@@ -927,9 +1174,11 @@ def print_report(result: Dict[str, Any], show_trades: bool = True):
     s = result["summary"]
     cfg = result["config"]
     print("\n" + "=" * 70)
+    widths = "/".join(str(w) for w in cfg["width_fallbacks"])
     print(f"HONEST EOD BACKTEST v2 — {cfg['underlying']} | delta {cfg['delta_target']} | "
-          f"width {cfg['width_intervals']}x{cfg['strike_interval']} | tp {cfg['tp_ratio']} | "
-          f"sl {cfg['sl_mode']} | gates {'ON' if cfg['use_gates'] else 'OFF'}")
+          f"width {widths}x{cfg['strike_interval']} | tp {cfg['tp_ratio']} | "
+          f"sl {cfg['sl_mode']} | "
+          f"gates {'OFF' if cfg['entry_unconditional'] else 'ON' if cfg['use_gates'] else 'FALLBACK'}")
     print("=" * 70)
     print(f"  trades: {s['n_trades']}  win rate: {s['win_rate']*100:.1f}%  "
           f"PF: {s['profit_factor']}  Sharpe: {s['sharpe_annualized']}")

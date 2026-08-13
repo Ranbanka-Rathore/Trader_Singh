@@ -399,6 +399,225 @@ def test_ladder():
           and res["trades"][0]["exit_reason"] == "TIME_STOP_T1")
 
 
+def test_config_refuses_silent_noops():
+    print("\n[11] Config refuses the settings that would run something else")
+    from backtest.real_backtester import ConfigError
+
+    def refuses(name, **kw):
+        try:
+            Config(**kw)
+        except ConfigError:
+            check(name, True)
+            return
+        check(name, False)
+
+    # A butterfly is unreachable through classify_entry — it has no branch for
+    # one — so this pairing would silently run vanilla credit spreads.
+    refuses("butterfly without unconditional entry is refused",
+            enable_iron_butterfly=True)
+    # Unconditional entry enters ONE structure; zero or two is ambiguous.
+    refuses("unconditional with no structure is refused",
+            entry_unconditional=True, use_gates=False)
+    refuses("unconditional with two structures is refused",
+            entry_unconditional=True, use_gates=False,
+            enable_iron_butterfly=True, enable_calendar=True)
+    # The report must not be able to claim a regime filter that was bypassed.
+    refuses("unconditional + use_gates is refused",
+            entry_unconditional=True, use_gates=True,
+            enable_iron_butterfly=True, sl_mode="mark")
+    # THE important one: both shorts at ATM makes the touch test a tautology,
+    # so the structure stops out on its own entry bar, every cycle.
+    refuses("ATM butterfly + strike_touch stop is refused",
+            enable_iron_butterfly=True, entry_unconditional=True,
+            use_gates=False, sl_mode="strike_touch")
+    refuses("empty width_fallbacks is refused", width_fallbacks=())
+    refuses("zero-width wing is refused", width_fallbacks=(0,))
+
+    # And the valid combination builds.
+    ok = Config(enable_iron_butterfly=True, entry_unconditional=True,
+                use_gates=False, sl_mode="mark", width_fallbacks=(6,))
+    check("valid butterfly config builds", ok.width_fallbacks == (6,))
+
+    # width_intervals is gone, not merely unused: an override naming it must
+    # fail loudly at registration rather than run a different width in silence.
+    from research.screen import coerce, ScreenError
+    try:
+        coerce("width_intervals", "6")
+        check("width_intervals rejected by coerce", False)
+    except ScreenError:
+        check("width_intervals rejected by coerce", True)
+    check("width_fallbacks accepts a single width", coerce("width_fallbacks", "6") == (6,))
+
+
+def fly_cfg(**kw):
+    # sl_mode="none" is deliberate, not a shortcut: at a measured ~222 credit
+    # inside a 300-wide wing the mark stop at 1.5x credit asks for a 333/share
+    # loss the structure cannot produce (max loss 78). See test [15].
+    base = dict(enable_iron_butterfly=True, entry_unconditional=True,
+                use_gates=False, sl_mode="none", width_fallbacks=(6,),
+                equity0=1_500_000.0)
+    base.update(kw)
+    return Config(**base)
+
+
+def test_iron_butterfly():
+    print("\n[12] Iron butterfly — ATM shorts, wings out, unconditional entry")
+    d1, d2 = D(2026, 7, 6), D(2026, 7, 7)
+    ch1 = mk_chain(d1, 24000.0, iv=0.13, pcr=1.00)
+    closes, ivh = choppy_seeds()
+
+    bt = RealBacktester(fly_cfg(), provider_from({d1: ch1}))
+    bt._closes, bt._iv_hist, bt._equity, bt._closed = closes, ivh, 1_500_000.0, []
+    pos = bt._try_enter(d1, ch1)
+
+    check("butterfly entered", pos is not None and pos.strategy == "IRON_BUTTERFLY")
+    # The blocker this was written to clear: _pick_short_strike starts at i=1 and
+    # can never return ATM, so a butterfly built through it is impossible.
+    check("BOTH shorts at ATM", pos.sell_strike == 24000.0 and pos.call_sell == 24000.0)
+    check("wings 6 intervals (300pts) out",
+          pos.buy_strike == 23700.0 and pos.call_buy == 24300.0)
+    check(f"credit {pos.entry_credit} >= floor 12", pos.entry_credit >= 12.0)
+    # ATM shorts collect more than the condor's OTM shorts at the same width.
+    # Compared at the research equity of Rs 15L: at 5L a 300-pt wing cannot be
+    # sized at all for the condor (max loss/lot 20,250 > the 3% hard cap of
+    # 15,000), so the comparison would silently be against no trade.
+    ic = RealBacktester(Config(enable_iron_condor=True, width_fallbacks=(6,),
+                               equity0=1_500_000.0),
+                        provider_from({d1: ch1}))
+    ic._closes, ic._iv_hist, ic._equity, ic._closed = closes, ivh, 1_500_000.0, []
+    ic_pos = ic._try_enter(d1, ch1)
+    check("ATM butterfly out-earns the OTM condor at equal width",
+          ic_pos is not None and pos.entry_credit > ic_pos.entry_credit)
+    # Max loss is the wing less the credit — one side only, as for a condor.
+    check("max loss = wing - credit",
+          approx(pos.sizing["max_loss_per_lot"] / pos.lot_size,
+                 300.0 - pos.entry_credit, tol=0.5))
+    check("margin basis is the butterfly's own",
+          pos.sizing.get("margin_basis") in ("fly_worse_side", "naked_cap"))
+
+
+def test_unconditional_entry_lifts_the_duty_cycle():
+    print("\n[13] Unconditional entry bypasses classify_entry but not risk gates")
+    # A regime the gates refuse outright: rich-vol branch blocked by a trending
+    # PCR with no confirmation is the common case, so use the condor, which
+    # classify_entry only emits on middle PCR + low ER.
+    d1 = D(2026, 7, 6)
+    ch1 = mk_chain(d1, 24000.0, iv=0.13, pcr=1.90)   # far from middle PCR
+    closes, ivh = choppy_seeds()
+
+    gated = RealBacktester(Config(enable_iron_condor=True),
+                           provider_from({d1: ch1}))
+    gated._closes, gated._iv_hist, gated._equity, gated._closed = closes, ivh, 500_000.0, []
+    gated_pos = gated._try_enter(d1, ch1)
+
+    uncond = RealBacktester(
+        Config(enable_iron_condor=True, entry_unconditional=True, use_gates=False),
+        provider_from({d1: ch1}))
+    uncond._closes, uncond._iv_hist, uncond._equity, uncond._closed = closes, ivh, 500_000.0, []
+    uncond_pos = uncond._try_enter(d1, ch1)
+
+    check("gated run declines this regime", gated_pos is None
+          or gated_pos.strategy != "IRON_CONDOR")
+    check("unconditional run enters anyway",
+          uncond_pos is not None and uncond_pos.strategy == "IRON_CONDOR")
+
+    # use_gates=False is NOT the same thing, and that confusion is the trap:
+    # its fallback emits only BULL_PUT/BEAR_CALL, so a condor becomes
+    # unavailable rather than unconditional.
+    off = RealBacktester(Config(enable_iron_condor=True, use_gates=False),
+                         provider_from({d1: ch1}))
+    off._closes, off._iv_hist, off._equity, off._closed = closes, ivh, 500_000.0, []
+    off_pos = off._try_enter(d1, ch1)
+    check("use_gates=False makes the condor UNAVAILABLE, not unconditional",
+          off_pos is not None and off_pos.strategy != "IRON_CONDOR")
+
+    # Risk filters survive: warmup and the event blackout are not regime opinions.
+    cold = RealBacktester(
+        Config(enable_iron_condor=True, entry_unconditional=True, use_gates=False),
+        provider_from({d1: ch1}))
+    cold._closes, cold._iv_hist, cold._equity, cold._closed = [24000.0] * 3, ivh, 500_000.0, []
+    check("warmup still refuses a thin closes series",
+          cold._try_enter(d1, ch1) is None and "warmup" in cold.skip_reasons)
+
+
+def test_butterfly_exits_and_settlement():
+    print("\n[14] Butterfly economics: crush pays, adverse move is capped")
+    d1, d2 = D(2026, 7, 6), D(2026, 7, 7)
+    closes, ivh = choppy_seeds()
+    ch1 = mk_chain(d1, 24000.0, iv=0.13, pcr=1.00)
+
+    # vol crush with spot pinned at ATM -> the butterfly's best case
+    ch2 = mk_chain(d2, 24000.0, iv=0.07, pcr=1.0)
+    bt = RealBacktester(fly_cfg(), provider_from({d1: ch1, d2: ch2}))
+    res = bt.run([d1, d2], seed_closes=closes, seed_iv_hist=ivh)
+    fl = [t for t in res["trades"] if t["strategy"] == "IRON_BUTTERFLY"]
+    check("vol crush pinned at ATM is profitable", fl and fl[0]["net_pnl"] > 0)
+
+    # a move out to the wing is the butterfly's bad case
+    ch2b = mk_chain(d2, 24300.0, iv=0.15, pcr=1.0)
+    bt2 = RealBacktester(fly_cfg(), provider_from({d1: ch1, d2: ch2b}))
+    res2 = bt2.run([d1, d2], seed_closes=closes, seed_iv_hist=ivh)
+    fl2 = [t for t in res2["trades"] if t["strategy"] == "IRON_BUTTERFLY"]
+    check("adverse move loses money", fl2 and fl2[0]["net_pnl"] < 0)
+    check("adverse loss stays inside the wing",
+          fl2 and abs(fl2[0]["gross_pnl"]) <= 300.0 * fl2[0]["quantity"])
+
+    # settlement: spot pinned exactly at ATM = both shorts expire worthless =
+    # the whole credit is kept, which is the structure's maximum outcome.
+    bt3 = RealBacktester(fly_cfg(), provider_from({}))
+    bt3._closes, bt3._iv_hist, bt3._equity, bt3._closed = closes, ivh, 1_500_000.0, []
+    p = bt3._try_enter(d1, ch1)
+    check("settles to zero liability when pinned at ATM",
+          approx(bt3._intrinsic(p, 24000.0), 0.0))
+    # a full move to the wing costs exactly the wing width, one side only
+    check("settles to the wing width on a full adverse move",
+          approx(bt3._intrinsic(p, 24300.0), 300.0)
+          and approx(bt3._intrinsic(p, 23700.0), 300.0))
+    check("loss is capped past the wing",
+          approx(bt3._intrinsic(p, 25000.0), 300.0))
+
+
+def test_unreachable_mark_stop_is_reported():
+    print("\n[15] A stop loss that cannot fire is reported, not silent")
+    d1, d2 = D(2026, 7, 6), D(2026, 7, 7)
+    closes, ivh = choppy_seeds()
+    ch1 = mk_chain(d1, 24000.0, iv=0.13, pcr=1.00)
+    ch2 = mk_chain(d2, 24300.0, iv=0.15, pcr=1.0)
+
+    # The default sl_mark_mult=1.5 was calibrated on verticals, where credit is
+    # small against width. An ATM butterfly inverts that: credit ~222 inside a
+    # 300 wing caps the loss at 78, while the stop asks for 333.
+    cfg = fly_cfg(sl_mode="mark")
+    bt = RealBacktester(cfg, provider_from({d1: ch1}))
+    bt._closes, bt._iv_hist, bt._equity, bt._closed = closes, ivh, 1_500_000.0, []
+    pos = bt._try_enter(d1, ch1)
+    max_loss_ps = pos.sizing["max_loss_per_lot"] / pos.lot_size
+    trigger = cfg.sl_mark_mult * pos.entry_credit
+    check(f"stop trigger {trigger:.0f}/sh exceeds max loss {max_loss_ps:.0f}/sh",
+          trigger > max_loss_ps)
+    check("and the position says so", pos.sizing["mark_stop_binds"] is False)
+
+    bt2 = RealBacktester(cfg, provider_from({d1: ch1, d2: ch2}))
+    res = bt2.run([d1, d2], seed_closes=closes, seed_iv_hist=ivh)
+    check("the run reports it in engine_extras",
+          res["summary"]["engine_extras"]["positions_with_unreachable_mark_stop"] >= 1)
+
+    # sl_mode="none" is the honest expression of the same outcome: the wing IS
+    # the stop. It reports None rather than False — nothing was claimed.
+    bt3 = RealBacktester(fly_cfg(), provider_from({d1: ch1}))
+    bt3._closes, bt3._iv_hist, bt3._equity, bt3._closed = closes, ivh, 1_500_000.0, []
+    check("sl_mode='none' claims no mark stop at all",
+          bt3._try_enter(d1, ch1).sizing["mark_stop_binds"] is None)
+
+    # On a vertical, where it was calibrated, the same stop binds normally.
+    bt4 = RealBacktester(Config(sl_mode="mark", equity0=1_500_000.0),
+                         provider_from({d1: ch1}))
+    bt4._closes, bt4._iv_hist, bt4._equity, bt4._closed = seeds(24000.0)[0], ivh, 1_500_000.0, []
+    v = bt4._try_enter(d1, mk_chain(d1, 24000.0, iv=0.13, pcr=1.8))
+    check("the same stop still binds on a vertical",
+          v is not None and v.sizing["mark_stop_binds"] is True)
+
+
 if __name__ == "__main__":
     test_delta_strike_selection()
     test_gates()
@@ -410,5 +629,10 @@ if __name__ == "__main__":
     test_calendar()
     test_adaptive_width_small_account()
     test_ladder()
+    test_config_refuses_silent_noops()
+    test_iron_butterfly()
+    test_unconditional_entry_lifts_the_duty_cycle()
+    test_butterfly_exits_and_settlement()
+    test_unreachable_mark_stop_is_reported()
     print(f"\n{'='*50}\nRESULT: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)
