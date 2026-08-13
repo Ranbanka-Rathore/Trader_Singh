@@ -558,6 +558,77 @@ of the charter uses.
 **This tightens; it does not license anything new.** Nothing that failed under
 D1–D4 passes under D5.
 
+## VERDICT — Section 7's project-level rule, invoked 2026-08-13
+
+**All four arenas are closed. Nothing cleared the Section 5 promotion gate.
+9 hypotheses registered, 9 killed, 0 survivors of the 6–15 Amendment A1 needs.**
+
+Section 7, as written before any search was run:
+
+> If the survey completes with nothing clearing the promotion gate in Section 5,
+> the project stops and the Rs 15,00,000 goes into an index fund.
+
+That branch is now the live one. Recorded here rather than argued with.
+
+### The four closures are not equally strong, and that matters
+
+| arena | closed | hypotheses | grounds | strength |
+|---|---|---|---|---|
+| `futures_trend` | 2026-08-10 | 2 | detection threshold ≈ profitability threshold | **weak** — could not resolve |
+| `index_structures` | 2026-08-13 | 3 | both structures negative **before friction** across 377 trades | **strong** — measured absence |
+| `event_vol` | 2026-08-13 | 3 | mid-price premium −Rs 174/trade over 246 events ≈ zero | **strong** — measured absence |
+| `cross_sectional` | 2026-08-13 | 1 | one pre-registered signal refuted; further search barred by its own power arithmetic | **medium** — budget exhausted |
+
+**Two arenas produced a measured absence of edge, which is a real finding.**
+Weekly NIFTY short volatility loses before costs, and the +2.38 vol point premium
+it harvests is payment for a left tail rather than a mispricing. Single-stock
+earnings straddles have a mid-price premium indistinguishable from zero, and lose
+in *both* directions at *any* slippage assumption including none. Those two are
+not "we looked and did not find" — they are "we measured the thing itself".
+
+**Two arenas produced an absence of evidence, which is weaker and is not
+disguised.** `futures_trend` closed because the smallest IC it could detect was
+the same size as the smallest IC worth trading. `cross_sectional` closed because
+its eleven scored candidates cleared nothing and the single pre-registered signal
+it had budget for was refuted — but eleven signals is not the space of signals,
+and the honest statement is that the *search budget* ran out, not the space.
+
+### The honest caveats, recorded because the conclusion is expensive
+
+1. **The survey took 5 days, not the ~5 months Section 7 budgeted.** That is not
+   corner-cutting: the archive, engines, liquidity gate, friction and margin
+   models were built in Phases 0–4, and the discipline of measuring the *premium
+   or the IC first* killed hypotheses in minutes that would have taken a full
+   backtest campaign each. But it does mean the calendar reserve is entirely
+   unspent, and an operator who wants to reassess has 147 days in which to.
+2. **Nine hypotheses is a small number.** Section 4's budget would have allowed
+   more. The defence is that in two arenas the binding measurement was of the
+   market rather than of a strategy, which is stronger evidence than more
+   strategies would have been — and in the other two, more searching was
+   demonstrably self-defeating.
+3. **Five silent no-op configuration bugs were found during the survey**, four of
+   them before the runs that would have been corrupted. It is reasonable to ask
+   what a sixth would have changed. The mitigation is that every kill above rests
+   on a gate A/B and on requirements fixed in a fingerprint before the run.
+4. **This says nothing about edges requiring data this project does not have.**
+   Fundamentals, borrow/short-interest, analyst revisions and index-flow are all
+   untouched and none is derivable from bhavcopy.
+
+### What Section 9 said about this outcome, before it happened
+
+> Discovering there is no edge **is a successful outcome of this charter.** It is
+> the second-best result available, and far better than the alternative of
+> learning it slowly with real money.
+
+The counterfactual is concrete rather than rhetorical. The ladder that preceded
+this charter showed PF 3.47 and t +3.15 on settlement-price fills; under a real
+fill rule it was PF 0.78 and t −0.60. That strategy was wired live and would have
+traded Rs 15,00,000. The charter's cost was five days and four closed arenas.
+
+**Status: the survey is complete and its named failure branch is reached. The
+decision to deploy capital to an index fund, to amend this charter, or to
+reassess at the 2027-01-07 review is the operator's and is not recorded here.**
+
 ## Amendment Log
 
 *(append-only; date + reason + what changed. An amendment made after seeing a

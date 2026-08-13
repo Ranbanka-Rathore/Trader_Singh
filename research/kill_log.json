@@ -1331,6 +1331,22 @@
     "evol-earnings-pre2024",
     "evol-earnings-narrowwing"
    ]
+  },
+  "cross_sectional": {
+   "status": "closed",
+   "closed_at": "2026-08-13T17:46:51",
+   "grounds": "No edge was demonstrated, and the SEARCH BUDGET is exhausted rather than the question being exhaustively answered \u2014 this is a weaker closure than index_structures or event_vol, and is stated as such. What was measured: T2b scored eleven candidate signals (momentum at four lookbacks, reversal at two, low-vol, 52-week high, acceleration, OI change, volume trend) and nothing cleared \u2014 largest |rank IC| 0.0359, and NEGATIVE; largest |t| 1.56 against a 2.19 eleven-signal bar. xsect-mom-modern registered 12-1 momentum and died at t +0.13, with its own signal measured at rank IC -0.0139. This arena's remaining open condition was explicitly that it NOT be searched further: one pre-registered signal, because detectable IC is 0.0249 for one candidate but 0.0463 when fishing across eleven, against a required 0.054 \u2014 so a twelfth search would itself close the arena by spending the detectability margin. That one signal was spent on cross-sectional carry (annualised futures basis), declared with its direction and thresholds in ARENAS.md X1 and COMMITTED BEFORE COMPUTATION. It is refuted: rank IC -0.0270, t -2.22, 41 rebalances, 95% CI [-0.0508, -0.0032] against a required +0.0540 \u2014 wrong sign, entire CI below zero, and detectable (|IC| 0.0270 > the 0.0249 this sample can distinguish). The pre-declaration barred re-reading a negative result as 'short high carry works'. Data limitation recorded: UndrlygPric is empty for stock futures before 2024, so carry is computable on 2024+ only; this cannot change the verdict, because a positive pre-2024 estimate would fail D5.1 sign consistency and D1 would return the decision to a negative modern.",
+   "reopen_requires": "More rebalances, or a signal class this arena has not seen. Two concrete routes. (1) POWER: the binding number is 41 rebalances at a 15-trading-day horizon. UndrlygPric becoming available pre-2024, or a calendar-spread estimator of the same curve slope validated against the 2024+ figures, would roughly triple the sample and move detectable IC below 0.02 \u2014 but note D5.1 blocks any pooled estimate whose per-era signs disagree, so this only helps if the added history agrees with modern. (2) A GENUINELY NEW SIGNAL CLASS: everything tested is a function of past returns, volume, open interest, or the futures curve. Fundamentals (value, quality, accruals), borrow/short-interest data proper rather than its basis proxy, analyst revisions, and index-inclusion flow are all untouched and none is derivable from bhavcopy \u2014 each needs a data source this project does not have. Acquiring one of those is the honest reopening condition. A further lookback, weighting or horizon on the signals already scored is a retry, which Section 7 does not permit, and would in any case spend the detectability margin the arena no longer has.",
+   "evidence": [
+    "ARENAS X1 RESULT 2026-08-13",
+    "ARENAS T2b",
+    "scratch/arena2_carry_ic.py",
+    "scratch/arena2_ceiling.py",
+    "research/results/xsect-mom-modern.json"
+   ],
+   "hypotheses": [
+    "xsect-mom-modern"
+   ]
   }
  }
 }
