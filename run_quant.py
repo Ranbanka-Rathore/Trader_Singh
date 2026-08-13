@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import os
 import selectors
 import warnings
@@ -17,14 +16,9 @@ from backend.app.db.database import engine as db_engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-logging.basicConfig(level=logging.INFO)
-# Configure root logger to catch all library logs
-log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler = logging.FileHandler("logs/quant.log", encoding='utf-8')
-file_handler.setFormatter(log_formatter)
-logging.getLogger().addHandler(file_handler)
+from backend.app.core.logging_setup import setup_logging
 
-logger = logging.getLogger("QuantEngine")
+logger = setup_logging("QuantEngine", "quant.log")
 
 async def main():
     print("🚀 [STARTUP] Institutional Quant Engine...")

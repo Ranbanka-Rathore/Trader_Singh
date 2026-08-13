@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 import os
 import selectors
 import warnings
@@ -22,14 +21,10 @@ from backend.app.db.database import engine as db_engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("RiskCommittee")
+from backend.app.core.logging_setup import setup_logging
 
-# Configure shared file logging
-log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler = logging.FileHandler("logs/trader_singh.log")
-file_handler.setFormatter(log_formatter)
-logging.getLogger().addHandler(file_handler)
+# Carries the entry/veto decision trail (RiskCommittee + LadderEntry).
+logger = setup_logging("RiskCommittee", "risk_committee.log")
 
 from backend.app.services.database_service import database_service
 

@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 import os
 import selectors
 import time
@@ -25,26 +24,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select, func, func
 
-# Configure Logging with both Stream and File handlers
-from logging.handlers import RotatingFileHandler
-os.makedirs("logs", exist_ok=True)
-log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
+from backend.app.core.logging_setup import setup_logging
 
-# Rotating File Handler — cap disk usage (10MB x 5 files) so logs can't grow to 100MB+
-file_handler = RotatingFileHandler(
-    "logs/trader_singh.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"
-)
-file_handler.setFormatter(log_formatter)
-root_logger.addHandler(file_handler)
-
-# Stream Handler (Terminal)
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(log_formatter)
-root_logger.addHandler(stream_handler)
-
-logger = logging.getLogger("AutopilotWorker")
+# Own file — this handler used to rotate trader_singh.log while three other
+# services held plain handles on it, which is how an 85MB .1 got past a 10MB cap.
+logger = setup_logging("AutopilotWorker", "worker.log")
 
 class AutopilotWorker:
     def __init__(self):

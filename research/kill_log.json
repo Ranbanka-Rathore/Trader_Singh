@@ -1,0 +1,1352 @@
+{
+ "version": 1,
+ "hypotheses": [
+  {
+   "id": "cal-cheapvol-modern",
+   "arena": "index_structures",
+   "claim": "Calendar spreads entered in the cheap-vol regime have positive per-trade expectancy in the modern era under a real fill rule.",
+   "kill_criterion": "Fewer than 20 trades, or screen t below the Section 4 bar, or any Section 6 evidence check fails.",
+   "engine": "real_backtester",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-08"
+   ],
+   "gate": "strict",
+   "n_configs": 1,
+   "config": {
+    "enable_calendar": true,
+    "ladder_mode": false
+   },
+   "sweep": null,
+   "supersedes": null,
+   "note": "",
+   "registered_at": "2026-08-08T17:18:29",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-08T17:20:21",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 94,
+        "net_pnl": -73554.05,
+        "expectancy": -782.49,
+        "profit_factor": 0.45,
+        "win_rate": 0.447,
+        "sharpe": -1.23,
+        "max_drawdown": 80282.31,
+        "t": -2.346,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "vrp_thin"
+       },
+       "strict": {
+        "n_trades": 67,
+        "net_pnl": -95272.37,
+        "expectancy": -1421.98,
+        "profit_factor": 0.34,
+        "win_rate": 0.463,
+        "sharpe": -1.41,
+        "max_drawdown": 97245.96,
+        "t": -2.767,
+        "fill_pass_rate_pct": 44.82,
+        "top_skip": "vrp_thin"
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 67,
+        "net_pnl": -95272.37,
+        "expectancy": -1421.98,
+        "win_rate": 0.463,
+        "profit_factor": 0.34,
+        "t": -2.767
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "67 trades under gate 'strict'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "67 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.34 on 67 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": false,
+        "detail": "expectancy moves 82%: -782 -> -1,422"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -2.767 vs threshold 1.18 for 1 configuration(s)"
+       }
+      ],
+      "failed": [
+       "fill_model_stable",
+       "clears_noise_threshold"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:bb2946e71300ef2b186ced52b678c90e"
+  },
+  {
+   "id": "xsect-mom-modern",
+   "arena": "cross_sectional",
+   "claim": "12-1 cross-sectional momentum on F&O stock futures has positive per-trade expectancy at Rs 15L after whole-lot and margin constraints.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, or capacity fill rate below 50% -- a portfolio that cannot be held is not a strategy.",
+   "engine": "cross_sectional",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-08"
+   ],
+   "gate": "strict",
+   "n_configs": 1,
+   "config": {},
+   "sweep": null,
+   "supersedes": null,
+   "note": "",
+   "registered_at": "2026-08-08T17:18:39",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-08T17:21:55",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 151,
+        "net_pnl": 119256.9,
+        "expectancy": 789.78,
+        "profit_factor": 1.03,
+        "win_rate": 0.51,
+        "sharpe": 0.08,
+        "max_drawdown": 1398362.95,
+        "t": 0.126,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "margin_budget_exhausted"
+       },
+       "strict": {
+        "n_trades": 151,
+        "net_pnl": 119256.9,
+        "expectancy": 789.78,
+        "profit_factor": 1.03,
+        "win_rate": 0.51,
+        "sharpe": 0.08,
+        "max_drawdown": 1398362.95,
+        "t": 0.126,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "margin_budget_exhausted"
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 151,
+        "net_pnl": 119256.9,
+        "expectancy": 789.78,
+        "win_rate": 0.51,
+        "profit_factor": 1.03,
+        "t": 0.126
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "151 trades under gate 'strict'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "151 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 1.03 on 151 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": true,
+        "detail": "expectancy +790 (off) -> +790 (strict) \u2014 the edge does not depend on the fill rule"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = 0.126 vs threshold 1.18 for 1 configuration(s)"
+       }
+      ],
+      "failed": [
+       "clears_noise_threshold"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:a7191eba6a1dddb6a7bab4f670634849"
+  },
+  {
+   "id": "trend-donchian-modern",
+   "arena": "futures_trend",
+   "claim": "Donchian breakout on liquid index futures has positive per-trade expectancy in the modern era.",
+   "kill_criterion": "Screen t below the Section 4 bar or any Section 6 evidence check fails.",
+   "engine": "futures_trend",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-08"
+   ],
+   "gate": "strict",
+   "n_configs": 1,
+   "config": {},
+   "sweep": null,
+   "supersedes": null,
+   "note": "CONFIRMATORY: the default configuration was run on 2026-08-08 during engine validation and failed. See research/ARENAS.md disclosure. Registered knowing the answer so the arena history is on the record and the budget is charged; not to be counted as a prediction that was tested.",
+   "registered_at": "2026-08-08T17:18:42",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-08T17:23:26",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 79,
+        "net_pnl": -514507.85,
+        "expectancy": -6512.76,
+        "profit_factor": 0.48,
+        "win_rate": 0.291,
+        "sharpe": -1.12,
+        "max_drawdown": 698479.73,
+        "t": -2.38,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap"
+       },
+       "strict": {
+        "n_trades": 79,
+        "net_pnl": -514507.85,
+        "expectancy": -6512.76,
+        "profit_factor": 0.48,
+        "win_rate": 0.291,
+        "sharpe": -1.12,
+        "max_drawdown": 698479.73,
+        "t": -2.38,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap"
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 79,
+        "net_pnl": -514507.85,
+        "expectancy": -6512.76,
+        "win_rate": 0.291,
+        "profit_factor": 0.48,
+        "t": -2.38
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "79 trades under gate 'strict'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "79 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.48 on 79 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": true,
+        "detail": "expectancy -6,513 (off) -> -6,513 (strict) \u2014 the edge does not depend on the fill rule"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -2.38 vs threshold 1.18 for 1 configuration(s)"
+       }
+      ],
+      "failed": [
+       "clears_noise_threshold"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:191e6f6780dae49633dfd39075c0be9e"
+  },
+  {
+   "id": "evol-earnings-modern",
+   "arena": "event_vol",
+   "claim": "Selling the ATM straddle into single-stock earnings and covering the day after has positive per-trade expectancy in the modern era under a real fill rule.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than a quarter of known events tradeable, or a drawdown past the Rs 1,00,000 budget.",
+   "engine": "event_vol",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-08"
+   ],
+   "gate": "strict",
+   "n_configs": 1,
+   "config": {},
+   "sweep": null,
+   "requires": [
+    "capacity_fill_rate_pct>=25",
+    "max_drawdown<=100000"
+   ],
+   "supersedes": null,
+   "note": "",
+   "registered_at": "2026-08-08T19:59:49",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-08T20:02:29",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 243,
+        "net_pnl": 323704.06,
+        "expectancy": 1332.12,
+        "profit_factor": 1.23,
+        "win_rate": 0.416,
+        "sharpe": 0.21,
+        "max_drawdown": 729695.28,
+        "t": 0.397,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 885,
+         "events_traded": 243,
+         "dropped_no_notice": 45,
+         "dropped_unfillable": 590,
+         "capacity_fill_rate_pct": 27.5,
+         "symbols_traded": 57
+        }
+       },
+       "strict": {
+        "n_trades": 58,
+        "net_pnl": -85363.38,
+        "expectancy": -1471.78,
+        "profit_factor": 0.48,
+        "win_rate": 0.431,
+        "sharpe": -1.36,
+        "max_drawdown": 91688.25,
+        "t": -2.153,
+        "fill_pass_rate_pct": 86.5,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 885,
+         "events_traded": 58,
+         "dropped_no_notice": 45,
+         "dropped_unfillable": 782,
+         "capacity_fill_rate_pct": 6.6,
+         "symbols_traded": 34
+        }
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 58,
+        "net_pnl": -85363.38,
+        "expectancy": -1471.78,
+        "win_rate": 0.431,
+        "profit_factor": 0.48,
+        "t": -2.153
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "58 trades under gate 'strict'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "58 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.48 on 58 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": false,
+        "detail": "expectancy sign flips: +1,332 -> -1,472"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -2.153 vs threshold 1.18 for 1 configuration(s)"
+       },
+       {
+        "check": "require_capacity_fill_rate_pct_ge_25",
+        "passed": false,
+        "detail": "capacity_fill_rate_pct = 6.6, required >=25 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": true,
+        "detail": "max_drawdown = 91,688, required <=100,000 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "fill_model_stable",
+       "clears_noise_threshold",
+       "require_capacity_fill_rate_pct_ge_25"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:1bfcee93264fd13b9b2a6a0fbc5d089e"
+  },
+  {
+   "id": "evol-earnings-pre2024",
+   "arena": "event_vol",
+   "claim": "Selling the ATM straddle into single-stock earnings and covering the day after had positive per-trade expectancy before 2024, under the strongest fill rule the legacy schema can support.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than a quarter of known events tradeable, or a drawdown past the Rs 1,00,000 budget.",
+   "engine": "event_vol",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": null,
+   "window": [
+    "2016-01-01",
+    "2023-12-31"
+   ],
+   "gate": "strict_legacy",
+   "n_configs": 1,
+   "config": {},
+   "sweep": null,
+   "requires": [
+    "capacity_fill_rate_pct>=25",
+    "max_drawdown<=100000"
+   ],
+   "supersedes": "evol-earnings-modern",
+   "note": "Pre-UDiFF window. The legacy NSE schema has no trade-count column, so gate=strict refuses every leg as txns_unknown; strict_legacy is the strongest rule evaluable here (traded + volume + open interest). Window spans three liquidity eras, so read the per-era table, not the pooled headline.",
+   "registered_at": "2026-08-08T23:51:42",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-09T00:07:26",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 601,
+        "net_pnl": 636508.86,
+        "expectancy": 1059.08,
+        "profit_factor": 1.12,
+        "win_rate": 0.3,
+        "sharpe": 0.14,
+        "max_drawdown": 1438980.71,
+        "t": 0.388,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 1833,
+         "events_traded": 601,
+         "dropped_no_notice": 66,
+         "dropped_unfillable": 1158,
+         "capacity_fill_rate_pct": 32.8,
+         "symbols_traded": 57
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 89,
+        "net_pnl": -515086.54,
+        "expectancy": -5787.49,
+        "profit_factor": 0.12,
+        "win_rate": 0.225,
+        "sharpe": -1.96,
+        "max_drawdown": 515086.54,
+        "t": -7.291,
+        "fill_pass_rate_pct": 91.31,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 1833,
+         "events_traded": 89,
+         "dropped_no_notice": 66,
+         "dropped_unfillable": 1678,
+         "capacity_fill_rate_pct": 4.9,
+         "symbols_traded": 40
+        }
+       }
+      },
+      "by_era": {
+       "early": {
+        "n_trades": 64,
+        "net_pnl": -427279.33,
+        "expectancy": -6676.24,
+        "win_rate": 0.219,
+        "profit_factor": 0.11,
+        "t": -6.535
+       },
+       "ramp": {
+        "n_trades": 22,
+        "net_pnl": -86034.87,
+        "expectancy": -3910.68,
+        "win_rate": 0.227,
+        "profit_factor": 0.11,
+        "t": -3.783
+       },
+       "modern": {
+        "n_trades": 3,
+        "net_pnl": -1772.34,
+        "expectancy": -590.78,
+        "win_rate": 0.333,
+        "profit_factor": 0.64,
+        "t": -0.295
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "89 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "89 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.12 on 89 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": false,
+        "detail": "expectancy sign flips: +1,059 -> -5,787"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -7.291 vs threshold 1.18 for 2 configuration(s) (includes 1 carried from superseded attempts)"
+       },
+       {
+        "check": "require_capacity_fill_rate_pct_ge_25",
+        "passed": false,
+        "detail": "capacity_fill_rate_pct = 4.9, required >=25 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 515,087, required <=100,000 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "fill_model_stable",
+       "clears_noise_threshold",
+       "require_capacity_fill_rate_pct_ge_25",
+       "require_max_drawdown_le_100000"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 2
+     }
+    },
+    {
+     "at": "2026-08-09T00:07:26",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 601,
+        "net_pnl": 636685.9,
+        "expectancy": 1059.38,
+        "profit_factor": 1.12,
+        "win_rate": 0.3,
+        "sharpe": 0.14,
+        "max_drawdown": 1438803.67,
+        "t": 0.388,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 1833,
+         "events_traded": 601,
+         "dropped_no_notice": 66,
+         "dropped_unfillable": 1158,
+         "capacity_fill_rate_pct": 32.8,
+         "symbols_traded": 57
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 89,
+        "net_pnl": -515086.54,
+        "expectancy": -5787.49,
+        "profit_factor": 0.12,
+        "win_rate": 0.225,
+        "sharpe": -1.96,
+        "max_drawdown": 515086.54,
+        "t": -7.291,
+        "fill_pass_rate_pct": 91.31,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 1833,
+         "events_traded": 89,
+         "dropped_no_notice": 66,
+         "dropped_unfillable": 1678,
+         "capacity_fill_rate_pct": 4.9,
+         "symbols_traded": 40
+        }
+       }
+      },
+      "by_era": {
+       "early": {
+        "n_trades": 64,
+        "net_pnl": -427279.33,
+        "expectancy": -6676.24,
+        "win_rate": 0.219,
+        "profit_factor": 0.11,
+        "t": -6.535
+       },
+       "ramp": {
+        "n_trades": 22,
+        "net_pnl": -86034.87,
+        "expectancy": -3910.68,
+        "win_rate": 0.227,
+        "profit_factor": 0.11,
+        "t": -3.783
+       },
+       "modern": {
+        "n_trades": 3,
+        "net_pnl": -1772.34,
+        "expectancy": -590.78,
+        "win_rate": 0.333,
+        "profit_factor": 0.64,
+        "t": -0.295
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "89 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "89 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.12 on 89 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": false,
+        "detail": "expectancy sign flips: +1,059 -> -5,787"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -7.291 vs threshold 1.18 for 2 configuration(s) (includes 1 carried from superseded attempts)"
+       },
+       {
+        "check": "require_capacity_fill_rate_pct_ge_25",
+        "passed": false,
+        "detail": "capacity_fill_rate_pct = 4.9, required >=25 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 515,087, required <=100,000 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "fill_model_stable",
+       "clears_noise_threshold",
+       "require_capacity_fill_rate_pct_ge_25",
+       "require_max_drawdown_le_100000"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 2
+     }
+    }
+   ],
+   "fingerprint": "sha256:ab1d46ae7e33ee35f55f05a12b949970"
+  },
+  {
+   "id": "tsmom-stock-modern",
+   "arena": "futures_trend",
+   "claim": "Time-series momentum on single-stock futures has positive per-trade expectancy at Rs 15L in the modern era, after whole lots, margin and a real fill rule, and reaches a book Sharpe of 1.0 \u2014 Amendment A5's preferred individual bar, which on this window is also the 95th percentile of random 8-name buy-and-hold books.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 20 distinct symbols traded \u2014 which would falsify the N_eff 2.59 diversification premise the arena was redrawn on \u2014 a drawdown past Rs 1,00,000, or a book Sharpe below 1.0, the level at which 95% of no-signal 8-name books in this window are excluded.",
+   "engine": "futures_trend",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-10"
+   ],
+   "gate": "strict_legacy",
+   "n_configs": 1,
+   "config": {
+    "kind": "stock",
+    "universe": [],
+    "signal": "tsmom",
+    "max_open": 8
+   },
+   "sweep": null,
+   "requires": [
+    "symbols_traded>=20",
+    "max_drawdown<=100000",
+    "sharpe>=1"
+   ],
+   "supersedes": null,
+   "note": "",
+   "registered_at": "2026-08-10T11:42:37",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-10T11:44:56",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 181,
+        "net_pnl": 540028.82,
+        "expectancy": 2983.58,
+        "profit_factor": 1.16,
+        "win_rate": 0.309,
+        "sharpe": 0.27,
+        "max_drawdown": 634856.1,
+        "t": 0.47,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "max_open",
+        "extras": {
+         "symbols_traded": 129,
+         "open_at_end": 8,
+         "panel_symbols": 285,
+         "panel_missing_lot": 0
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 181,
+        "net_pnl": 540028.82,
+        "expectancy": 2983.58,
+        "profit_factor": 1.16,
+        "win_rate": 0.309,
+        "sharpe": 0.27,
+        "max_drawdown": 634856.1,
+        "t": 0.47,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "max_open",
+        "extras": {
+         "symbols_traded": 129,
+         "open_at_end": 8,
+         "panel_symbols": 285,
+         "panel_missing_lot": 0
+        }
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 181,
+        "net_pnl": 540028.82,
+        "expectancy": 2983.58,
+        "win_rate": 0.309,
+        "profit_factor": 1.16,
+        "t": 0.47
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "181 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "181 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 1.16 on 181 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": true,
+        "detail": "expectancy +2,984 (off) -> +2,984 (strict_legacy) \u2014 the edge does not depend on the fill rule"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = 0.47 vs threshold 1.18 for 1 configuration(s)"
+       },
+       {
+        "check": "require_symbols_traded_ge_20",
+        "passed": true,
+        "detail": "symbols_traded = 129, required >=20 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 634,856, required <=100,000 (declared at registration)"
+       },
+       {
+        "check": "require_sharpe_ge_1",
+        "passed": false,
+        "detail": "sharpe = 0.27, required >=1 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "clears_noise_threshold",
+       "require_max_drawdown_le_100000",
+       "require_sharpe_ge_1"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:2de74ce8cb130dcbe79fbecad306defd"
+  },
+  {
+   "id": "fly-weekly-modern",
+   "arena": "index_structures",
+   "claim": "A weekly ATM iron butterfly on NIFTY with 6-interval (300pt) wings, entered every cycle at 5-8 DTE without a regime filter and held to the time stop, has positive per-trade expectancy in the modern era under a real fill rule, and reaches a book Sharpe of 1.0 on the >=116 trades Amendment A5 requires.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 116 trades, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0.",
+   "engine": "real_backtester",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-13"
+   ],
+   "gate": "strict_legacy",
+   "n_configs": 1,
+   "config": {
+    "enable_iron_butterfly": true,
+    "entry_unconditional": true,
+    "use_gates": false,
+    "sl_mode": "none",
+    "width_fallbacks": [
+     6
+    ],
+    "min_days_to_expiry": 4
+   },
+   "sweep": null,
+   "requires": [
+    "n_trades>=116",
+    "max_drawdown<=100000",
+    "sharpe>=1"
+   ],
+   "supersedes": null,
+   "note": "",
+   "registered_at": "2026-08-13T09:39:38",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-13T09:41:27",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 179,
+        "net_pnl": -126128.3,
+        "expectancy": -704.63,
+        "profit_factor": 0.68,
+        "win_rate": 0.486,
+        "sharpe": -1.02,
+        "max_drawdown": 146552.65,
+        "t": -1.949,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "warmup",
+        "extras": {
+         "positions_with_unreachable_mark_stop": 0
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 179,
+        "net_pnl": -126128.3,
+        "expectancy": -704.63,
+        "profit_factor": 0.68,
+        "win_rate": 0.486,
+        "sharpe": -1.02,
+        "max_drawdown": 146552.65,
+        "t": -1.949,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "warmup",
+        "extras": {
+         "positions_with_unreachable_mark_stop": 0
+        }
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 179,
+        "net_pnl": -126128.3,
+        "expectancy": -704.63,
+        "win_rate": 0.486,
+        "profit_factor": 0.68,
+        "t": -1.949
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "179 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "179 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.68 on 179 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": true,
+        "detail": "expectancy -705 (off) -> -705 (strict_legacy) \u2014 the edge does not depend on the fill rule"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -1.949 vs threshold 1.18 for 1 configuration(s)"
+       },
+       {
+        "check": "require_n_trades_ge_116",
+        "passed": true,
+        "detail": "n_trades = 179, required >=116 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 146,553, required <=100,000 (declared at registration)"
+       },
+       {
+        "check": "require_sharpe_ge_1",
+        "passed": false,
+        "detail": "sharpe = -1.02, required >=1 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "clears_noise_threshold",
+       "require_max_drawdown_le_100000",
+       "require_sharpe_ge_1"
+      ],
+      "noise_threshold": 1.177,
+      "effective_configs": 1
+     }
+    }
+   ],
+   "fingerprint": "sha256:81fafd15ed7a175eed6116ca2c6c23b7"
+  },
+  {
+   "id": "ic-uncond-modern",
+   "arena": "index_structures",
+   "claim": "A weekly NIFTY iron condor with delta-0.18 shorts and 6-interval (300pt) wings, entered every cycle at 5-8 DTE without a regime filter and held to the time stop, has positive per-trade expectancy in the modern era under a real fill rule, and reaches a book Sharpe of 1.0 on the >=116 trades Amendment A5 requires.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 116 trades, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0.",
+   "engine": "real_backtester",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-13"
+   ],
+   "gate": "strict_legacy",
+   "n_configs": 3,
+   "config": {
+    "enable_iron_condor": true,
+    "entry_unconditional": true,
+    "use_gates": false,
+    "sl_mode": "none",
+    "width_fallbacks": [
+     6
+    ],
+    "min_days_to_expiry": 4
+   },
+   "sweep": null,
+   "requires": [
+    "n_trades>=116",
+    "max_drawdown<=100000",
+    "sharpe>=1"
+   ],
+   "supersedes": null,
+   "note": "DISCLOSURE: while diagnosing the l_kelly sizing defect I ran wings 2/4/6 over calendar 2025 (a subset of this window) and saw all three negative (-32.5k, -10.2k, -5.0k). Wing 6 is chosen to MATCH W3's wing and isolate the ATM-vs-OTM shorts variable, a reason fixed before those numbers were seen -- but the peek happened, so --configs is 3 rather than 1. Second disclosure: the friction table's '2/6 condor, 0.55 vol points retained' does NOT describe this run; the engine picks shorts by delta 0.18, which lands a median 6.8 intervals from spot, not 2.",
+   "registered_at": "2026-08-13T13:26:02",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-13T13:27:37",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 198,
+        "net_pnl": -70134.12,
+        "expectancy": -354.21,
+        "profit_factor": 0.76,
+        "win_rate": 0.692,
+        "sharpe": -0.66,
+        "max_drawdown": 99006.79,
+        "t": -1.261,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "warmup",
+        "extras": {
+         "positions_with_unreachable_mark_stop": 0
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 198,
+        "net_pnl": -80327.64,
+        "expectancy": -405.7,
+        "profit_factor": 0.73,
+        "win_rate": 0.687,
+        "sharpe": -0.75,
+        "max_drawdown": 101075.94,
+        "t": -1.441,
+        "fill_pass_rate_pct": 99.77,
+        "top_skip": "warmup",
+        "extras": {
+         "positions_with_unreachable_mark_stop": 0
+        }
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 198,
+        "net_pnl": -80327.64,
+        "expectancy": -405.7,
+        "win_rate": 0.687,
+        "profit_factor": 0.73,
+        "t": -1.441
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "198 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "198 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.73 on 198 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": true,
+        "detail": "expectancy -354 (off) -> -406 (strict_legacy) \u2014 the edge does not depend on the fill rule"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -1.441 vs threshold 1.48 for 3 configuration(s)"
+       },
+       {
+        "check": "require_n_trades_ge_116",
+        "passed": true,
+        "detail": "n_trades = 198, required >=116 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 101,076, required <=100,000 (declared at registration)"
+       },
+       {
+        "check": "require_sharpe_ge_1",
+        "passed": false,
+        "detail": "sharpe = -0.75, required >=1 (declared at registration)"
+       }
+      ],
+      "failed": [
+       "clears_noise_threshold",
+       "require_max_drawdown_le_100000",
+       "require_sharpe_ge_1"
+      ],
+      "noise_threshold": 1.482,
+      "effective_configs": 3
+     }
+    }
+   ],
+   "fingerprint": "sha256:31d9f98d03bb3d3675faee91fd43b509"
+  },
+  {
+   "id": "evol-earnings-narrowwing",
+   "arena": "event_vol",
+   "claim": "A short ATM straddle with +-5% wings, sold 2 trading days before a single-stock earnings meeting and bought back 1 day after on the 60 most-liquid F&O names, has positive per-trade expectancy in the modern era under a real fill rule, and reaches a book Sharpe of 1.0 on the >=116 trades Amendment A5 requires.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 116 trades, capacity fill below 25%, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0.",
+   "engine": "event_vol",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-13"
+   ],
+   "gate": "strict_legacy",
+   "n_configs": 4,
+   "config": {
+    "wing_pct": 0.05
+   },
+   "sweep": {
+    "axis": "wing_pct",
+    "values": [
+     0.05,
+     0.075,
+     0.1
+    ]
+   },
+   "requires": [
+    "n_trades>=116",
+    "capacity_fill_rate_pct>=25",
+    "max_drawdown<=100000",
+    "sharpe>=1"
+   ],
+   "supersedes": "evol-earnings-modern",
+   "note": "SUPERSEDES evol-earnings-modern: same structure, same events, same era, narrower wing plus the Finding-5 gate correction. Treated as a retry under Section 7 even though the parent failed on CAPACITY rather than on the premium, because the conservative reading is the right one. DISCLOSURE: I measured FILL RATES ONLY (never P&L) across wing_pct 0.05/0.075/0.10/0.15 and gate strict/strict_legacy before choosing 0.05 -- fill 6.6%->27.8%, 16.1->68.3 trades/yr. --configs 4 covers that selection. CORRECTS ARENAS.md: it recorded the constraint as market capacity; the decomposition says otherwise -- 45% of the 885 events were lost to one_lot_exceeds_risk_cap (a self-imposed sizing rule) and only 12% to legs that did not trade.",
+   "registered_at": "2026-08-13T14:10:58",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-13T14:15:48",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 441,
+        "net_pnl": -957644.22,
+        "expectancy": -2171.53,
+        "profit_factor": 0.65,
+        "win_rate": 0.295,
+        "sharpe": -0.78,
+        "max_drawdown": 1189824.93,
+        "t": -1.502,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 885,
+         "events_traded": 441,
+         "dropped_no_notice": 45,
+         "dropped_unfillable": 381,
+         "capacity_fill_rate_pct": 49.8,
+         "symbols_traded": 59
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 246,
+        "net_pnl": -1025546.1,
+        "expectancy": -4168.89,
+        "profit_factor": 0.14,
+        "win_rate": 0.305,
+        "sharpe": -3.46,
+        "max_drawdown": 1034902.74,
+        "t": -9.084,
+        "fill_pass_rate_pct": 98.19,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 885,
+         "events_traded": 246,
+         "dropped_no_notice": 45,
+         "dropped_unfillable": 590,
+         "capacity_fill_rate_pct": 27.8,
+         "symbols_traded": 57
+        }
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 246,
+        "net_pnl": -1025546.1,
+        "expectancy": -4168.89,
+        "win_rate": 0.305,
+        "profit_factor": 0.14,
+        "t": -9.084
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "246 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "246 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.14 on 246 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": false,
+        "detail": "expectancy moves 92%: -2,172 -> -4,169"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -9.084 vs threshold 1.79 for 5 configuration(s) (includes 1 carried from superseded attempts)"
+       },
+       {
+        "check": "require_n_trades_ge_116",
+        "passed": true,
+        "detail": "n_trades = 246, required >=116 (declared at registration)"
+       },
+       {
+        "check": "require_capacity_fill_rate_pct_ge_25",
+        "passed": true,
+        "detail": "capacity_fill_rate_pct = 27.8, required >=25 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 1,034,903, required <=100,000 (declared at registration)"
+       },
+       {
+        "check": "require_sharpe_ge_1",
+        "passed": false,
+        "detail": "sharpe = -3.46, required >=1 (declared at registration)"
+       },
+       {
+        "check": "plateau_not_spike",
+        "passed": false,
+        "detail": "best cell wing_pct=0.1 is an isolated spike \u2014 0/1 adjacent cells positive (charter 6.7)"
+       }
+      ],
+      "failed": [
+       "fill_model_stable",
+       "clears_noise_threshold",
+       "require_max_drawdown_le_100000",
+       "require_sharpe_ge_1",
+       "plateau_not_spike"
+      ],
+      "noise_threshold": 1.794,
+      "effective_configs": 5
+     }
+    }
+   ],
+   "fingerprint": "sha256:cda8b4a7d8fe724b124a17ad4576a31f"
+  }
+ ],
+ "arenas": {
+  "futures_trend": {
+   "status": "closed",
+   "closed_at": "2026-08-10T15:33:44",
+   "grounds": "Closed on resolvability and throughput, NOT on demonstrated absence of edge. T2 established the arena is not structurally capped: the perfect-foresight oracle reaches Sharpe 8.9, friction is irrelevant, and N_eff 2.59 does not prevent an 8-name book reaching 1.0 \u2014 IC ~0.05 would suffice. What closes it is that the question cannot be answered with the data available. On modern the smallest detectable IC (0.0551) exceeds the IC required to be tradeable (~0.04-0.05), and pooling more history is inadmissible under Amendment D5, which admits 0 of 11 estimates because signal properties are not stable across eras even where instrument properties are. Eleven candidate signals were measured and the largest was |t| 1.56 against a 2.19 bar. Two hypotheses registered, two killed, both on signal rather than plumbing.",
+   "reopen_requires": "Either (a) a dataset that lifts the smallest detectable IC materially below 0.04 within a SINGLE era \u2014 a longer modern era, higher-frequency observations, or a materially wider universe \u2014 or (b) a signal class whose IC is pre-registered and then measured above 0.05 on modern alone, without pooling. Section 7 allows no extensions, so either route is a charter amendment rather than a registration.",
+   "evidence": [
+    "ARENAS T2 (ceiling)",
+    "ARENAS T2b (11-signal IC)",
+    "ARENAS T2c (pooled + D5)",
+    "trend-donchian-modern",
+    "tsmom-stock-modern"
+   ],
+   "hypotheses": [
+    "trend-donchian-modern",
+    "tsmom-stock-modern"
+   ]
+  },
+  "index_structures": {
+   "status": "closed",
+   "closed_at": "2026-08-13T13:30:17",
+   "grounds": "No edge was demonstrated, and the question WAS resolvable \u2014 this is the strong form of closure, not the resolvability form used for futures_trend. Two structures spanning the family's gamma range (iron butterfly with ATM shorts, iron condor with delta-0.18 shorts a median 6.8 intervals out) were each entered unconditionally on weekly NIFTY across the full modern era, each supplied an A5-sized sample (179 and 198 trades, ~50/year against A5's 32.3), and each lost: expectancy -Rs 705 and -Rs 406/trade, t -1.95 and -1.44, both NEGATIVE BEFORE FRICTION (gross -84,720 and -41,858). The +2.38 vol point VRP measured here is real and is payment for the left tail, not a mispricing: strip the 10 worst of the condor's 198 weeks and the book is +Rs 55,851, which is the short-vol payoff working as designed and losing anyway. The arena's other routes are separately closed \u2014 vanilla credit spreads excluded by Section 8, the calendar killed as cal-cheapvol-modern with its term structure measured flat at -0.00020 variance units (t -0.14), the reverse calendar measured and not worth building, and ratios unsizeable without an undefined-risk sizing rule that does not exist.",
+   "reopen_requires": "A structure in this arena that is NOT short volatility -- the two kills cover the short-vol family from ATM to 0.18-delta shorts and say nothing about long-vol or dispersion structures. Concretely: evidence that a long-gamma or relative-value index-option structure clears Section 4's bar on a sample A5 can use, OR a demonstration that the -2.38 vol point premium inverts in some identifiable and tradeable regime (not a regime filter fitted to these same 377 trades, which Section 6.3 forbids). A different wing width, delta target or exit rule on the SAME short-vol structures is a retry, not a reopening, and Section 7 does not permit it.",
+   "evidence": [
+    "ARENAS W3",
+    "ARENAS W4",
+    "research/results/fly-weekly-modern.json",
+    "research/results/ic-uncond-modern.json"
+   ],
+   "hypotheses": [
+    "cal-cheapvol-modern",
+    "fly-weekly-modern",
+    "ic-uncond-modern"
+   ]
+  },
+  "event_vol": {
+   "status": "closed",
+   "closed_at": "2026-08-13T17:11:49",
+   "grounds": "No edge was demonstrated, and the question WAS resolvable \u2014 the strong form, as for index_structures. EARNINGS HALF: the volatility premium was MEASURED, not merely searched for. Across 246 single-stock earnings events in the modern era the mid-price P&L of a short ATM straddle is -Rs 174/trade, indistinguishable from zero; the -Rs 3,857/trade realised loss is bid-ask, not mispricing. Because a buyer pays the same spread, both directions are negative at EVERY slippage level INCLUDING ZERO, where the long side collects the +174 mid premium and still loses to statutory friction alone (Rs 311/trade). That robustness matters: slippage_per_leg=0.75 is an assumption, not a measurement, and this conclusion does not rest on it. The result is also structure-independent \u2014 a cheaper two-legged structure has nothing to recover from a premium of approximately zero. Three hypotheses closed (evol-earnings-modern, evol-earnings-pre2024, evol-earnings-narrowwing), the last with 246 trades at t = -9.08 and a MONOTONE wing sweep in which more sample is uniformly more loss. Capacity, once the true constraint was identified (a self-imposed risk cap at 45% of refusals, not market illiquidity at 12%), was fixed and is not the reason for closure. MACRO HALF: unregistrable against A5 by arithmetic \u2014 roughly 40 events in one liquidity era cannot reach 100 OOS trades by any route, even with a perfect calendar, and the calendar cannot be sourced anyway (FOMC parses 8-for-11 years, RBI's archive is ASP.NET postback-driven with no stable URL).",
+   "reopen_requires": "An event-vol structure whose edge does NOT depend on the straddle premium that was measured at zero here \u2014 the -Rs 174/trade mid-price figure covers ATM straddles with wings on the 60 most-liquid F&O names at 2-days-before / 1-day-after timing, and says nothing about skew, term structure across the event, or single-leg directional announcement drift (which is arguably cross_sectional, not this arena). Concretely: a measurement showing a non-zero MID-PRICE premium on some event-vol structure, taken on data other than these same 246 events, since fitting a subset or a timing to them is Section 6.3. A different wing, universe, or entry timing on the same short straddle is a retry, which Section 7 does not permit. The macro half additionally requires a verifiable RBI/Budget source AND a route to 100+ OOS events that does not exist at ~40 events per era.",
+   "evidence": [
+    "ARENAS arena 4 RESOLVED 2026-08-13",
+    "research/results/evol-earnings-narrowwing.json",
+    "research/results/evol-earnings-modern.json",
+    "scratch/arena4_capacity_decomp.py"
+   ],
+   "hypotheses": [
+    "evol-earnings-modern",
+    "evol-earnings-pre2024",
+    "evol-earnings-narrowwing"
+   ]
+  },
+  "cross_sectional": {
+   "status": "closed",
+   "closed_at": "2026-08-13T17:46:51",
+   "grounds": "No edge was demonstrated, and the SEARCH BUDGET is exhausted rather than the question being exhaustively answered \u2014 this is a weaker closure than index_structures or event_vol, and is stated as such. What was measured: T2b scored eleven candidate signals (momentum at four lookbacks, reversal at two, low-vol, 52-week high, acceleration, OI change, volume trend) and nothing cleared \u2014 largest |rank IC| 0.0359, and NEGATIVE; largest |t| 1.56 against a 2.19 eleven-signal bar. xsect-mom-modern registered 12-1 momentum and died at t +0.13, with its own signal measured at rank IC -0.0139. This arena's remaining open condition was explicitly that it NOT be searched further: one pre-registered signal, because detectable IC is 0.0249 for one candidate but 0.0463 when fishing across eleven, against a required 0.054 \u2014 so a twelfth search would itself close the arena by spending the detectability margin. That one signal was spent on cross-sectional carry (annualised futures basis), declared with its direction and thresholds in ARENAS.md X1 and COMMITTED BEFORE COMPUTATION. It is refuted: rank IC -0.0270, t -2.22, 41 rebalances, 95% CI [-0.0508, -0.0032] against a required +0.0540 \u2014 wrong sign, entire CI below zero, and detectable (|IC| 0.0270 > the 0.0249 this sample can distinguish). The pre-declaration barred re-reading a negative result as 'short high carry works'. Data limitation recorded: UndrlygPric is empty for stock futures before 2024, so carry is computable on 2024+ only; this cannot change the verdict, because a positive pre-2024 estimate would fail D5.1 sign consistency and D1 would return the decision to a negative modern.",
+   "reopen_requires": "More rebalances, or a signal class this arena has not seen. Two concrete routes. (1) POWER: the binding number is 41 rebalances at a 15-trading-day horizon. UndrlygPric becoming available pre-2024, or a calendar-spread estimator of the same curve slope validated against the 2024+ figures, would roughly triple the sample and move detectable IC below 0.02 \u2014 but note D5.1 blocks any pooled estimate whose per-era signs disagree, so this only helps if the added history agrees with modern. (2) A GENUINELY NEW SIGNAL CLASS: everything tested is a function of past returns, volume, open interest, or the futures curve. Fundamentals (value, quality, accruals), borrow/short-interest data proper rather than its basis proxy, analyst revisions, and index-inclusion flow are all untouched and none is derivable from bhavcopy \u2014 each needs a data source this project does not have. Acquiring one of those is the honest reopening condition. A further lookback, weighting or horizon on the signals already scored is a retry, which Section 7 does not permit, and would in any case spend the detectability margin the arena no longer has.",
+   "evidence": [
+    "ARENAS X1 RESULT 2026-08-13",
+    "ARENAS T2b",
+    "scratch/arena2_carry_ic.py",
+    "scratch/arena2_ceiling.py",
+    "research/results/xsect-mom-modern.json"
+   ],
+   "hypotheses": [
+    "xsect-mom-modern"
+   ]
+  }
+ }
+}

@@ -1,0 +1,120 @@
+{
+ "hypothesis": {
+  "id": "cal-cheapvol-modern",
+  "arena": "index_structures",
+  "claim": "Calendar spreads entered in the cheap-vol regime have positive per-trade expectancy in the modern era under a real fill rule.",
+  "kill_criterion": "Fewer than 20 trades, or screen t below the Section 4 bar, or any Section 6 evidence check fails.",
+  "engine": "real_backtester",
+  "underlying": "NIFTY",
+  "equity": 1500000.0,
+  "era": "modern",
+  "window": [
+   "2023-01-01",
+   "2026-08-08"
+  ],
+  "gate": "strict",
+  "n_configs": 1,
+  "config": {
+   "enable_calendar": true,
+   "ladder_mode": false
+  },
+  "sweep": null,
+  "supersedes": null,
+  "note": "",
+  "registered_at": "2026-08-08T17:18:29",
+  "status": "registered",
+  "events": [],
+  "fingerprint": "sha256:bb2946e71300ef2b186ced52b678c90e"
+ },
+ "screen": {
+  "stage": "screen",
+  "gate": "strict",
+  "window": [
+   "2023-01-01",
+   "2026-08-08"
+  ],
+  "trading_days": 885,
+  "effective_configs": 1,
+  "noise_threshold": 1.177,
+  "gates": {
+   "off": {
+    "n_trades": 94,
+    "net_pnl": -73554.05,
+    "expectancy": -782.49,
+    "profit_factor": 0.45,
+    "win_rate": 0.447,
+    "sharpe": -1.23,
+    "max_drawdown": 80282.31,
+    "t": -2.346,
+    "fill_pass_rate_pct": 100.0,
+    "top_skip": "vrp_thin"
+   },
+   "strict": {
+    "n_trades": 67,
+    "net_pnl": -95272.37,
+    "expectancy": -1421.98,
+    "profit_factor": 0.34,
+    "win_rate": 0.463,
+    "sharpe": -1.41,
+    "max_drawdown": 97245.96,
+    "t": -2.767,
+    "fill_pass_rate_pct": 44.82,
+    "top_skip": "vrp_thin"
+   }
+  },
+  "by_era": {
+   "modern": {
+    "n_trades": 67,
+    "net_pnl": -95272.37,
+    "expectancy": -1421.98,
+    "win_rate": 0.463,
+    "profit_factor": 0.34,
+    "t": -2.767
+   }
+  },
+  "eras_spanned": [
+   "modern"
+  ],
+  "sweep": null,
+  "checks": [
+   {
+    "check": "has_trades",
+    "passed": true,
+    "detail": "67 trades under gate 'strict'"
+   },
+   {
+    "check": "enough_trades",
+    "passed": true,
+    "detail": "67 trades vs minimum 20 (charter 6.4)"
+   },
+   {
+    "check": "plausible_profit_factor",
+    "passed": true,
+    "detail": "PF 0.34 on 67 trades"
+   },
+   {
+    "check": "fill_model_stable",
+    "passed": false,
+    "detail": "expectancy moves 82%: -782 -> -1,422"
+   },
+   {
+    "check": "clears_noise_threshold",
+    "passed": false,
+    "detail": "t = -2.767 vs threshold 1.18 for 1 configuration(s)"
+   }
+  ],
+  "verdict": "kill",
+  "failed": [
+   "fill_model_stable",
+   "clears_noise_threshold"
+  ],
+  "top_skip_reasons": {
+   "vrp_thin": 222,
+   "iv_rank_low": 110,
+   "cal_leg_missing": 51,
+   "no_side_pcr": 36,
+   "warmup": 20
+  }
+ },
+ "generated": "2026-08-08T17:20:21"
+}

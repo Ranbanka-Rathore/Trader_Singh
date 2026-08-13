@@ -54,6 +54,10 @@ LADDER_MAX_OPEN = 6
 LADDER_PORTFOLIO_MAX_LOSS_FRAC = 0.10
 LADDER_IVR_SIZE_BASE = 0.5
 
+# Below this near-spot priceable share an expiry is treated as untradeable by
+# entry selection. Kept in sync with DhanBroker.MIN_CHAIN_QUALITY_PCT.
+LADDER_MIN_CHAIN_QUALITY = 80.0
+
 
 def ladder_enabled() -> bool:
     """True when the income-ladder structure is active (env LADDER_MODE=true).
@@ -70,21 +74,39 @@ def ladder_manage_dte() -> int:
         return 21
 
 
-def select_ladder_expiry(exp_list, today=None):
+def select_ladder_expiry(exp_list, today=None, quality=None):
     """Pick the ladder entry expiry from a broker expiry list.
 
-    Prefers an expiry inside [LADDER_DTE_MIN, LADDER_DTE_MAX]. NIFTY lists only
-    weeklies + monthlies, so that window is EMPTY for much of each month (between
-    monthlies); in that case return the tradeable expiry CLOSEST to the window that
-    can still be held (DTE > management DTE) — never the near weekly, which the
-    {manage}-DTE management rule would force-close instantly (friction churn).
+    Selection is liquidity-aware, because a date the ladder likes is worthless
+    if its book cannot be priced. `quality` maps expiry -> measured near-spot
+    priceable percent (written by the harvester); an expiry scoring below
+    LADDER_MIN_CHAIN_QUALITY is skipped, unmeasured expiries are tried so they
+    get scored, and a totally unusable list degrades to the best available
+    rather than halting the ladder.
+
+    Measurement drives this, NOT a calendar heuristic. Monthly-vs-weekly was
+    tested on live NIFTY books (2026-08-07) and does not predict priceability at
+    ladder horizons — time to expiry does. The 08-25 monthly at 18 DTE quoted
+    100% of near-spot strikes while the 09-29 monthly at 53 DTE quoted 52%,
+    WORSE than the 09-08 weekly at 32 DTE (60%). Preferring monthlies would have
+    picked the worse book.
+
+    Order of preference, applied to non-rejected expiries:
+      1. the [LADDER_DTE_MIN, LADDER_DTE_MAX] window, best measured quality first
+      2. the closest holdable expiry (DTE > management DTE) when the window is
+         empty — never the near weekly, which the {manage}-DTE rule would
+         force-close instantly (friction churn)
+      3. the nearest expiry, when nothing is holdable
 
     Returns (expiry, dte, reason). reason ∈ {in_window, closest_holdable,
-    fallback_nearest, no_expiries}. expiry is None only when no date parses.
+    fallback_nearest, no_expiries}, suffixed "_degraded" when every candidate
+    scored unpriceable and one had to be used anyway. expiry is None only when
+    no date parses.
     """
     import datetime as _dt
     today = today or _dt.date.today()
     manage_dte = ladder_manage_dte()
+    scores = {str(k)[:10]: v for k, v in (quality or {}).items()}
     dated = []
     for e in (exp_list or []):
         try:
@@ -95,10 +117,19 @@ def select_ladder_expiry(exp_list, today=None):
     if not dated:
         return None, None, "no_expiries"
 
-    in_window = [(d, e) for d, e in dated if LADDER_DTE_MIN <= d <= LADDER_DTE_MAX]
-    if in_window:
-        d, e = min(in_window, key=lambda t: t[0])
-        return e, d, "in_window"
+    def _rejected(e):
+        """True only for an expiry MEASURED below the quality floor."""
+        pct = scores.get(str(e)[:10])
+        return pct is not None and float(pct) < LADDER_MIN_CHAIN_QUALITY
+
+    def _rank(d, e):
+        """Sort key: best measured book first, then nearest DTE.
+
+        Unmeasured expiries sort just behind a perfect score so they are tried
+        ahead of anything known to be mediocre, which is how they get measured.
+        """
+        pct = scores.get(str(e)[:10])
+        return (-(float(pct) if pct is not None else 99.9), d)
 
     def _dist(d):
         if d < LADDER_DTE_MIN:
@@ -107,16 +138,50 @@ def select_ladder_expiry(exp_list, today=None):
             return d - LADDER_DTE_MAX
         return 0
 
-    holdable = [(d, e) for d, e in dated if d > manage_dte]
-    if holdable:
-        # closest to the window; tie-break toward the longer hold
-        d, e = min(holdable, key=lambda t: (_dist(t[0]), -t[0]))
-        return e, d, "closest_holdable"
+    def _choose(cands):
+        """Best expiry from `cands`, or (None, None, None) if it is empty."""
+        in_window = [(d, e) for d, e in cands if LADDER_DTE_MIN <= d <= LADDER_DTE_MAX]
+        if in_window:
+            d, e = min(in_window, key=lambda t: _rank(*t))
+            return e, d, "in_window"
 
-    # last resort: everything is <= manage_dte — keep the nearest (will be managed
-    # out quickly, but there is no holdable alternative)
-    d, e = min(dated, key=lambda t: t[0])
-    return e, d, "fallback_nearest"
+        holdable = [(d, e) for d, e in cands if d > manage_dte]
+        if holdable:
+            # closest to the window; tie-break toward the longer hold
+            d, e = min(holdable, key=lambda t: (_dist(t[0]), -t[0]))
+            return e, d, "closest_holdable"
+
+        if cands:
+            # everything is <= manage_dte — keep the nearest (will be managed out
+            # quickly, but there is no holdable alternative)
+            d, e = min(cands, key=lambda t: t[0])
+            return e, d, "fallback_nearest"
+        return None, None, None
+
+    usable = [(d, e) for d, e in dated if not _rejected(e)]
+    exp, dte, why = _choose(usable)
+    if why is not None:
+        return exp, dte, why
+
+    # every expiry measured unpriceable: surface it in the reason and hand back
+    # the least-bad book rather than silently refusing every trade downstream
+    exp, dte, why = _choose(dated)
+    return exp, dte, f"{why}_degraded"
+
+
+def _promotion_line() -> str:
+    """Eligibility of the active structure, for the boot banner.
+
+    Imported lazily and defensively: this module is the one every process
+    depends on, and a banner must never be the reason a service fails to start.
+    The gate itself lives in the order path, not here — this only makes the
+    state visible at boot instead of at the first refused entry.
+    """
+    try:
+        from research import promotion
+        return "\n" + promotion.gate_banner(_resolve_mode())
+    except Exception as exc:
+        return f"\n  promotion: state unavailable ({type(exc).__name__}) — LIVE entries will be refused"
 
 
 def banner() -> str:
@@ -124,11 +189,13 @@ def banner() -> str:
     if m == "LIVE":
         return (
             "\n" + "!" * 60 +
-            "\n  ⚠️  TRADING_MODE = LIVE — REAL ORDERS WILL BE SENT TO DHAN  ⚠️\n" +
+            "\n  ⚠️  TRADING_MODE = LIVE — REAL ORDERS WILL BE SENT TO DHAN  ⚠️" +
+            _promotion_line() + "\n" +
             "!" * 60 + "\n"
         )
     return (
         "\n" + "=" * 60 +
-        "\n  🧻 TRADING_MODE = PAPER — orders are simulated, none sent to broker\n" +
+        "\n  🧻 TRADING_MODE = PAPER — orders are simulated, none sent to broker" +
+        _promotion_line() + "\n" +
         "=" * 60 + "\n"
     )

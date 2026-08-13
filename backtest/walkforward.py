@@ -138,7 +138,25 @@ def trade_metrics(trades: List[Dict], equity0: float,
 
 # ── walk-forward ─────────────────────────────────────────────────────────────
 def walk_forward(start: datetime.date, end: datetime.date,
-                 base_cfg: Config) -> Dict[str, Any]:
+                 base_cfg, runner=None, grid=None, apply_params=None) -> Dict[str, Any]:
+    """Anchored walk-forward. Engine-agnostic since Phase 4.
+
+    The three hooks let the futures arenas reuse this instead of growing their
+    own copy. That matters more than it looks: these four acceptance criteria are
+    the promotion gate, and two implementations of them would eventually disagree
+    about what "passed" means.
+
+        runner(cfg, start, end) -> {"trades": [...], "skip_reasons": {...}}
+        grid                    -> [ {param: value}, ... ] searched in-sample
+        apply_params(cfg, **kw) -> cfg with those parameters set
+
+    Defaults reproduce the option-spread behaviour exactly, so every result
+    already in the kill log stays comparable.
+    """
+    runner = runner or run_window
+    grid = grid if grid is not None else GRID
+    apply_params = apply_params or (lambda cfg, **kw: replace(cfg, **kw))
+    default_combo = grid[0] if grid else {}
     folds = []
     first_test = month_add(datetime.date(start.year, start.month, 1), TRAIN_MONTHS)
     test_start = first_test
@@ -157,12 +175,12 @@ def walk_forward(start: datetime.date, end: datetime.date,
     for i, (tr_s, tr_e, te_s, te_e) in enumerate(folds):
         best_combo, best_pf, best_train = None, -1e9, None
         default_train = None
-        for combo in GRID:
-            cfg = replace(base_cfg, **combo)
-            res = run_window(cfg, tr_s, tr_e)
+        for combo in grid:
+            cfg = apply_params(base_cfg, **combo)
+            res = runner(cfg, tr_s, tr_e)
             m = trade_metrics(res["trades"], base_cfg.equity0,
                               weekdays(tr_s, tr_e))
-            if combo == DEFAULT_COMBO:
+            if combo == default_combo:
                 default_train = m
             pf = m["profit_factor"] if m["n_trades"] >= MIN_TRAIN_TRADES else -1e9
             pf = pf if pf != float("inf") else 99.0
@@ -173,12 +191,12 @@ def walk_forward(start: datetime.date, end: datetime.date,
             # too few train trades for a real selection: carry the default
             # combo (no selection bias in this fold, but its train Sharpe
             # still informs the IS baseline when it traded at all)
-            best_combo, best_train = dict(DEFAULT_COMBO), default_train
+            best_combo, best_train = dict(default_combo), default_train
         else:
             n_selected += 1
 
-        cfg = replace(base_cfg, **best_combo)
-        test_res = run_window(cfg, te_s, te_e)
+        cfg = apply_params(base_cfg, **best_combo)
+        test_res = runner(cfg, te_s, te_e)
         test_m = trade_metrics(test_res["trades"], base_cfg.equity0,
                                weekdays(te_s, te_e))
         oos_trades.extend(test_res["trades"])
@@ -209,7 +227,7 @@ def walk_forward(start: datetime.date, end: datetime.date,
     active_folds = sum(1 for f in fold_reports if f["test_metrics"]["n_trades"] > 0)
 
     T = len(oos_days) or 1
-    hurdle = math.sqrt(2 * math.log(len(GRID)) / T) * math.sqrt(252)
+    hurdle = math.sqrt(2 * math.log(max(len(grid), 2)) / T) * math.sqrt(252)
 
     return {
         "folds": fold_reports,
@@ -253,21 +271,36 @@ def mc_bootstrap_dd(trades: List[Dict], n_paths: int = 10_000,
     return {"p50": round(q(0.50), 2), "p95": round(q(0.95), 2), "p99": round(q(0.99), 2)}
 
 
-def mc_cost_stress(wf: Dict[str, Any], base_cfg: Config) -> Dict[str, Any]:
-    """Rerun every test fold with the fold's chosen combo at slippage x2/x3."""
+def mc_cost_stress(wf: Dict[str, Any], base_cfg, runner=None,
+                   apply_params=None, stress=None) -> Dict[str, Any]:
+    """Rerun every test fold with the fold's chosen combo at slippage x2/x3.
+
+    NOTE ON READING THIS: a higher cost can RAISE the reported profit factor,
+    because worse fills push marginal trades below their entry floor and the
+    survivors are the ones that had room to spare. So `n_trades` is reported
+    beside it — a PF that improved while the trade count collapsed has passed by
+    attrition, not by robustness, and should be read as a failure of the test
+    rather than a success of the strategy.
+    """
+    runner = runner or run_window
+    apply_params = apply_params or (lambda cfg, **kw: replace(cfg, **kw))
+    stress = stress or (lambda cfg, mult: replace(
+        cfg, slippage_per_leg=cfg.slippage_per_leg * mult))
     out = {}
+    base_n = wf.get("oos_metrics", {}).get("n_trades", 0)
     for mult in (2.0, 3.0):
         trades: List[Dict] = []
         for f in wf["folds"]:
-            cfg = replace(base_cfg, **f["combo"],
-                          slippage_per_leg=base_cfg.slippage_per_leg * mult)
+            cfg = stress(apply_params(base_cfg, **f["combo"]), mult)
             te_s = datetime.date.fromisoformat(f["test"][0])
             te_e = datetime.date.fromisoformat(f["test"][1])
-            trades.extend(run_window(cfg, te_s, te_e)["trades"])
+            trades.extend(runner(cfg, te_s, te_e)["trades"])
         m = trade_metrics(trades, base_cfg.equity0)
         out[f"slippage_x{mult:.0f}"] = {
             "total_net_pnl": m["total_net_pnl"], "profit_factor": m["profit_factor"],
             "n_trades": m["n_trades"],
+            "trades_lost_pct": (round(100 * (base_n - m["n_trades"]) / base_n, 1)
+                                if base_n else 0.0),
         }
     return out
 
@@ -299,6 +332,14 @@ def main():
     ap.add_argument("--ladder", action="store_true",
                     help="income-ladder mode: weekly tranches 30-45 DTE, "
                          "managed at 21 DTE, IVR-scaled sizing, 6 concurrent")
+    ap.add_argument("--gate", default="traded",
+                    help="liquidity_gate preset; use 'strict' for a fill rule "
+                         "that requires real volume (see backtest.liquidity_gate)")
+    ap.add_argument("--dte-min", type=int, default=None,
+                    help="override entry DTE floor (for confirming a sweep_dte band)")
+    ap.add_argument("--dte-max", type=int, default=None)
+    ap.add_argument("--manage", type=int, default=None,
+                    help="override management exit DTE")
     ap.add_argument("--report", default="wf_report.json")
     args = ap.parse_args()
     start = datetime.date.fromisoformat(args.start)
@@ -306,10 +347,21 @@ def main():
 
     base_cfg = Config(underlying=args.underlying, equity0=args.equity,
                       risk_frac_hard_cap=args.max_loss_frac,
-                      auto_interval=args.auto_interval)
+                      auto_interval=args.auto_interval,
+                      liquidity_gate=args.gate)
     if args.ladder:
         base_cfg = replace(base_cfg, ladder_mode=True, min_days_to_expiry=30,
                            dte_max=45, time_stop_days=21, max_open=6)
+    # explicit DTE overrides win, so a band that looked good in sweep_dte can be
+    # retested here under proper IS/OOS folds rather than trusted on one sample
+    if args.dte_min is not None:
+        base_cfg = replace(base_cfg, min_days_to_expiry=args.dte_min)
+    if args.dte_max is not None:
+        base_cfg = replace(base_cfg, dte_max=args.dte_max)
+    if args.manage is not None:
+        base_cfg = replace(base_cfg, time_stop_days=args.manage)
+    print(f"gate '{base_cfg.liquidity_gate}' | entry {base_cfg.min_days_to_expiry}"
+          f"-{base_cfg.dte_max} DTE | manage {base_cfg.time_stop_days}")
     print(f"WALK-FORWARD {start} -> {end} | equity Rs {args.equity:,.0f} | "
           f"loss cap {args.max_loss_frac:.0%} | grid of {len(GRID)} combos")
     wf = walk_forward(start, end, base_cfg)
