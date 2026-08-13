@@ -464,6 +464,89 @@ Two further findings, recorded so they are not rediscovered:
 
 ---
 
+## X1 — cross-sectional carry — PRE-DECLARED 2026-08-13, before any measurement
+
+**This section was written and committed before the signal was computed.** That
+is the point of it: arena 2's open condition is that it is *not searched*, so the
+prediction has to exist on paper before the number does.
+
+### The constraint I am working under, stated first
+
+Arena 2 stays open "on the condition that it is not searched — one signal,
+pre-registered, measured". **T2b already searched eleven.** Momentum at four
+lookbacks, reversal at two, low-vol, 52-week high, acceleration, OI change and
+volume trend, all with published rank ICs. That knowledge is spent and cannot be
+un-spent: picking whichever of those eleven looked least bad is a hunt across
+eleven, which by this arena's own table puts detectable IC at 0.0463 against a
+required 0.054 — **arena 3's situation exactly**, and the arena would close.
+
+So arena 2 gets exactly **one genuinely new signal**, and "new" has to mean *not
+a variant of the eleven*, chosen for a reason that does not reference their
+results. Anything else is the search wearing a disguise.
+
+### The signal, declared now
+
+**Cross-sectional carry: the annualised futures basis.**
+
+```
+carry_i = (F_front,i - S_i) / S_i  x  365 / days_to_expiry
+```
+
+Long the highest-carry names, short the lowest, at arena 2's existing 15-trading-day
+horizon and universe. `UndrlygPric` is present in every bhavcopy row and all 220
+symbols carry a front contract, so this needs no new data source.
+
+**Why it is genuinely new.** All eleven of T2b's signals are functions of past
+*returns, volume or open interest*. None uses the futures curve or the
+spot–futures relationship at all. Carry is not a lookback of anything already
+tested.
+
+**Why it is motivated, without reference to any measured IC.** Two reasons that
+were true before this project existed:
+
+1. Carry is one of the few factors documented to work across every asset class —
+   currencies, commodities, bonds, equity indices. It is the natural first thing
+   to try in a cross-section, and it is conspicuously *absent* from the eleven.
+2. In India specifically the stock-futures basis embeds the **securities-lending
+   rate**. Cash short-selling is heavily restricted, so shorting is expressed
+   through futures, and borrow demand shows up as futures trading cheap to fair
+   carry. That makes the basis a **short-interest proxy** — and short interest is
+   among the more durable cross-sectional predictors in the published record.
+
+**Declared direction: LONG high carry, SHORT low carry.** Both mechanisms above
+point the same way — the standard carry sign, and the short-interest channel
+(cheap basis = expensive borrow = crowded short = lower subsequent returns).
+
+> **A significantly negative IC REFUTES this signal. It does not license
+> flipping the sign.** T2b already established that the `rev_*` rows are the
+> exact mirror of the `mom_*` rows by construction and are not extra evidence.
+> Reading a negative carry IC as "reverse carry works" would be taking the second
+> shot this arena's open condition forbids.
+
+### The thresholds, also declared now
+
+| quantity | value | source |
+|---|---|---|
+| **required** rank IC | **0.054** | this arena's own 2+2-names / 10 bps / Sharpe-0.8 row |
+| detectable rank IC, 1 pre-registered signal, `modern` | 0.0249 | the T2c power table |
+| decision bar | rank IC ≥ 0.054 **and** \|t\| ≥ 1.18 | Section 4 at one configuration |
+
+**Pooling is not assumed.** Amendment D5 exists because a pooled IC re-run found
+*nine of eleven* signals flipping sign across eras, the pooled figure carried
+entirely by `early`. So per-era ICs are computed first and
+`charter.pooled_estimate_admissible` decides whether a pooled number may be
+quoted at all. If it is inadmissible, **`modern` is the decision basis** under
+D1, and its 0.0249 detectable IC is enough to answer the question.
+
+### What each outcome means, agreed before seeing it
+
+- **IC ≥ 0.054, significant** → register a hypothesis; this is the first thing in
+  the project to earn one on measured evidence rather than on a prior.
+- **IC below 0.054** → arena 2 closes. Not "try a twelfth signal": the open
+  condition permitted one, and this is it.
+
+---
+
 ## Arena 3 — directional trend on liquid futures
 
 **Engine:** `research/engines/trend.py` on `backtest/futures.py`.
