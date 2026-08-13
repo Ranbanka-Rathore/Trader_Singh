@@ -22,10 +22,18 @@ heartbeat.txt
 *.db
 api-scrip-master.csv
 *.csv.gz
-data/bhavcopy/
-# NSE board-meeting intimations, ~100MB of JSON, re-fetchable with
-# backtest.events.download_range
-data/events/
+# data/ is ~2GB across 5,600+ files and every byte of it is re-fetchable.
+# Ignored WHOLESALE rather than per-subdirectory: listing `data/bhavcopy/` and
+# `data/events/` individually left any FUTURE cache directory unignored by
+# default, so the next harvester to land would have been one `git add -A` away
+# from pushing gigabytes. Deny by default, allow by exception.
+#   data/bhavcopy/ — NSE UDiFF bhavcopy zips, backtest.bhavcopy.bulk_download
+#   data/events/   — board-meeting intimations, backtest.events.download_range
+data/*
+# Exception: the pre-purge ledger snapshot is EVIDENCE, not a cache. It is the
+# state of the trade ledger before the 2026-07-30 synthetic-row purge and cannot
+# be regenerated from anything.
+!data/ledger_backup_pre_synthetic_purge_2026-07-30.json
 
 # --- Runtime state / control files ---
 PANIC_BUTTON.txt
