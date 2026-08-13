@@ -638,6 +638,73 @@ and it is better known now than after sourcing the calendars.
 
 ---
 
+## W4 — unconditional iron condor — REGISTERED and KILLED, 2026-08-13
+
+Run to answer one question left open by W3's kill: did the butterfly die because
+**short vol** fails on weekly NIFTY, or because **ATM short gamma** does? The
+butterfly is the most gamma-negative structure in the family; a delta-0.18 condor
+is far less so. Holding everything else constant — same era, same gate, same
+6-interval wing, same `sl_mode=none`, same unconditional entry — isolates exactly
+that variable.
+
+**Answer: short vol. Not the gamma.** `ic-uncond-modern` — 198 trades, net
+−Rs 80,328, expectancy −Rs 406/trade, PF 0.73, Sharpe −0.75, t = −1.44 against a
++1.48 bar. Killed on the noise threshold, the drawdown requirement
+(Rs 1,01,076) and the Sharpe floor.
+
+### Two disclosures, both made at registration
+
+1. **A peek.** While diagnosing the `l_kelly` sizing defect I ran wings 2/4/6
+   over calendar 2025 — a subset of this window — and saw all three negative
+   (−32.5k, −10.2k, −5.0k). Wing 6 was chosen to match W3 for the isolation
+   argument above, a reason fixed before those numbers existed, but the peek
+   happened. Registered `--configs 3` rather than 1, raising the noise bar from
+   1.18 to 1.48. It failed against the raised bar anyway.
+2. **The friction table does not describe this run.** Its "iron condor 2/6,
+   0.55 vol points retained" means shorts 2 intervals out. The engine picks
+   shorts by **delta 0.18**, which lands a median **6.8 intervals** from spot.
+   Anyone reading 0.55 retained vol points as this hypothesis's prior would be
+   reading the wrong structure.
+
+### It looks like a working strategy on 188 of 198 trades
+
+This is the cleaner illustration of the two, and worth keeping for that reason:
+
+| | butterfly (ATM shorts) | condor (shorts ~6.8 intervals out) |
+|---|---|---|
+| trades | 179 | 198 |
+| win rate | 48.6% | **68.7%** |
+| median trade | −287 | **+918** |
+| avg win : avg loss | 0.72 | **0.33** |
+| expectancy | −705 | −406 |
+| 10 worst trades | 87% of the net loss | **170% of the net loss** |
+| **net excluding those 10** | −16,793 | **+55,851** |
+| gross (pre-friction) | −84,720 | −41,858 |
+| friction | −41,408 | −38,470 |
+| t | −1.95 | −1.44 |
+
+The condor wins **69%** of the time, its median week makes money, and ten weeks
+out of 198 take all of it and more. Strip those ten and the book is +Rs 55,851.
+That is not a broken strategy — it is the short-volatility payoff working exactly
+as designed, and the design is a losing one at these prices. Exits confirm it is
+being managed rather than abandoned: `TAKE_PROFIT` fired **107** times, against
+4 for the butterfly.
+
+**Negative before costs, again.** Gross −Rs 41,858 with friction −Rs 38,470 on
+top. Free execution would not save either structure. And the gates agree to
+0.2% at a 99.8% fill rate, so this is not a fill artefact.
+
+### What the pair establishes
+
+Two structures spanning the family's gamma range — shorts AT the money and
+shorts ~340 points out — each with a full A5-sized sample, each negative before
+friction, each losing to the same left tail. The VRP measured at +2.38 vol
+points is real and is **payment for that tail**, not a mispricing. Weekly NIFTY
+short volatility, entered unconditionally and held to the time stop, does not
+have an edge at this size.
+
+---
+
 ## W3 — weekly iron butterfly — DRAFTED, and it exposed an arena-wide blocker
 
 Drafted 2026-08-10 on request, as the structure the friction measurement opened.
