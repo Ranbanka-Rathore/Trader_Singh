@@ -17,9 +17,44 @@ from backend.app.services import broker_service as bs_mod
 from backend.app.services.order_router import order_router, sequence_legs
 from backend.app.services.execution_service import execution_service
 
-EXPIRY = "2026-07-07"  # known NIFTY weekly in the checked-in scrip master
 import datetime
-EXPIRY_D = datetime.date(2026, 7, 7)
+
+from backend.app.core import scrip_master
+
+
+def _live_spread_legs():
+    """Pick an expiry and two PE strikes that EXIST in the scrip master today.
+
+    This used to be hardcoded to 2026-07-07 with the comment "known NIFTY weekly
+    in the checked-in scrip master". Both halves were wrong: `api-scrip-master.csv`
+    is gitignored, not checked in, and it is re-downloaded — so expired contracts
+    roll off it. The fixture passed until 2026-07-07 went past and then failed
+    permanently with `unresolvable_leg_pe_28900`, which reads like a router bug
+    and is not one. Discovering the contract makes the test measure resolution
+    rather than the age of a file.
+
+    Returns (expiry_date, sell_strike, buy_strike) for a bull put spread.
+    """
+    today = datetime.date.today()
+    for expiry in scrip_master.get_option_expiries("NIFTY"):
+        if expiry < today:
+            continue
+        strikes = sorted(
+            float(k) for (k, ot) in scrip_master._options["NIFTY"][expiry]
+            if ot == "PE"
+        )
+        # a spread needs two strikes at least two intervals apart; take a pair
+        # from the middle of the ladder, where the book is densest
+        if len(strikes) >= 12:
+            mid = len(strikes) // 2
+            return expiry, strikes[mid], strikes[mid - 8]
+    raise AssertionError(
+        "no NIFTY option expiry in api-scrip-master.csv carries enough PE "
+        "strikes to build a spread — refresh the scrip master")
+
+
+EXPIRY_D, SELL_STRIKE, BUY_STRIKE = _live_spread_legs()
+EXPIRY = EXPIRY_D.isoformat()
 
 
 class FakeBroker:
@@ -87,8 +122,8 @@ async def main():
     passed = 0
 
     # --- 1. Sequencing: BUY legs always execute before SELL legs ---
-    legs = [{"opt_type": "pe", "strike": 29450, "side": "SELL"},
-            {"opt_type": "pe", "strike": 28900, "side": "BUY"}]
+    legs = [{"opt_type": "pe", "strike": SELL_STRIKE, "side": "SELL"},
+            {"opt_type": "pe", "strike": BUY_STRIKE, "side": "BUY"}]
     ordered = sequence_legs(legs)
     assert ordered[0]["side"] == "BUY" and ordered[1]["side"] == "SELL"
     print("[1] BUY-before-SELL sequencing  OK")
@@ -98,8 +133,8 @@ async def main():
     fake = use_fake(["PAPER", "PAPER"])
     basket = await order_router.route_basket(
         None, ticker="NIFTY", strategy_type="BULL_PUT_SPREAD",
-        legs=[{"opt_type": "pe", "strike": 29450, "side": "SELL", "limit_price": 60.0},
-              {"opt_type": "pe", "strike": 28900, "side": "BUY", "limit_price": 20.0}],
+        legs=[{"opt_type": "pe", "strike": SELL_STRIKE, "side": "SELL", "limit_price": 60.0},
+              {"opt_type": "pe", "strike": BUY_STRIKE, "side": "BUY", "limit_price": 20.0}],
         lots=2, intent="ENTRY", expiry=EXPIRY_D)
     assert basket["status"] == "FILLED", basket
     assert fake.placed[0]["side"] == "BUY" and fake.placed[1]["side"] == "SELL"
@@ -113,8 +148,8 @@ async def main():
     use_fake(["FILL", "FILL"])
     basket = await order_router.route_basket(
         None, ticker="NIFTY", strategy_type="BULL_PUT_SPREAD",
-        legs=[{"opt_type": "pe", "strike": 29450, "side": "SELL", "limit_price": 60.0},
-              {"opt_type": "pe", "strike": 28900, "side": "BUY", "limit_price": 20.0}],
+        legs=[{"opt_type": "pe", "strike": SELL_STRIKE, "side": "SELL", "limit_price": 60.0},
+              {"opt_type": "pe", "strike": BUY_STRIKE, "side": "BUY", "limit_price": 20.0}],
         lots=1, intent="ENTRY", expiry=EXPIRY_D)
     assert basket["status"] == "FILLED", basket
     assert all(l["status"] == "FILLED" for l in basket["legs"])
@@ -125,13 +160,13 @@ async def main():
     fake = use_fake(["FILL", "REJECT", "FILL"])  # buy fills, sell rejects, unwind fills
     basket = await order_router.route_basket(
         None, ticker="NIFTY", strategy_type="BULL_PUT_SPREAD",
-        legs=[{"opt_type": "pe", "strike": 29450, "side": "SELL", "limit_price": 60.0},
-              {"opt_type": "pe", "strike": 28900, "side": "BUY", "limit_price": 20.0}],
+        legs=[{"opt_type": "pe", "strike": SELL_STRIKE, "side": "SELL", "limit_price": 60.0},
+              {"opt_type": "pe", "strike": BUY_STRIKE, "side": "BUY", "limit_price": 20.0}],
         lots=1, intent="ENTRY", expiry=EXPIRY_D)
     assert basket["status"] == "FAILED", basket
     assert len(fake.placed) == 3, fake.placed
     unwind = fake.placed[2]
-    # the BUY 28900 leg was filled, so the unwind must SELL the same security as MARKET
+    # the BUY leg was filled, so the unwind must SELL the same security as MARKET
     assert unwind["side"] == "SELL" and unwind["type"] == "MARKET"
     assert unwind["security_id"] == fake.placed[0]["security_id"]
     assert basket["legs"][0]["status"] == "UNWOUND"
@@ -143,7 +178,7 @@ async def main():
     basket = await order_router.route_basket(
         None, ticker="NIFTY", strategy_type="BULL_PUT_SPREAD",
         legs=[{"opt_type": "pe", "strike": 99999, "side": "SELL", "limit_price": 60.0},
-              {"opt_type": "pe", "strike": 28900, "side": "BUY", "limit_price": 20.0}],
+              {"opt_type": "pe", "strike": BUY_STRIKE, "side": "BUY", "limit_price": 20.0}],
         lots=1, intent="ENTRY", expiry=EXPIRY_D)
     assert basket["status"] == "FAILED" and "unresolvable" in basket["reason"], basket
     assert len(fake.placed) == 0, "orders were placed despite unresolvable leg!"
@@ -154,7 +189,7 @@ async def main():
     fake = use_fake(["HANG", "FILL"])  # limit hangs; market chase fills
     basket = await order_router.route_basket(
         None, ticker="NIFTY", strategy_type="CASH_SECURED_PUT",
-        legs=[{"opt_type": "pe", "strike": 29450, "side": "SELL", "limit_price": 60.0}],
+        legs=[{"opt_type": "pe", "strike": SELL_STRIKE, "side": "SELL", "limit_price": 60.0}],
         lots=1, intent="ENTRY", expiry=EXPIRY_D)
     assert basket["status"] == "FILLED", basket
     assert len(fake.cancelled) == 1, fake.cancelled
@@ -172,18 +207,18 @@ async def main():
             "pricing_source": "DHAN_LIVE",
             "expiry": EXPIRY,
             "legs": [
-                {"opt_type": "pe", "strike": 29450, "side": "SELL", "entry_fill": 60.0},
-                {"opt_type": "pe", "strike": 28900, "side": "BUY", "entry_fill": 20.0},
+                {"opt_type": "pe", "strike": SELL_STRIKE, "side": "SELL", "entry_fill": 60.0},
+                {"opt_type": "pe", "strike": BUY_STRIKE, "side": "BUY", "entry_fill": 20.0},
             ],
         }}
     real_mark = {"pricing_source": "DHAN_LIVE", "legs": [
-        {"opt_type": "pe", "strike": 29450, "side": "SELL", "entry_fill": 60.0, "current_mark": 30.0},
-        {"opt_type": "pe", "strike": 28900, "side": "BUY", "entry_fill": 20.0, "current_mark": 10.0},
+        {"opt_type": "pe", "strike": SELL_STRIKE, "side": "SELL", "entry_fill": 60.0, "current_mark": 30.0},
+        {"opt_type": "pe", "strike": BUY_STRIKE, "side": "BUY", "entry_fill": 20.0, "current_mark": 10.0},
     ]}
     fake = use_fake(["PAPER", "PAPER"])
     routed = await execution_service._route_exit_basket(None, Pos(), real_mark)
     assert routed is not None
-    # exit sides flipped: entry SELL 29450 -> exit BUY; entry BUY 28900 -> exit SELL.
+    # exit sides flipped: entry SELL short leg -> exit BUY; entry BUY long leg -> exit SELL.
     # BUY-first sequencing => first placed order is the BUY-back of the short leg.
     assert fake.placed[0]["side"] == "BUY" and approx(fake.placed[0]["price"], 30.0)
     assert fake.placed[1]["side"] == "SELL" and approx(fake.placed[1]["price"], 10.0)
