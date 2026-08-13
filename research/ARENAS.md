@@ -605,7 +605,98 @@ against. Until then, a macro hypothesis is registrable only inside 2024-02 to
 2026-02, which is roughly 40 events across all three sources in one liquidity
 era: enough to look, not enough to conclude.
 
-### Does arena 3's problem close this arena? **Not yet — but this is the tightest of the three**
+### RESOLVED 2026-08-13 — the capacity diagnosis below was WRONG, and fixing it refuted the arena
+
+Three things happened in order, and the order matters.
+
+#### 1. "Capacity" was the wrong diagnosis
+
+The section below records the constraint as market capacity — "the engine filled
+6.6% of the straddles it wanted at Rs 15L". Decomposing the 885 considered events
+by *kind* of refusal (`scratch/arena4_capacity_decomp.py`) says otherwise:
+
+| share of 885 | count | what refused it |
+|---|---|---|
+| **45.0%** | 398 | `one_lot_exceeds_risk_cap` — **a self-imposed sizing rule** |
+| 25.1% | 222 | `txns_unknown` — **the Finding 5 gate artefact**, `strict` on a 2023-start window |
+| 12.0% | 106 | legs that did not trade — *the only genuine market constraint* |
+| 5.1% | 45 | the lookahead guard |
+
+Market illiquidity was **12%**, not 93%. The dominant term was the engine's own
+`risk_frac_hard_cap`: one lot of a ±10%-wing straddle on a Rs 3,000 stock risks
+more than 2% of Rs 15L, so the structure was refused before the market was ever
+consulted. That is a sizing choice being reported as a fact about the market.
+
+#### 2. The fix worked — `wing_pct` is the lever, and it is worth 4×
+
+Narrower wings cut max-loss-per-lot, which is exactly what the hard cap tests.
+Fill diagnostics only, measured without looking at P&L:
+
+| config | fill | trades/yr |
+|---|---|---|
+| wing 0.10, `strict` *(as registered)* | 6.6% | 16.1 |
+| wing 0.10, `strict_legacy` | 6.8% | 16.7 |
+| **wing 0.05, `strict_legacy`** | **27.8%** | **68.3** |
+| wing 0.15, `strict` | 0.1% | 0.3 |
+
+`evol-earnings-narrowwing` was registered on that basis and **passed both supply
+requirements** — 246 trades, 27.8% fill. The capacity problem was real, was
+misattributed, and is solved.
+
+#### 3. With the sample supplied, the structure is refuted — in BOTH directions
+
+**KILLED**: 246 trades, net −Rs 10,25,546, PF 0.14, Sharpe −3.46, **t = −9.08**
+against a 1.79 bar, drawdown Rs 10,34,903 — ten times the budget. The registration
+was over-configured (5 effective, where this window supports 3), so a *marginal*
+kill would have been ambiguous. At t = −9.08 that concern is moot.
+
+The sweep is monotone, which is the informative part:
+
+| wing | trades | net | PF | t |
+|---|---|---|---|---|
+| 0.05 | 246 | −10,25,546 | 0.14 | −9.08 |
+| 0.075 | 158 | −5,83,921 | 0.20 | −6.75 |
+| 0.10 | 60 | −1,04,296 | 0.44 | −2.17 |
+
+More sample is monotonically more loss. Section 6.7's plateau check failed, but
+read it correctly: the surface is not a spike on a plateau, it is **uniformly
+negative** and the check is picking the least-negative cell.
+
+**Then the sign flip, which is where it gets decided.** Losing 70% of the time
+with friction at only 7.5% of the loss looks like a clean "implied vol is too
+cheap — buy it instead" hypothesis. It is not, and the arithmetic kills it before
+it costs a registration:
+
+```
+short realised gross/trade    -3,857   (already net of slippage)
+slippage borne/trade          +3,683   (0.75/leg x 4 legs x 2 sides x 614 qty)
+------------------------------------
+MID-PRICE P&L/trade             -174   <- the actual premium, ~zero
+```
+
+The entire −Rs 3,857 is the bid-ask, not a mispricing. And because a buyer pays
+the *same* spread, flipping the sign does not recover it:
+
+| slip/leg | SHORT net | LONG net |
+|---|---|---|
+| **0.00** | **−485** | **−137** |
+| 0.50 | −2,941 | −2,593 |
+| 0.75 | −4,169 | −3,821 |
+
+**Both directions lose at every slippage level including zero.** That matters
+because `slippage_per_leg = 0.75` is an assumption rather than a measurement —
+the same caveat that governs the arena-1 friction work — and this conclusion does
+not depend on it. At zero slippage the long side collects the +174 mid premium
+and still loses to **statutory friction alone** (Rs 311/trade).
+
+> **Single-stock earnings straddles have no tradeable edge in either direction.**
+> The mid-price premium is −Rs 174/trade across 246 events, indistinguishable
+> from zero, and the round-trip cost of a four-legged single-stock structure
+> exceeds it by more than an order of magnitude. This is not "the seller is
+> underpaid" and not "the buyer is underpaid" — it is that the premium is
+> approximately fair and the structure is too expensive to trade either way.
+
+### Does arena 3's problem close this arena? **Superseded — see above.** Original text follows
 
 `evol-earnings-modern` produced 16.1 trades/year against 32.3 needed — **2.0×
 short**, the worst of any hypothesis in the log. As with arena 1, power is fine

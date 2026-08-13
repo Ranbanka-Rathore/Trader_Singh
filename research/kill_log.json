@@ -1118,6 +1118,166 @@
     }
    ],
    "fingerprint": "sha256:31d9f98d03bb3d3675faee91fd43b509"
+  },
+  {
+   "id": "evol-earnings-narrowwing",
+   "arena": "event_vol",
+   "claim": "A short ATM straddle with +-5% wings, sold 2 trading days before a single-stock earnings meeting and bought back 1 day after on the 60 most-liquid F&O names, has positive per-trade expectancy in the modern era under a real fill rule, and reaches a book Sharpe of 1.0 on the >=116 trades Amendment A5 requires.",
+   "kill_criterion": "Screen t below the Section 4 bar, any Section 6 check fails, fewer than 116 trades, capacity fill below 25%, a drawdown past Rs 1,00,000, or a book Sharpe below 1.0.",
+   "engine": "event_vol",
+   "underlying": "NIFTY",
+   "equity": 1500000.0,
+   "era": "modern",
+   "window": [
+    "2023-01-01",
+    "2026-08-13"
+   ],
+   "gate": "strict_legacy",
+   "n_configs": 4,
+   "config": {
+    "wing_pct": 0.05
+   },
+   "sweep": {
+    "axis": "wing_pct",
+    "values": [
+     0.05,
+     0.075,
+     0.1
+    ]
+   },
+   "requires": [
+    "n_trades>=116",
+    "capacity_fill_rate_pct>=25",
+    "max_drawdown<=100000",
+    "sharpe>=1"
+   ],
+   "supersedes": "evol-earnings-modern",
+   "note": "SUPERSEDES evol-earnings-modern: same structure, same events, same era, narrower wing plus the Finding-5 gate correction. Treated as a retry under Section 7 even though the parent failed on CAPACITY rather than on the premium, because the conservative reading is the right one. DISCLOSURE: I measured FILL RATES ONLY (never P&L) across wing_pct 0.05/0.075/0.10/0.15 and gate strict/strict_legacy before choosing 0.05 -- fill 6.6%->27.8%, 16.1->68.3 trades/yr. --configs 4 covers that selection. CORRECTS ARENAS.md: it recorded the constraint as market capacity; the decomposition says otherwise -- 45% of the 885 events were lost to one_lot_exceeds_risk_cap (a self-imposed sizing rule) and only 12% to legs that did not trade.",
+   "registered_at": "2026-08-13T14:10:58",
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-13T14:15:48",
+     "stage": "screen",
+     "verdict": "kill",
+     "detail": {
+      "gates": {
+       "off": {
+        "n_trades": 441,
+        "net_pnl": -957644.22,
+        "expectancy": -2171.53,
+        "profit_factor": 0.65,
+        "win_rate": 0.295,
+        "sharpe": -0.78,
+        "max_drawdown": 1189824.93,
+        "t": -1.502,
+        "fill_pass_rate_pct": 100.0,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 885,
+         "events_traded": 441,
+         "dropped_no_notice": 45,
+         "dropped_unfillable": 381,
+         "capacity_fill_rate_pct": 49.8,
+         "symbols_traded": 59
+        }
+       },
+       "strict_legacy": {
+        "n_trades": 246,
+        "net_pnl": -1025546.1,
+        "expectancy": -4168.89,
+        "profit_factor": 0.14,
+        "win_rate": 0.305,
+        "sharpe": -3.46,
+        "max_drawdown": 1034902.74,
+        "t": -9.084,
+        "fill_pass_rate_pct": 98.19,
+        "top_skip": "one_lot_exceeds_risk_cap",
+        "extras": {
+         "events_considered": 885,
+         "events_traded": 246,
+         "dropped_no_notice": 45,
+         "dropped_unfillable": 590,
+         "capacity_fill_rate_pct": 27.8,
+         "symbols_traded": 57
+        }
+       }
+      },
+      "by_era": {
+       "modern": {
+        "n_trades": 246,
+        "net_pnl": -1025546.1,
+        "expectancy": -4168.89,
+        "win_rate": 0.305,
+        "profit_factor": 0.14,
+        "t": -9.084
+       }
+      },
+      "checks": [
+       {
+        "check": "has_trades",
+        "passed": true,
+        "detail": "246 trades under gate 'strict_legacy'"
+       },
+       {
+        "check": "enough_trades",
+        "passed": true,
+        "detail": "246 trades vs minimum 20 (charter 6.4)"
+       },
+       {
+        "check": "plausible_profit_factor",
+        "passed": true,
+        "detail": "PF 0.14 on 246 trades"
+       },
+       {
+        "check": "fill_model_stable",
+        "passed": false,
+        "detail": "expectancy moves 92%: -2,172 -> -4,169"
+       },
+       {
+        "check": "clears_noise_threshold",
+        "passed": false,
+        "detail": "t = -9.084 vs threshold 1.79 for 5 configuration(s) (includes 1 carried from superseded attempts)"
+       },
+       {
+        "check": "require_n_trades_ge_116",
+        "passed": true,
+        "detail": "n_trades = 246, required >=116 (declared at registration)"
+       },
+       {
+        "check": "require_capacity_fill_rate_pct_ge_25",
+        "passed": true,
+        "detail": "capacity_fill_rate_pct = 27.8, required >=25 (declared at registration)"
+       },
+       {
+        "check": "require_max_drawdown_le_100000",
+        "passed": false,
+        "detail": "max_drawdown = 1,034,903, required <=100,000 (declared at registration)"
+       },
+       {
+        "check": "require_sharpe_ge_1",
+        "passed": false,
+        "detail": "sharpe = -3.46, required >=1 (declared at registration)"
+       },
+       {
+        "check": "plateau_not_spike",
+        "passed": false,
+        "detail": "best cell wing_pct=0.1 is an isolated spike \u2014 0/1 adjacent cells positive (charter 6.7)"
+       }
+      ],
+      "failed": [
+       "fill_model_stable",
+       "clears_noise_threshold",
+       "require_max_drawdown_le_100000",
+       "require_sharpe_ge_1",
+       "plateau_not_spike"
+      ],
+      "noise_threshold": 1.794,
+      "effective_configs": 5
+     }
+    }
+   ],
+   "fingerprint": "sha256:cda8b4a7d8fe724b124a17ad4576a31f"
   }
  ],
  "arenas": {
