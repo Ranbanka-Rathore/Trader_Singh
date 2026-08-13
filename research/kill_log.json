@@ -1314,6 +1314,23 @@
     "fly-weekly-modern",
     "ic-uncond-modern"
    ]
+  },
+  "event_vol": {
+   "status": "closed",
+   "closed_at": "2026-08-13T17:11:49",
+   "grounds": "No edge was demonstrated, and the question WAS resolvable \u2014 the strong form, as for index_structures. EARNINGS HALF: the volatility premium was MEASURED, not merely searched for. Across 246 single-stock earnings events in the modern era the mid-price P&L of a short ATM straddle is -Rs 174/trade, indistinguishable from zero; the -Rs 3,857/trade realised loss is bid-ask, not mispricing. Because a buyer pays the same spread, both directions are negative at EVERY slippage level INCLUDING ZERO, where the long side collects the +174 mid premium and still loses to statutory friction alone (Rs 311/trade). That robustness matters: slippage_per_leg=0.75 is an assumption, not a measurement, and this conclusion does not rest on it. The result is also structure-independent \u2014 a cheaper two-legged structure has nothing to recover from a premium of approximately zero. Three hypotheses closed (evol-earnings-modern, evol-earnings-pre2024, evol-earnings-narrowwing), the last with 246 trades at t = -9.08 and a MONOTONE wing sweep in which more sample is uniformly more loss. Capacity, once the true constraint was identified (a self-imposed risk cap at 45% of refusals, not market illiquidity at 12%), was fixed and is not the reason for closure. MACRO HALF: unregistrable against A5 by arithmetic \u2014 roughly 40 events in one liquidity era cannot reach 100 OOS trades by any route, even with a perfect calendar, and the calendar cannot be sourced anyway (FOMC parses 8-for-11 years, RBI's archive is ASP.NET postback-driven with no stable URL).",
+   "reopen_requires": "An event-vol structure whose edge does NOT depend on the straddle premium that was measured at zero here \u2014 the -Rs 174/trade mid-price figure covers ATM straddles with wings on the 60 most-liquid F&O names at 2-days-before / 1-day-after timing, and says nothing about skew, term structure across the event, or single-leg directional announcement drift (which is arguably cross_sectional, not this arena). Concretely: a measurement showing a non-zero MID-PRICE premium on some event-vol structure, taken on data other than these same 246 events, since fitting a subset or a timing to them is Section 6.3. A different wing, universe, or entry timing on the same short straddle is a retry, which Section 7 does not permit. The macro half additionally requires a verifiable RBI/Budget source AND a route to 100+ OOS events that does not exist at ~40 events per era.",
+   "evidence": [
+    "ARENAS arena 4 RESOLVED 2026-08-13",
+    "research/results/evol-earnings-narrowwing.json",
+    "research/results/evol-earnings-modern.json",
+    "scratch/arena4_capacity_decomp.py"
+   ],
+   "hypotheses": [
+    "evol-earnings-modern",
+    "evol-earnings-pre2024",
+    "evol-earnings-narrowwing"
+   ]
   }
  }
 }
