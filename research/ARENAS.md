@@ -545,6 +545,55 @@ D1, and its 0.0249 detectable IC is enough to answer the question.
 - **IC below 0.054** → arena 2 closes. Not "try a twelfth signal": the open
   condition permitted one, and this is it.
 
+### RESULT — REFUTED, 2026-08-13 (`scratch/arena2_carry_ic.py`)
+
+```
+era          rank IC       t     n
+modern       -0.0270   -2.22    41
+95% CI      [-0.0508, -0.0032]
+required     +0.0540  (declared above, in the LONG-high-carry direction)
+```
+
+**The declared direction is refuted, not merely unproven.** Three things have to
+hold for that word, and all three do:
+
+1. The point estimate has the **wrong sign**. High-carry names *underperformed*.
+2. The whole 95% CI lies below zero, and the required +0.054 sits **4.7 standard
+   errors above the CI's upper edge**.
+3. The sample was **capable** of seeing an effect of this size: |IC| 0.0270
+   exceeds the 0.0249 detectable at ~40 rebalances, which is the figure this
+   arena's own power table put on one pre-registered signal.
+
+**And the pre-declaration binds here.** A negative IC refutes carry; it does not
+license a "short high carry" retry. That was written down before the number
+existed precisely so this moment could not be reinterpreted.
+
+#### A data limitation, stated because it bounds the claim
+
+`UndrlygPric` is **empty for stock futures before 2024** — the column exists in
+the legacy schema and carries no values, which is the same two-era trap the
+bhavcopy loader and the events calendar each hit once. So this is 41 rebalances
+on **2024-01 onward**, not the full modern era, and `early`/`ramp` are not
+merely inadmissible under D5 but *uncomputable* by this estimator.
+
+**That limitation cannot change the verdict, and the reason is mechanical.** The
+futures curve slope could be estimated pre-2024 from the calendar spread
+(far − front) instead, which needs no spot. It would not help:
+
+- If pre-2024 carry were **positive**, the pooled estimate fails **D5.1** on sign
+  consistency against a negative `modern`, and D1 puts the decision back on
+  `modern` — which is negative.
+- If pre-2024 carry were **negative**, the conclusion is unchanged.
+
+There is no arrangement of the missing history that produces a registrable
+result, so extending it would be spending effort to confirm a conclusion already
+forced. Recorded rather than run.
+
+#### What this closes
+
+Arena 2's open condition was one pre-registered signal. That signal was declared,
+measured, and refuted. **The arena closes**, and with it the last of the four.
+
 ---
 
 ## Arena 3 — directional trend on liquid futures
