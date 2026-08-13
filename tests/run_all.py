@@ -28,7 +28,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def run_one(path):
     """(passed, failed, status) for one test file."""
-    env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+    # AGENTIC_TRADER_LOG_DIR is set explicitly rather than left to detection:
+    # importing worker/quant configures logging at module scope, and a test run
+    # must never land in the production logs an operator reads.
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1",
+               AGENTIC_TRADER_LOG_DIR=os.path.join("logs", "test"))
     r = subprocess.run([sys.executable, path], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", cwd=ROOT, env=env)
     out = (r.stdout or "") + (r.returncode and (r.stderr or "") or "")
