@@ -618,6 +618,48 @@ def test_unreachable_mark_stop_is_reported():
           v is not None and v.sizing["mark_stop_binds"] is True)
 
 
+def test_kelly_probe_floor_applies_to_small_positive_edge():
+    print("\n[16] A barely-positive Kelly edge still sizes one lot")
+    d1 = D(2026, 7, 6)
+    ch1 = mk_chain(d1, 24000.0, iv=0.13, pcr=1.00)
+    closes, ivh = choppy_seeds()
+    bt = RealBacktester(Config(enable_iron_condor=True, entry_unconditional=True,
+                               use_gates=False, sl_mode="none",
+                               width_fallbacks=(4,), equity0=1_500_000.0),
+                        provider_from({d1: ch1}))
+    bt._closes, bt._iv_hist, bt._equity, bt._closed = closes, ivh, 1_500_000.0, []
+
+    # A closed-trade history giving a SMALL positive f*: 21 trades, 11 wins of
+    # 1,000 and 10 losses of 900 -> f* = 0.524 - 0.476/1.111 = +0.095... too big.
+    # Tune to land just above zero: wins barely outnumber and barely outsize.
+    class T:
+        def __init__(self, p): self.net_pnl = p
+    bt._closed = [T(1000.0)] * 11 + [T(-1050.0)] * 10
+    f = bt._kelly_fraction()
+    check(f"f* is small but positive ({f:.4f})", f is not None and 0 < f < 0.05)
+
+    lots, sizing = bt._size_lots(width=200.0, credit=40.0, lot=75, spot=24000.0,
+                                 dnet=0.05, structure="iron_condor", call_width=200.0)
+    raw = int(0.25 * f * 1_500_000.0 / sizing["max_loss_per_lot"])
+    check(f"raw Kelly lots would round to {raw}", raw == 0)
+    check("but the probe floor keeps it at 1", sizing["l_kelly"] == 1)
+    check("so the position is actually taken", lots >= 1)
+
+    # A NEGATIVE f* was already floored; that behaviour is unchanged.
+    bt._closed = [T(100.0)] * 5 + [T(-900.0)] * 16
+    check("negative f* still gets the 1-lot probe",
+          bt._size_lots(width=200.0, credit=40.0, lot=75, spot=24000.0, dnet=0.05,
+                        structure="iron_condor", call_width=200.0)[1]["l_kelly"] == 1)
+
+    # And the floor does not override the other constraints.
+    poor = RealBacktester(Config(equity0=20_000.0), provider_from({d1: ch1}))
+    poor._closes, poor._iv_hist, poor._equity = closes, ivh, 20_000.0
+    poor._closed = [T(1000.0)] * 11 + [T(-1050.0)] * 10
+    lots2, s2 = poor._size_lots(width=200.0, credit=40.0, lot=75, spot=24000.0,
+                                dnet=0.05, structure="iron_condor", call_width=200.0)
+    check("risk/margin still bind on an account too small", lots2 == 0)
+
+
 if __name__ == "__main__":
     test_delta_strike_selection()
     test_gates()
@@ -634,5 +676,6 @@ if __name__ == "__main__":
     test_unconditional_entry_lifts_the_duty_cycle()
     test_butterfly_exits_and_settlement()
     test_unreachable_mark_stop_is_reported()
+    test_kelly_probe_floor_applies_to_small_positive_edge()
     print(f"\n{'='*50}\nRESULT: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

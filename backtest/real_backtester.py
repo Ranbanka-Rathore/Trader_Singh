@@ -404,7 +404,23 @@ class RealBacktester:
         elif f_star <= 0:
             l_kelly = cfg.kelly_probe_lots
         else:
-            l_kelly = int(cfg.kelly_frac * f_star * self._equity / max_loss_per_lot)
+            # The probe floor applies HERE TOO, and its absence was a defect
+            # (found 2026-08-13). A non-positive f* deliberately gets a 1-lot
+            # probe to keep the estimator alive; a marginally POSITIVE f* used to
+            # get `int(...)` = 0 and therefore no trade at all. A barely
+            # favourable edge was treated worse than an unfavourable one.
+            #
+            # It bites in proportion to max_loss_per_lot, so it is structure-
+            # dependent and silent: an iron condor on a 200-point wing needs
+            # f* >= 0.032 to size a single lot and lost 83 of 106 entries in 2025
+            # to this, while the butterfly's large credit keeps its max loss small
+            # enough that it never triggered once across 179 trades.
+            #
+            # `l_risk` above already carries exactly this floor (its "min-lot
+            # exception"), so this is restoring consistency rather than loosening
+            # sizing: the min() below still lets risk, vol and margin bind.
+            l_kelly = max(int(cfg.kelly_frac * f_star * self._equity / max_loss_per_lot),
+                          cfg.kelly_probe_lots)
 
         # Margin. Before 2026-08-10 this constraint did not exist, which meant an
         # unhedged short was treated as free to hold. For a vertical it is
