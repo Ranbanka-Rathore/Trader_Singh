@@ -1,4 +1,16 @@
-# RESUME HERE — Phase 2, after the first intraday screen
+# RESUME HERE — Phase 2 surveyed and gated on data
+
+> **START HERE, IN THIS ORDER**
+> 1. Refresh `DHAN_ACCESS_TOKEN` in `.env` (24-hour life; it is certainly stale).
+> 2. `type logs\archive\STATUS.txt` — did the scheduled runs succeed?
+> 3. `python archive_daily.py --coverage` — how far from the E10.2 bar?
+> 4. If any weekday was missed, run `archive_daily.bat` by hand. Missed expiries
+>    are the only losses in this project that cannot be recovered at any price.
+>
+> **Do not register a hypothesis.** Amendment E10.2 forbids it until the sample
+> reaches 250 days / 3 quarters / 2 shock days. It is at 56 / 2 / 0.
+
+
 
 **Written 2026-08-14 (session ran ~12:50–17:00 IST, market open then closed).**
 Supersedes the 2026-08-13 handoff, which is preserved at commit `40a8dc4`.
@@ -329,21 +341,28 @@ a licence to relax a gate because the real money is not in yet.
 
 ## 5. System state as left on 2026-08-14
 
+Session ran 2026-08-14, ~12:50 → 23:00 IST. Left clean.
+
 | | |
 |---|---|
-| `main` | `634e821`, clean tree, **not yet pushed** |
-| tests | **856 checks, 0 failures**, 20 files (`python tests/run_all.py`) |
-| services | **all stopped** except WSL Postgres, which this session started |
+| `main` | pushed, clean tree, **0 unpushed** |
+| tests | **863 checks, 0 failures**, 20 files (`python tests/run_all.py`) |
+| processes | **none running** — no python, no node, WSL Postgres down |
+| scheduled task | `AgenticTrader-IntradayArchive` **Ready**, next Mon 2026-08-17 15:45 |
+| archive lock | clear (`logs/archive/.run.lock` absent) |
 | `TRADING_MODE` | `PAPER` |
-| live entries | refused — zero promotions on record |
-| archive | `data/intraday/` — 3.98M bars; `manifest.json` is the index |
-| Dhan token | expires **2026-08-15 12:51 IST** — refresh before next session |
+| live entries | refused — **zero promotions on record**, 14/14 hypotheses killed |
+| archive | `data/intraday/` — 4.3M bars, 56 option days; `manifest.json` is the index |
+| Dhan token | **expires 2026-08-15 12:51 IST — refresh before anything else** |
 
 Postgres/Redis are in WSL at 172.26.128.109; `wsl -d Ubuntu -u root service
 postgresql start`. Windows→WSL TCP was flaky this session; `wsl -d Ubuntu -u
 postgres psql -d agentic_trader -c "..."` works when the TCP path does not.
+Nothing in the standing task needs the database — the archiver talks only to
+Dhan and the parquet files.
 
-To restart the full stack: `start_v8.bat`, then `python check_health.py`.
+To restart the full stack: `start_v8.bat`, then `python check_health.py`. **The
+standing task does not need the stack**; do not start it just to archive.
 
 ---
 
