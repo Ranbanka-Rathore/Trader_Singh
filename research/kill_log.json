@@ -1318,8 +1318,64 @@
    "supersedes": null,
    "note": "Arena 5, screen 1, and the RESUME.md Step-4 'measure before building' item. Runs on data/intraday/NIFTY/index.parquet (370,626 1-min bars, 992 trading days, 2022-08-16..2026-08-14), archived from Dhan on 2026-08-14. gate='strict' is recorded for form only: this screen computes correlations on index bars and executes no fills, so no liquidity gate applies to it. Any STRATEGY descending from a surviving cell must be re-run under a real gate. equity is registered at the BOTTOM of Amendment E's Rs 50k-1L range, which is the conservative choice for the economic condition (c). Killing this hypothesis does not by itself close arena 'intraday_index' \u2014 Section 7 leaves arena closure an operator decision recorded with its grounds, and Section 8 fixes no screen allotment. It would, however, close the specific idea that a single unconditional signal predicts intraday index direction.",
    "registered_at": "2026-08-14T16:16:58",
-   "status": "registered",
-   "events": [],
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-14T16:21:42",
+     "stage": "screen",
+     "verdict": "killed",
+     "detail": {
+      "screen": "scratch/arena5_intraday_ic.py",
+      "raw": "scratch/arena5_ic_results.json",
+      "bars": 370626,
+      "trading_days": 992,
+      "window": "2022-08-16..2026-08-14",
+      "cells_total": 16,
+      "cells_clearing_a_significance": 8,
+      "cells_clearing_b_sign_consistency": 8,
+      "cells_clearing_c_economic": 0,
+      "best_cells": [
+       {
+        "signal": "vwap_dev",
+        "horizon": 60,
+        "ic": 0.05366,
+        "t_corrected": 3.69,
+        "per_year_ic": {
+         "2022": 0.03408,
+         "2023": 0.05189,
+         "2024": 0.08208,
+         "2025": 0.04043,
+         "2026": 0.03668
+        },
+        "gross_per_trade": 97.33,
+        "cost_per_trade": 147.01,
+        "net_per_trade": -49.68
+       },
+       {
+        "signal": "or_pos",
+        "horizon": 60,
+        "ic": 0.05343,
+        "t_corrected": 3.76,
+        "per_year_ic": {
+         "2022": 0.0707,
+         "2023": 0.03206,
+         "2024": 0.08032,
+         "2025": 0.05591,
+         "2026": 0.01739
+        },
+        "gross_per_trade": 96.91,
+        "cost_per_trade": 147.01,
+        "net_per_trade": -50.1
+       }
+      ],
+      "why_killed": "Conditions (a) and (b) both PASSED for 8 of 16 cells: the ICs are statistically significant after correcting for the overlap of forward windows, and sign-stable in all five calendar years. The kill is entirely on (c). The best cells (vwap_dev and or_pos at h=60, IC ~0.053) imply a 3.0-index-point expected move, worth Rs ~97 gross on one lot at delta 0.5 \u2014 against Rs 147 of round-trip cost at the project's registered 0.75/leg spread. Breakeven needs a spread under ~Rs 0.36/leg, about 1.9% of a Rs 19 option, which is tighter than NIFTY's cheap-option book actually quotes. At ZERO spread the same cells net only Rs ~48, and every cell at h<=30 loses money even then.",
+      "measured_absence_not_absent_evidence": "This is a measured absence, like Arena 1 and Arena 4, not an absence of evidence. The predictability is REAL and stable across four years; it is simply smaller than the bid-ask spread. Nothing here suggests looking harder at the same signals would help \u2014 a larger sample would only measure the same too-small effect more precisely.",
+      "biases_favour_the_dead_hypothesis": "Every approximation in the translation biases the estimate UPWARD, so the true edge is smaller than the number that failed: (i) it assumes a full position on every signal, ignoring the E[|z|]~0.8 factor for signal strength; (ii) it holds delta constant at 0.5 and charges no theta over the 60-minute hold; (iii) it charges no market impact. The kill is therefore conservative.",
+      "artifact_found_and_removed": "A fourth signal, rvol_ratio, initially produced the strongest result in the screen (IC 0.084, t 5.75, sign-consistent across all years). It was pure lookahead: its normaliser was the session median of realised vol, computed over the WHOLE session, so the 10:00 value knew 15:00. With an expanding (past-only) median it fails condition (a) at every horizon and disappears from the screen entirely. Recorded because it is exactly the kind of result that would have been reported as a discovery.",
+      "not_tested_here": "This screen tests UNCONDITIONAL single signals. It does not test conditional or interaction effects, nor does it test whether a larger per-trade edge exists at horizons beyond 60 minutes. Those would be separate registrations against a fresh comparisons budget."
+     }
+    }
+   ],
    "fingerprint": "sha256:ed71e9bf3a637a638d7f05d09a462015"
   }
  ],
