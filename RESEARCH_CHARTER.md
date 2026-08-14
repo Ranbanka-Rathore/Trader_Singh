@@ -629,6 +629,199 @@ traded Rs 15,00,000. The charter's cost was five days and four closed arenas.
 decision to deploy capital to an index fund, to amend this charter, or to
 reassess at the 2027-01-07 review is the operator's and is not recorded here.**
 
+## Amendment E — the capital premise was wrong; Phase 2 opens intraday
+
+**Added 2026-08-14, after the Section 7 verdict above and before any Phase 2
+research was run.**
+
+### E0. Why this amendment is not an evasion of Section 7
+
+Section 7's branch was invoked honestly and the verdict above stands unedited.
+Section 7 also says that at the review point "the project is reassessed against
+this document as written". This amendment is that reassessment, and it exists
+because **the first premise of the document was false**.
+
+`Rs 15,00,000` was never a figure the operator chose. It entered the repo on
+2026-07-06 as `TRADING_EQUITY=1500000`, traced to a capital-sizing
+*recommendation* made by an earlier assistant session for the ladder strategy,
+and was written into Section 1 as an axiom on 2026-08-07. Everything downstream
+descended from it: the 15% CAGR target, the Rs 2.25L/year goal, Amendment A's
+Rs 1,00,000 drawdown budget, and the Section 2 capacity criterion.
+
+**The operator's actual capital is Rs 50,000 – Rs 1,00,000.**
+
+Recorded because it matters and is not yet reconciled: the funded Dhan account
+showed an available balance of **Rs 10,111.18** when probed on 2026-08-14. The
+Rs 50k–1L figure is the operator's stated capital; the Rs 10,111 is what the
+broker reports today. Every number below is expressed as a **percentage**, so
+whichever figure turns out to be binding, the research does not have to be
+redone — which is the specific mistake this amendment exists to stop repeating.
+
+### E1. What still binds from Phase 1, unchanged
+
+Two closures are size-independent and are **not** reopened:
+
+- **Weekly NIFTY short volatility loses before friction** (377 trades, ATM
+  butterfly + 0.18-delta condor). The +2.38 vol-point premium pays for a left
+  tail. More capital, or less, loses either way.
+- **Single-stock earnings straddles are priced approximately fair**
+  (-Rs 174/trade at mid, 246 events, losing at *every* slippage level including
+  zero).
+
+Two closures were partly artifacts of the wrong capital figure and are recorded
+as **closed on search budget, not on signal space** — cross-sectional (IC 0.054
+was required only because Rs 15L + F&O lot sizes forced a 2+2-name book) and
+trend. At Rs 50k–1L they are not reachable regardless: Phase 5 put the honest
+minimum for NIFTY credit spreads at ~Rs 4.4L, and 4-leg structures need margin
+this account does not have. **They stay closed. They are not retried.**
+
+### E2. Targets, restated as percentages
+
+The operator's stated aim is *"remain profitable on a monthly basis, whatever
+that may be"*. Translated honestly, the share of profitable months is a function
+of annual Sharpe:
+
+| profitable months | annual Sharpe required |
+|---|---|
+| 9 of 12 (75%) | **2.34** |
+| 10 of 12 (83%) | 3.35 |
+| 11 of 12 (92%) | 4.79 |
+| 12 of 12 | 10.7 — not achievable by anything |
+
+The old Sharpe-1.0 bar produces a profitable month only **61%** of the time.
+"Every month" is not a target any strategy can hold, so it is read as what it
+is: **a preference for low variance and short drawdowns over peak return.**
+
+Superseding the Section 2 table and Amendment A1 for Phase 2:
+
+| criterion | Phase 2 threshold | note |
+|---|---|---|
+| Sharpe (annualised, OOS) | **>= 2.3** | ~75% of months profitable |
+| Max drawdown | **<= 15% of equity** | unchanged as a %; the rupee figure is not an axiom |
+| CAGR | **>= 15% net** | retained, but see E3 — it is not the justification |
+| Expectancy | **>= (0.15 x capital) / trades-per-year, net** | scales; no fixed rupee bar |
+| Capacity | **must work at ONE NIFTY lot (65 units)** | inverted, see E4 |
+| Fill realism | passes under `liquidity_gate=strict` | unchanged |
+
+Sections 3, 4, 5, 6, 7 and Amendments B, C, D and D5 are **unchanged and still
+in force** — in particular the multiple-comparisons budget, the pre-registration
+requirement, and the promotion gate.
+
+### E3. The honest statement about absolute return at this capital
+
+At Rs 75,000, a 15% CAGR is **Rs 11,250/year**. The 7% FD alternative in
+Section 1 is Rs 5,250/year for zero hours. The charter's time budget is 15+
+hrs/week, roughly 780 hours a year.
+
+**The project cannot be justified by its returns at this capital, and this
+amendment does not pretend otherwise.** Beating the benchmark by ~Rs 6,000/year
+is not compensation for 780 hours. What Phase 2 can honestly produce is a
+*validated system and a measured edge* — something that would be worth running
+at larger capital, tested at a size where being wrong is cheap.
+
+This is written down so that the gap between effort and reward cannot later be
+closed by quietly raising position size. **Section 5's promotion gate and E2's
+drawdown limit bind regardless of how small the rupee returns look.**
+
+### E4. The capacity criterion inverts
+
+Section 2 asked whether a strategy could *absorb* Rs 15L. At Rs 50k–1L the
+opposite question binds: **is one lot already too big?**
+
+One NIFTY lot is 65 units. Measured against this project's own friction model
+(`scratch/phase2_capital_arithmetic.py`, run 2026-08-14):
+
+| capital | risk/trade | affordable premium | position | friction | friction as % of position |
+|---|---|---|---|---|---|
+| Rs 50,000 | 1% | ~Rs 19/unit | Rs 1,250 | Rs 50 | 4.0% |
+| Rs 75,000 | 1% | ~Rs 29/unit | Rs 1,875 | Rs 51 | 2.7% |
+| Rs 1,00,000 | 2% | ~Rs 77/unit | Rs 5,000 | Rs 57 | 1.1% |
+
+(stop assumed at -40% of premium paid)
+
+**A strategy that requires more than one lot to express its position is out of
+scope for Phase 2**, and a strategy whose per-trade risk at one lot exceeds 2%
+of equity is out of scope regardless of its edge.
+
+### E5. The friction ratio, and what actually moves it
+
+The number Phase 2 must clear, measured rather than assumed:
+
+| capital | risk | gross edge needed for 15% CAGR @250 trades/yr | friction as % of that gross edge |
+|---|---|---|---|
+| Rs 50,000 | 1% | 6.4% avg move | **62%** |
+| Rs 75,000 | 1% | 5.1% avg move | **53%** |
+| Rs 1,00,000 | 2% | 2.3% avg move | **49%** |
+
+Roughly **half the gross edge is consumed by friction**, and — this is the part
+that matters for arena design — **that ratio barely improves with capital across
+the whole Rs 50k–1L range.** It does not improve because the net target scales
+with capital while friction (dominated by flat Rs 20/order brokerage + GST)
+stays constant, so numerator and denominator move together.
+
+**Capital is not the lever. Trade frequency is.** Halving trades per year halves
+the friction bill while doubling the required per-trade edge. Every Phase 2
+hypothesis must state its intended trade frequency *before* measurement, because
+that choice, not the signal, sets the friction hurdle.
+
+For calibration against the closed arenas: the 4-leg earnings straddle paid
+**23x** its edge in friction. Paying **0.5x** is a different regime — the vehicle
+is no longer what kills the trade. But the gross edge must still be ~2x the net
+target, and finding that is Phase 2's whole task.
+
+### E6. The data reality Phase 2 must be built on
+
+Probed 2026-08-14 (`scratch/phase2_probe_*.py`, raw JSON alongside):
+
+| series | what Dhan actually serves |
+|---|---|
+| NIFTY index 1-min | **5+ years** |
+| NIFTY futures 1-min | **~75 days, rolling purge** |
+| live option 1-min | from the contract's **first trade** to now |
+| **expired option 1-min** | **nothing, permanently** |
+
+The last row is load-bearing. Four expired contracts drawn from this project's
+own `order_audit` returned **0 bars** at both 10 and 38 days past expiry, while
+a live control on the identical call returned 1,540. **Option intraday history
+is deleted at expiry and cannot be bought back.**
+
+Therefore, binding on Phase 2:
+
+1. **No options hypothesis may be registered against option history that was not
+   archived before expiry.** There is no retrospective option dataset and there
+   never will be one. `backtest/intraday_archive.py` captures the live board;
+   what it misses is gone.
+2. **Index and futures hypotheses may use history immediately** — the index
+   archive is deep and stable.
+3. **Option-based work is forward-testing by construction** for at least one
+   full cycle of archived expiries. Section 6's rules about what does not count
+   as evidence apply with extra force: a few weeks of archived expiries is a
+   small sample, and E2's Sharpe 2.3 bar needs many months to be measurable at
+   all. Do not confuse "we now have option data" with "we can now conclude".
+
+### E7. Phase 2 arenas
+
+Registered here, before measurement, per Section 4:
+
+- **Arena 5 — intraday index structure.** Do NIFTY 1-min returns carry
+  predictable structure at horizons (5–60 min) where the friction of E5 is
+  affordable? Runs on the deep index archive. This is the Step-4 measurement
+  and it gates everything else: if there is no structure in the index, there is
+  no reason to look for it in options on the index.
+- **Arena 6 — expiry-day and short-DTE option behaviour.** Requires archived
+  option data; forward-tested by construction per E6.
+- **Arena 7 — session-structure effects** (opening range, close auction,
+  time-of-day conditioning). Index-first, options only if Arena 5 survives.
+
+The Section 4 multiple-comparisons budget carries over and **compounds** with
+Phase 1's nine registered hypotheses per Amendment B4. Phase 2 does not get a
+fresh budget because it changed arenas.
+
+### E8. The stop-date is unchanged
+
+The hard project stop of **2027-01-07** in Section 7 is not extended by this
+amendment. Phase 2 gets the remaining time, not more.
+
 ## Amendment Log
 
 *(append-only; date + reason + what changed. An amendment made after seeing a
@@ -680,3 +873,33 @@ result it would change invalidates that result.)*
   16 tests, so it cannot quietly stop being applied. **Tightens only — nothing
   that failed under D1–D4 passes under D5.** Applied to the run that prompted it,
   it admits **0 of 11** estimates.
+- 2026-08-14 — **Amendment E** added. Reason: **the charter's first premise was
+  false.** Section 1's `Rs 15,00,000` was never a figure the operator chose — it
+  entered the repo on 2026-07-06 as `TRADING_EQUITY=1500000`, traced to an earlier
+  assistant session's capital-sizing *recommendation* for the ladder, and was
+  written in as an axiom on 2026-08-07. The 15% CAGR target, the Rs 2.25L/year
+  goal, Amendment A's Rs 1,00,000 drawdown budget and the Section 2 capacity
+  criterion all descended from it. Actual capital is **Rs 50,000 – Rs 1,00,000**
+  (with the funded account showing Rs 10,111 on the day, unreconciled and recorded
+  as such). Every threshold is now expressed as a **percentage** so no rupee figure
+  can become an axiom again. Supersedes Section 2's criteria table and Amendment
+  A1's targets; **Sections 3–7 and Amendments B, C, D, D5 are unchanged and still
+  in force**, including the compounding multiple-comparisons budget (B4) and the
+  2027-01-07 stop-date.
+  **Made after the Section 7 verdict and before any Phase 2 research was run** —
+  no Phase 2 result informed it. It does not reopen Arena 1 or Arena 4, whose
+  closures are size-independent; Arenas 2 and 3 stay closed too, being
+  unaffordable at this capital rather than merely unpromising.
+  Also records three measured findings that constrain Phase 2 from the outset:
+  **(E4/E5)** friction consumes **49–62% of the gross edge** required for a 15%
+  CAGR, near-invariantly across the whole Rs 50k–1L range, because flat brokerage
+  does not scale with the net target — so **trade frequency, not capital, is the
+  lever**, and every hypothesis must pre-declare its frequency; **(E6)** Dhan
+  serves 5+ years of index 1-min bars but **deletes option intraday history at
+  expiry** (verified against four expired contracts from this project's own
+  `order_audit`, against a live control), so options work is forward-testing by
+  construction and no options hypothesis may rest on history that was not archived
+  before expiry; **(E3)** at this capital the project **cannot be justified by its
+  returns** — Rs 11,250/yr against a Rs 5,250 FD for 780 hours — and is justified
+  only as a validated system tested where being wrong is cheap, written down so
+  the gap cannot later be closed by quietly raising position size.
