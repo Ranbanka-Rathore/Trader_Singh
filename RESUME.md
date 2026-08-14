@@ -14,8 +14,9 @@ Supersedes the 2026-08-13 handoff, which is preserved at commit `40a8dc4`.
 | Charter | **Amendment E** written, and bound in `research/charter.py` + 10 tests. |
 | Archive | **3.98M 1-min bars** on disk, 577 contracts. Aug-18 expiry secured. |
 | Arena 5 | **CLOSED 2026-08-14** — 3 screens, all killed. Index IS predictable; edge < cost. |
+| Arena 7 | **CLOSED 2026-08-14** — no intraday edge reaches 8 pts OOS; best 7.70 vs 7.71 cost. |
 | Spread | **Measured** (E9). Rs 0.25/leg, 3x tighter than assumed — and the kill got *stronger*. |
-| Registry | **12 registered, 12 killed, 0 survivors. 5 of 7 arenas closed.** |
+| Registry | **13 registered, 13 killed, 0 survivors. 6 of 7 arenas closed.** |
 | Tests | **863 checks, 0 failures.** |
 
 **The single most important number found today:**
@@ -152,8 +153,24 @@ a measured all-in cost below ~3.0 index points; a gross edge ≥ 8 points from a
 genuinely different signal family; or a different holding regime — and overnight
 / multi-day holds would be a **new arena**, not a reopening of this one.
 
-**Arenas still open: `intraday_option`, `intraday_session`.** Both cross the same
-book and face the same measured floor, so both inherit the ≥8-point bar.
+**`intraday_session` was also closed on 2026-08-14**, by
+`intraday-edgesize-modern` — the screen that asked the decisive question
+directly: does ANY intraday edge reach 8.0 index points out of sample? **No.**
+0 of 18 cells cleared anything but trade count. Best anywhere: **7.70 gross vs a
+7.71 cost floor**, net −0.01 — and that 7.70 rests entirely on 41 trades in 2026
+(2024 was −5.2), so the honest best is *below* it.
+
+The registered mechanism worked directionally and still failed, which is the
+useful part: mean OOS gross by vol regime was low −0.83, mid −2.56, **high
++2.21**. Regime conditioning does scale the edge where the distribution is
+widest, exactly as `edge = IC × sd` predicts — just not far enough. And 11 of 18
+cells had *negative* OOS gross before costs: with nothing left to learn, fitting
+actively hurts.
+
+**Only `intraday_option` remains open**, and everything tested so far was
+DIRECTIONAL, so it is not automatically closed — but Arena 1 already killed short
+volatility on size-independent grounds, and the same measured cost floor applies
+to anything crossing that book.
 
 ---
 
@@ -205,17 +222,21 @@ points and which crosses a NIFTY option book at this capital hits the same floor
 Arenas 6 and 7 cross that same book, so they inherit a **≥8 index point** bar
 before they are worth registering at all.
 
-Three honest options, in the order they should be considered:
+That question has now been asked and answered: **no intraday edge reaches 8
+points out of sample.** What remains:
 
-1. **Test whether ANY intraday edge reaches ~8 points**, before designing another
-   signal screen. This is a question about edge *size*, not about signals, and
-   the ceiling screen's method (an upper bound that can only close) is the right
-   shape for it.
-2. **Attack the cost floor instead of the edge** — a different instrument or
-   underlying with better exposure-per-rupee than a 65-unit NIFTY lot. Statutory
-   charges are the larger half of the floor and are not negotiable, so this is
-   about lot economics, not broker choice.
-3. **Invoke Section 7.** 12 registered, 12 killed, 0 survivors, 5 of 7 arenas
+1. **One non-directional screen in `intraday_option`** — the only open arena.
+   Everything tested to date was directional. Honest prior: poor. Arena 1 killed
+   short volatility on size-independent grounds and the same cost floor applies.
+2. **Attack the cost floor, not the edge.** Every kill in Phase 2 has been a cost
+   result. Statutory charges are the larger half and are not negotiable, so this
+   means lot economics — a different underlying or contract size — not a
+   different broker.
+3. **Scheduled-event conditioning**, the one gap named in the `intraday_session`
+   closure. `data/events/` (RBI board meetings 2016–2025) and
+   `backtest/macro_events.py` (FOMC) exist and were never used intraday. Bar is
+   ≥8 pts OOS sign-consistent across **three** years.
+4. **Invoke Section 7.** 13 registered, 13 killed, 0 survivors, 6 of 7 arenas
    closed. Amendment E3 already records that the project cannot be justified by
    its returns at this capital.
 

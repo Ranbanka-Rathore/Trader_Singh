@@ -1772,6 +1772,22 @@
     "intraday-ceiling-modern",
     "intraday-conditional-modern"
    ]
+  },
+  "intraday_session": {
+   "status": "closed",
+   "closed_at": "2026-08-14T20:49:23",
+   "grounds": "MEASURED ABSENCE OF A TRADEABLE EDGE from session and regime structure \u2014 with one sub-space explicitly NOT covered, named in the reopening conditions below rather than glossed over.\n\nThe arena was tested by intraday-edgesize-modern, a walk-forward screen asking the decisive question directly: does ANY intraday edge reach 8.0 index points out of sample? 8.0 is arena intraday_index's registered reopening threshold \u2014 the level at which a gross edge clears the measured 7.71-point all-in cost floor with margin. Answer: NO. 0 of 18 cells cleared any condition except trade count.\n\nThe best cell anywhere was 7.70 gross points (h=60, high-vol regime, |z|>=2.0) against a 7.71-point floor \u2014 net -0.01, breakeven before any execution error. And it is weaker than that figure suggests: its per-year record is 2024 gross -5.2, 2025 +14.7, 2026 +43.9, so the pooled 7.70 rests entirely on 41 trades in one year. That is Section 6.7's 'single good configuration surrounded by bad ones' and fails D5 sign-consistency at 2 of 3 years. The honest best is BELOW 7.70.\n\nThe registered mechanism worked directionally and still failed, which is the most informative part. Mean out-of-sample gross by volatility regime: low -0.83, mid -2.56, HIGH +2.21, with the best cell at every horizon drawn from the high-vol stratum. So edge = IC x sd does scale the edge in points where the forward distribution is widest, exactly as predicted. It does not scale far enough: applying the same skill where moves are larger scales the noise with them.\n\nAnd 11 of 18 cells had NEGATIVE out-of-sample gross edge before costs. A walk-forward model trained on all prior years is worse than a single unfitted signal. With nothing left to learn \u2014 intraday-ceiling-modern measured the incremental value of 25 extra features at +0.0002 IC \u2014 the fit learns noise, so fitting actively hurts out of sample.",
+   "reopen_requires": "A charter amendment justified by ONE of the following. Section 7 allows no extensions otherwise.\n\n1. SCHEDULED-EVENT CONDITIONING, WHICH WAS NOT TESTED. This is a real gap and is    recorded as one. intraday-edgesize-modern conditioned on trailing volatility    regime and time of day, but NOT on proximity to scheduled macro events. The    data exists and is unused for this purpose: data/events/ holds RBI board    meetings 2016-2025 and backtest/macro_events.py carries an FOMC calendar with    coverage enforcement. Event days concentrate large moves, so the edge = IC x    sd argument has a further lever there. Reopening on this ground requires a    measured OOS gross edge >= 8.0 index points, sign-consistent across at least    three separate years \u2014 the three-year bar exists specifically because the best    cell here was one good year wearing a pooled average.\n\n2. A MATERIAL FALL IN THE COST FLOOR: a measured all-in round-trip cost below    ~3.0 index points for an instrument this account can hold. Statutory charges    are the larger half of the current floor and dominate at ATM, so this needs a    change in Indian F&O taxation or materially better lot economics \u2014 not a    different broker. Re-measure with backtest/option_spread.py before claiming    it.\n\n3. INTRADAY DATA THIS SCREEN DID NOT HAVE \u2014 order flow, book depth through the    session, or trade-level prints. Everything tested used 1-minute OHLC of the    index. A genuinely different information source is a different question, not    a retry of this one.\n\nWhat does NOT reopen it: another directional signal set on 1-minute index bars. The feature family is measured as exhausted and regime conditioning is measured as insufficient.",
+   "evidence": [
+    "scratch/arena7_edgesize.py + arena7_edgesize_results.json",
+    "scratch/arena5_ceiling.py + arena5_ceiling_results.json (feature exhaustion)",
+    "backtest/option_spread.py + scratch/option_spread_measured.json (cost floor)",
+    "RESEARCH_CHARTER.md Amendment E9",
+    "arena intraday_index closure record (source of the 8.0-point bar)"
+   ],
+   "hypotheses": [
+    "intraday-edgesize-modern"
+   ]
   }
  }
 }
