@@ -1604,6 +1604,63 @@
     }
    ],
    "fingerprint": "sha256:45e470d95969cdddce543c78bceaa560"
+  },
+  {
+   "id": "intraday-edgesize-modern",
+   "arena": "intraday_session",
+   "claim": "Some combination of horizon (60 or 120 min), past-only trailing-volatility regime (low/mid/high tercile) and signal-strength threshold (|z| >= 1.0, 1.5, 2.0) yields an OUT-OF-SAMPLE gross edge of at least 8.0 index points per non-overlapping round trip, using a multivariate model trained only on data preceding each test year. 8.0 points is Arena 5's registered reopening threshold: it is the level at which a gross edge clears the measured 7.71-point all-in cost floor with margin to spare. The mechanism under test is REGIME conditioning, not signal improvement \u2014 the same predictive skill applied where the forward distribution is widest should scale the edge in points even at unchanged IC, because edge = IC x sd and sd varies several-fold across volatility regimes.",
+   "kill_criterion": "KILLED unless at least one (horizon, vol regime, threshold) cell satisfies ALL of: (a) mean OUT-OF-SAMPLE gross edge >= 8.0 index points per non-overlapping trade, pooled across test years 2023-2026; (b) mean NET edge > 0 after the measured Amendment E9 cost floor for the cheapest instrument at that horizon; (c) net edge > 0 in EVERY test year, not merely pooled \u2014 D5's sign-consistency applied out-of-sample; (d) pooled |t| >= 2.41, the Section 4 bar at N=18; (e) >= 30 trades per year, so Section 3's detectability is satisfiable. If NOTHING clears, the answer to 'does any intraday edge reach 8 points' is NO for this feature family under regime conditioning, Arena 5's reopening condition #2 is demonstrably unmet, and arena 'intraday_session' is recommended for closure alongside it. Per Amendment B5 clearing means 'worth a walk-forward at strategy level', never 'works'.",
+   "engine": "intraday_edgesize",
+   "underlying": "NIFTY",
+   "equity": 50000.0,
+   "era": null,
+   "window": [
+    "2022-08-16",
+    "2026-08-14"
+   ],
+   "gate": "strict",
+   "n_configs": 18,
+   "config": {
+    "bar_index_points": 8.0,
+    "bar_source": "arena intraday_index closure, reopening condition #2",
+    "method": "walk-forward by calendar year; train on all prior, test on year",
+    "test_years": [
+     2023,
+     2024,
+     2025,
+     2026
+    ],
+    "horizons_min": [
+     60,
+     120
+    ],
+    "vol_regimes": "terciles of trailing 30-bar realised vol, cut on TRAIN only",
+    "thresholds_z": [
+     1.0,
+     1.5,
+     2.0
+    ],
+    "mechanism": "regime conditioning (edge = IC x sd; sd varies by regime)",
+    "perfect_foresight_bound_pts": {
+     "30": 26.34,
+     "60": 36.84,
+     "120": 52.12
+    },
+    "cost_index_points": {
+     "option_txn": 4.01,
+     "option_theta_per_hour_4dte": 5.45,
+     "future_all_in": 7.71
+    },
+    "source": "data/intraday/NIFTY/index.parquet"
+   },
+   "sweep": null,
+   "requires": [],
+   "supersedes": null,
+   "note": "Prompted by the operator's question after arena intraday_index was closed on 2026-08-14. Tests that arena's own reopening condition #2 (a gross edge >= 8 index points from a genuinely different family) via the one lever its three screens did NOT test: conditioning on the volatility REGIME rather than on the signal. Registered in intraday_session because that is the open arena whose definition covers session and regime structure; it is not a backdoor registration into the closed arena, and if it clears, reopening intraday_index would still require the charter amendment its closure record demands. Runs on data/intraday/NIFTY/index.parquet (370,626 1-min bars, 992 days). Walk-forward by calendar year: train on all prior data, test on the year. Costs are the measured Amendment E9 figures (options 4.01 + 5.45/hr theta at 4 DTE; futures 7.71 all-in), cheaper instrument per horizon. All conditioning variables must be past-only; volatility terciles are cut on TRAILING realised vol using thresholds fixed from the training period only, never from the test year. Only forward windows closing inside the same session count.",
+   "registered_at": "2026-08-14T20:37:48",
+   "status": "registered",
+   "events": [],
+   "fingerprint": "sha256:46e0af72723c1e92d69ecc3a7ca01397"
   }
  ],
  "arenas": {
