@@ -1,0 +1,3 @@
+# cmd.exe mis-parses .bat files with bare LF line endings (observed 2026-08-14:
+# a multi-line if/for block failed with "not recognized as an internal command").
+*.bat text eol=crlf
