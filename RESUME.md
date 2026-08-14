@@ -229,7 +229,11 @@ To restart the full stack: `start_v8.bat`, then `python check_health.py`.
 - **Overlapping forward windows inflate |t| by ~sqrt(h).** Uncorrected, all 16
   cells clear Section 4 on sample size alone.
 - **friction_model carries NO bid/ask.** It prices brokerage and statutory
-  charges only. On a cheap option the spread is the *larger* half of the cost.
+  charges only; a spread must be added separately. And the guess about which half
+  dominates was wrong: measured at ATM, statutory Rs 61.44 > spread Rs 50.38.
+- **A cost in rupees is meaningless until divided by the delta it buys.** The
+  measured spread was 3x TIGHTER than assumed and the trade still failed, because
+  index points, not rupees, are the binding unit (Amendment E9).
 - **The engine's defaults are shaped around vertical credit spreads.** Six
   config knobs silently did nothing on other structures.
 - **Never accept an aggregate fill/skip rate as evidence.** Decompose by *kind*
