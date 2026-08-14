@@ -1374,6 +1374,75 @@
       "artifact_found_and_removed": "A fourth signal, rvol_ratio, initially produced the strongest result in the screen (IC 0.084, t 5.75, sign-consistent across all years). It was pure lookahead: its normaliser was the session median of realised vol, computed over the WHOLE session, so the 10:00 value knew 15:00. With an expanding (past-only) median it fails condition (a) at every horizon and disappears from the screen entirely. Recorded because it is exactly the kind of result that would have been reported as a discovery.",
       "not_tested_here": "This screen tests UNCONDITIONAL single signals. It does not test conditional or interaction effects, nor does it test whether a larger per-trade edge exists at horizons beyond 60 minutes. Those would be separate registrations against a fresh comparisons budget."
      }
+    },
+    {
+     "at": "2026-08-14T17:33:02",
+     "stage": "cost_measurement",
+     "verdict": "kill_confirmed",
+     "detail": {
+      "what": "Measured the real NIFTY option bid-ask, the constant screen 1's kill rested on.",
+      "source": "backtest/option_spread.py --snapshot; scratch/option_spread_measured.json",
+      "sample": "312 contracts, 260 traded, 2 expiries (4 and 11 DTE), ONE after-hours snapshot of the 15:39 closing book on 2026-08-14",
+      "measured_median_per_leg_rs": 0.25,
+      "assumed_constant": 0.75,
+      "verdict": "KILL STANDS \u2014 and on measured cost, not assumed cost.",
+      "the_correction_runs_against_the_hypothesis": "The raw spread is indeed tighter than assumed: median Rs 0.25/leg against a Rs 0.75 default. But converting to index points reverses the conclusion. Screen 1 paired a Rs 19 premium with an ATM delta of 0.5, and those are inconsistent \u2014 a Rs 19 NIFTY option has delta ~0.09. That inconsistency made the ORIGINAL economics too GENEROUS, not too harsh: it implied 3.0 index points of round-trip cost where the true figure at that premium is 12.87.",
+      "cost_in_index_points_round_trip": {
+       "<5": {
+        "mid": 1.36,
+        "delta": 0.009,
+        "cost_pts": 94.52,
+        "floor_pts_zero_spread": 83.11
+       },
+       "5-10": {
+        "mid": 6.97,
+        "delta": 0.038,
+        "cost_pts": 25.74,
+        "floor_pts_zero_spread": 19.24
+       },
+       "10-20": {
+        "mid": 13.57,
+        "delta": 0.086,
+        "cost_pts": 12.87,
+        "floor_pts_zero_spread": 8.78
+       },
+       "20-40": {
+        "mid": 27.35,
+        "delta": 0.154,
+        "cost_pts": 6.65,
+        "floor_pts_zero_spread": 5.04
+       },
+       "40-80": {
+        "mid": 56.89,
+        "delta": 0.271,
+        "cost_pts": 5.09,
+        "floor_pts_zero_spread": 3.07
+       },
+       "80-160": {
+        "mid": 117.06,
+        "delta": 0.429,
+        "cost_pts": 4.01,
+        "floor_pts_zero_spread": 2.2
+       },
+       ">160": {
+        "mid": 675.49,
+        "delta": 0.851,
+        "cost_pts": 10.6,
+        "floor_pts_zero_spread": 2.34
+       }
+      },
+      "cheapest_point_on_the_whole_board": {
+       "bucket": "80-160 (ATM)",
+       "mid": 117.06,
+       "delta": 0.429,
+       "cost_index_points": 4.01,
+       "vs_edge_index_points": 2.995
+      },
+      "irreducible_floor": "With PERFECT limit fills and zero slippage, statutory charges alone cost 2.20 index points round trip at the ATM bucket, against a 2.995-point edge. The floor cannot be executed away \u2014 it is the exchange's and the government's cut \u2014 and it consumes 73% of the entire measured edge before any spread is paid.",
+      "spread_is_not_the_dominant_cost": "At the ATM bucket the spread is Rs 50.38 and statutory charges are Rs 61.44. Statutory is the LARGER half. This matters because execution skill can attack the spread and cannot touch the other.",
+      "the_structural_squeeze": "Cost per index point is minimised at ATM and rises steeply as premium falls, because a low-delta option buys very little index exposure per lot while the near-flat statutory charge per lot does not fall with it. But ATM is exactly what this capital cannot hold: one ATM lot is Rs 7,609, and a -40% stop on it is 6.1% of a Rs 50,000 account against a 1-2% per-trade budget. The contract whose cost structure works is unaffordable, and the contract that is affordable costs 12.87 points against a 2.995-point edge. At Rs 50k-1L there is NO contract on the board where this edge exceeds its round-trip cost \u2014 the best case anywhere, ignoring risk limits entirely, is still 4.01 vs 2.995.",
+      "caveats": "ONE after-hours snapshot of the closing book, 2 expiries, 10-12 contracts per mid-premium bucket. Intraday spreads may differ and must be sampled during a session before this is treated as a distribution. Note however that the statutory floor is independent of the spread and of sampling time, and the floor alone already takes 73% of the edge."
+     }
     }
    ],
    "fingerprint": "sha256:ed71e9bf3a637a638d7f05d09a462015"
