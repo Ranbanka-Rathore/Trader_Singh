@@ -79,17 +79,66 @@ def token_status():
     return True, f"token valid for {left:.1f}h", left
 
 
+COVERAGE_CACHE = os.path.join("data", "intraday", "coverage_cache.json")
+
+
+def _option_days():
+    """Exact set of distinct option trading days on disk, cached incrementally.
+
+    The naive version re-read every option parquet on each call. At 1,200 files
+    that already took minutes, and the archive grows by ~460 contracts a week —
+    a coverage check that gets slower every day is one that stops being run.
+    Cache each file's day list against its (size, mtime) and re-read only what
+    changed. Still EXACT, which matters because this count gates E10.2.
+    """
+    import pandas as pd
+
+    cache = {}
+    if os.path.exists(COVERAGE_CACHE):
+        try:
+            with open(COVERAGE_CACHE, encoding="utf-8") as fh:
+                cache = json.load(fh)
+        except Exception:  # noqa: BLE001
+            cache = {}
+
+    days, fresh, reread = set(), {}, 0
+    for f in glob.glob(os.path.join(ARCHIVE, "opt", "*", "*.parquet")):
+        try:
+            st = os.stat(f)
+        except OSError:
+            continue
+        key = f"{os.path.getsize(f)}:{int(st.st_mtime)}"
+        hit = cache.get(f)
+        if hit and hit.get("key") == key:
+            fresh[f] = hit
+            days |= set(hit["days"])
+            continue
+        try:
+            d = sorted({str(x) for x in
+                        pd.read_parquet(f, columns=["ts"])["ts"].dt.date.unique()})
+        except Exception:  # noqa: BLE001
+            continue
+        fresh[f] = {"key": key, "days": d}
+        days |= set(d)
+        reread += 1
+
+    try:
+        os.makedirs(os.path.dirname(COVERAGE_CACHE), exist_ok=True)
+        with open(COVERAGE_CACHE, "w", encoding="utf-8") as fh:
+            json.dump(fresh, fh)
+    except Exception:  # noqa: BLE001
+        pass
+    return {datetime.date.fromisoformat(d) for d in days}, reread
+
+
 def coverage():
     """Distinct archived option days, quarters and shock days. No P&L, per E10.4."""
     import numpy as np
     import pandas as pd
 
-    days = set()
-    for f in glob.glob(os.path.join(ARCHIVE, "opt", "*", "*.parquet")):
-        try:
-            days |= set(pd.read_parquet(f, columns=["ts"])["ts"].dt.date.unique())
-        except Exception:  # noqa: BLE001
-            continue
+    days, reread = _option_days()
+    if reread:
+        print(f"  (coverage: re-read {reread} changed file(s))")
 
     shocks = []
     idx_path = os.path.join(ARCHIVE, "index.parquet")
