@@ -1,0 +1,176 @@
+{
+  "run_at": "2026-08-14T13:02:39.682227",
+  "probes": [
+    {
+      "security_id": "58072",
+      "instrument_type": "FUTIDX",
+      "days_ago": 30,
+      "from_date": "2026-07-11",
+      "to_date": "2026-07-15",
+      "status": "success",
+      "bars": 1125,
+      "instrument": "NIFTY-Aug2026-FUT"
+    },
+    {
+      "security_id": "58072",
+      "instrument_type": "FUTIDX",
+      "days_ago": 40,
+      "from_date": "2026-07-01",
+      "to_date": "2026-07-05",
+      "status": "success",
+      "bars": 1125,
+      "instrument": "NIFTY-Aug2026-FUT"
+    },
+    {
+      "security_id": "58072",
+      "instrument_type": "FUTIDX",
+      "days_ago": 50,
+      "from_date": "2026-06-21",
+      "to_date": "2026-06-25",
+      "status": "success",
+      "bars": 1500,
+      "instrument": "NIFTY-Aug2026-FUT"
+    },
+    {
+      "security_id": "58072",
+      "instrument_type": "FUTIDX",
+      "days_ago": 60,
+      "from_date": "2026-06-11",
+      "to_date": "2026-06-15",
+      "status": "success",
+      "bars": 1125,
+      "instrument": "NIFTY-Aug2026-FUT"
+    },
+    {
+      "security_id": "58072",
+      "instrument_type": "FUTIDX",
+      "days_ago": 70,
+      "from_date": "2026-06-01",
+      "to_date": "2026-06-05",
+      "status": "success",
+      "bars": 1875,
+      "instrument": "NIFTY-Aug2026-FUT"
+    },
+    {
+      "security_id": "58072",
+      "instrument_type": "FUTIDX",
+      "days_ago": 80,
+      "from_date": "2026-05-22",
+      "to_date": "2026-05-26",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-FUT"
+    },
+    {
+      "security_id": "58072",
+      "instrument_type": "FUTIDX",
+      "days_ago": 90,
+      "from_date": "2026-05-12",
+      "to_date": "2026-05-16",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-FUT"
+    },
+    {
+      "security_id": "58072",
+      "instrument_type": "FUTIDX",
+      "days_ago": 120,
+      "from_date": "2026-04-12",
+      "to_date": "2026-04-16",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-FUT"
+    },
+    {
+      "security_id": "45104",
+      "instrument_type": "OPTIDX",
+      "days_ago": 30,
+      "from_date": "2026-07-11",
+      "to_date": "2026-07-15",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-24350-CE"
+    },
+    {
+      "security_id": "45104",
+      "instrument_type": "OPTIDX",
+      "days_ago": 40,
+      "from_date": "2026-07-01",
+      "to_date": "2026-07-05",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-24350-CE"
+    },
+    {
+      "security_id": "45104",
+      "instrument_type": "OPTIDX",
+      "days_ago": 50,
+      "from_date": "2026-06-21",
+      "to_date": "2026-06-25",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-24350-CE"
+    },
+    {
+      "security_id": "45104",
+      "instrument_type": "OPTIDX",
+      "days_ago": 60,
+      "from_date": "2026-06-11",
+      "to_date": "2026-06-15",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-24350-CE"
+    },
+    {
+      "security_id": "45104",
+      "instrument_type": "OPTIDX",
+      "days_ago": 70,
+      "from_date": "2026-06-01",
+      "to_date": "2026-06-05",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-24350-CE"
+    },
+    {
+      "security_id": "45104",
+      "instrument_type": "OPTIDX",
+      "days_ago": 80,
+      "from_date": "2026-05-22",
+      "to_date": "2026-05-26",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-24350-CE"
+    },
+    {
+      "security_id": "45104",
+      "instrument_type": "OPTIDX",
+      "days_ago": 90,
+      "from_date": "2026-05-12",
+      "to_date": "2026-05-16",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-24350-CE"
+    },
+    {
+      "security_id": "45104",
+      "instrument_type": "OPTIDX",
+      "days_ago": 120,
+      "from_date": "2026-04-12",
+      "to_date": "2026-04-16",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "instrument": "NIFTY-Aug2026-24350-CE"
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "run_at": "2026-08-14T13:00:49.868123",
+  "control": [
+    {
+      "security_id": "45104",
+      "from_date": "2026-08-08",
+      "to_date": "2026-08-13",
+      "instrument_type": "OPTIDX",
+      "status": "success",
+      "bars": 1540,
+      "symbol": "NIFTY-Aug2026-24350-CE",
+      "expiry": "2026-08-18",
+      "kind": "live_control"
+    }
+  ],
+  "expired": [
+    {
+      "security_id": "65677",
+      "from_date": "2026-07-29",
+      "to_date": "2026-08-03",
+      "instrument_type": "OPTIDX",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "symbol": "NIFTY-Aug2026-23600-PE",
+      "expiry": "2026-08-04",
+      "kind": "expired",
+      "days_since_expiry": 10
+    },
+    {
+      "security_id": "65677",
+      "from_date": "2026-07-04",
+      "to_date": "2026-07-08",
+      "instrument_type": "OPTIDX",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "symbol": "NIFTY-Aug2026-23600-PE",
+      "expiry": "2026-08-04",
+      "kind": "expired_retry_on_traded_date",
+      "days_since_expiry": 10
+    },
+    {
+      "security_id": "65685",
+      "from_date": "2026-07-29",
+      "to_date": "2026-08-03",
+      "instrument_type": "OPTIDX",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "symbol": "NIFTY-Aug2026-23800-PE",
+      "expiry": "2026-08-04",
+      "kind": "expired",
+      "days_since_expiry": 10
+    },
+    {
+      "security_id": "65685",
+      "from_date": "2026-07-04",
+      "to_date": "2026-07-08",
+      "instrument_type": "OPTIDX",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "symbol": "NIFTY-Aug2026-23800-PE",
+      "expiry": "2026-08-04",
+      "kind": "expired_retry_on_traded_date",
+      "days_since_expiry": 10
+    },
+    {
+      "security_id": "44623",
+      "from_date": "2026-07-01",
+      "to_date": "2026-07-06",
+      "instrument_type": "OPTIDX",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "symbol": "NIFTY-Jul2026-24050-PE",
+      "expiry": "2026-07-07",
+      "kind": "expired",
+      "days_since_expiry": 38
+    },
+    {
+      "security_id": "44623",
+      "from_date": "2026-07-04",
+      "to_date": "2026-07-08",
+      "instrument_type": "OPTIDX",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "symbol": "NIFTY-Jul2026-24050-PE",
+      "expiry": "2026-07-07",
+      "kind": "expired_retry_on_traded_date",
+      "days_since_expiry": 38
+    },
+    {
+      "security_id": "44643",
+      "from_date": "2026-07-01",
+      "to_date": "2026-07-06",
+      "instrument_type": "OPTIDX",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "symbol": "NIFTY-Jul2026-24250-PE",
+      "expiry": "2026-07-07",
+      "kind": "expired",
+      "days_since_expiry": 38
+    },
+    {
+      "security_id": "44643",
+      "from_date": "2026-07-04",
+      "to_date": "2026-07-08",
+      "instrument_type": "OPTIDX",
+      "status": "success",
+      "bars": 0,
+      "remarks": "",
+      "symbol": "NIFTY-Jul2026-24250-PE",
+      "expiry": "2026-07-07",
+      "kind": "expired_retry_on_traded_date",
+      "days_since_expiry": 38
+    }
+  ]
+}

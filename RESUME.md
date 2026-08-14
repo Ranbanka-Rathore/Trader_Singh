@@ -130,26 +130,70 @@ already be free on the existing account.**
 
 Probe, and record the answers here:
 
-- [ ] NIFTY **spot/index** — how many days/years of 1-min bars come back?
-- [ ] NIFTY **futures** (front month) — same
-- [ ] A **live weekly option** — same
-- [ ] An **EXPIRED weekly option** — *this is the one that decides everything.*
-      Historical intraday for expired contracts is often not retrievable by
-      security ID. If it is not, options research must be built FORWARD from
-      recorded data while index/futures research can start on history immediately.
+**ANSWERED 2026-08-14 13:00 IST** (`scratch/phase2_probe_intraday.py`,
+`phase2_probe_expired.py`, `phase2_probe_retention.py`; raw JSON beside each).
 
-This single test decides whether Phase 2 is "start researching next week" or
-"start recording and wait". Nothing else should be built before it is answered.
+- [x] NIFTY **spot/index** (secid 13, `IDX_I`) — **5+ years of 1-min bars.**
+      Hits at every rung of the ladder out to 1825 days (2021-08). Deep and free.
+      *Caveat:* the 2021 window returned 2260 bars for ~4 days where 375/day is
+      the session length, and a last bar at 18:42 — old-era timestamps need a
+      quality pass before use (see §9).
+- [x] NIFTY **futures** (front month, Aug2026, secid 58072) — **~75 days,
+      rolling.** Bars at 70d ago, empty at 80d. Not per-contract-life: a
+      rolling purge.
+- [x] A **live weekly option** (Aug18 24350 CE, secid 45104) — bars from
+      **2026-07-27 onward**, empty before. Cross-checked against longer-dated
+      contracts: Sep2026 24500 CE has bars at 30d but not 60d; Oct2026 24500 CE
+      has bars at 5d but not 30d. So an option's archive begins roughly **when
+      the contract starts actually trading**, not when it is listed — which
+      matches the known ~21-DTE liquidity onset for NIFTY.
+- [x] An **EXPIRED weekly option** — **NOT RETRIEVABLE. This is the answer that
+      shapes Phase 2.** Four contracts from this project's own `order_audit`
+      (known-good ids, known contracts, known trading days): 65677 and 65685
+      (expired 2026-08-04, 10 days ago) and 44623 and 44643 (expired 2026-07-07,
+      38 days ago) all returned **0 bars** — both for their final trading week
+      and for a window around the date the system actually placed orders against
+      them. The live control (45104) returned 1540 bars on the identical call, so
+      the difference is expiry and not the request.
 
-### Step 2 — Persist live ticks (do regardless of Step 1's outcome)
+### What the probe actually decided
 
-The harvester already receives ticks and drops them into 90-second Redis TTLs.
-Write them to disk instead. **This is the only item with a deadline** — history
-not captured today cannot be bought back if Dhan's archive turns out shallow. It
-also gives a forward-test set and validates any vendor data against real fills.
+Not "research next week" vs "record and wait" — a third thing neither branch
+anticipated:
+
+> **A live option contract's entire trading history is retrievable right up to
+> expiry, and is purged the moment it expires.**
+
+So the capture mechanism is **not** a live tick recorder. It is a **daily
+archival job** that walks the live contracts and pulls their 1-min bars to disk
+before they expire. Two consequences:
+
+1. **It is retroactive.** Every currently-live contract can be backfilled
+   *today* — its life-to-date, not just from now on. That is history the
+   "record forward" plan assumed was already lost.
+2. **The deadline is softer than §5 assumed, but real and dated.** Nothing is
+   lost by not recording *today*; things are lost at each *expiry*. The nearest
+   is **2026-08-18 (Tuesday, 4 days away)** — 462 contracts whose history goes
+   with it. Then 2026-08-25, and so on weekly.
+
+A live tick recorder is still worth building later for fill realism (bid/ask and
+queue behaviour that 1-min OHLC cannot show), but it is no longer the thing
+standing between Phase 2 and its first measurement.
+
+### Step 2 — Archive live option contracts before they expire  *(REVISED by the probe)*
+
+~~Persist live ticks.~~ Superseded. The probe showed live contracts keep their
+full history until expiry, so the job is to **pull 1-min bars for live contracts
+to disk, on a schedule that beats each expiry** — and to backfill every live
+contract now, which recovers history the original plan had written off.
+
+**Deadline: 2026-08-18 (Tue)** for the 462 contracts on that expiry, then weekly.
 
 Mirror `backtest/bhavcopy.py`'s discipline: cache to disk, quality report,
 explicit schema, refuse to silently return an empty range.
+
+Deferred, not cancelled: a live tick recorder for bid/ask and queue behaviour,
+which 1-min OHLC cannot show and which fill realism will eventually need.
 
 ### Step 3 — Write Amendment E to the charter
 
