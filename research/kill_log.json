@@ -1658,8 +1658,32 @@
    "supersedes": null,
    "note": "Prompted by the operator's question after arena intraday_index was closed on 2026-08-14. Tests that arena's own reopening condition #2 (a gross edge >= 8 index points from a genuinely different family) via the one lever its three screens did NOT test: conditioning on the volatility REGIME rather than on the signal. Registered in intraday_session because that is the open arena whose definition covers session and regime structure; it is not a backdoor registration into the closed arena, and if it clears, reopening intraday_index would still require the charter amendment its closure record demands. Runs on data/intraday/NIFTY/index.parquet (370,626 1-min bars, 992 days). Walk-forward by calendar year: train on all prior data, test on the year. Costs are the measured Amendment E9 figures (options 4.01 + 5.45/hr theta at 4 DTE; futures 7.71 all-in), cheaper instrument per horizon. All conditioning variables must be past-only; volatility terciles are cut on TRAILING realised vol using thresholds fixed from the training period only, never from the test year. Only forward windows closing inside the same session count.",
    "registered_at": "2026-08-14T20:37:48",
-   "status": "registered",
-   "events": [],
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-14T20:40:11",
+     "stage": "screen",
+     "verdict": "killed",
+     "detail": {
+      "screen": "scratch/arena7_edgesize.py",
+      "raw": "scratch/arena7_edgesize_results.json",
+      "cells": 18,
+      "bar_index_points": 8.0,
+      "a_gross_ge_8": 0,
+      "b_net_positive": 0,
+      "c_every_year": 0,
+      "d_significant": 0,
+      "e_enough_trades": 13,
+      "verdict": "KILLED \u2014 0 of 18 on every condition except trade count.",
+      "answer_to_the_question": "NO. No intraday edge reaches 8 index points out of sample. The best cell anywhere is 7.70 gross (h=60, high-vol regime, |z|>=2.0) against a 7.71-point cost floor \u2014 a net of -0.01 points, dead on breakeven before any execution error, and short of the 8.0 bar.",
+      "and_the_best_cell_is_not_even_that": "Its per-year record is 2024 gross -5.2, 2025 +14.7, 2026 +43.9. The pooled 7.70 is carried entirely by 41 trades in 2026. That is Section 6.7's 'single good configuration surrounded by bad ones' and fails Amendment D5's sign-consistency outright \u2014 2 of 3 years positive, not 3 of 3. The honest reading is that the top of the table is one lucky year, so the true best is lower than 7.70, not merely short of 8.",
+      "the_regime_lever_worked_directionally_and_still_failed": "Worth recording because the mechanism was correctly predicted and still did not save it. Mean OOS gross by volatility regime: low -0.83, mid -2.56, HIGH +2.21 pts, with the best cell in every horizon coming from the high-vol stratum. So edge = IC x sd does scale the edge in points where the distribution is widest, exactly as registered. It simply does not scale far enough: applying the same skill where moves are larger scales the noise with them.",
+      "the_fit_has_no_out_of_sample_skill": "11 of 18 cells have NEGATIVE out-of-sample gross edge \u2014 before costs. A walk-forward multivariate model trained on all prior years is worse than the single unfitted signal of screen 1, which at least had a positive IC. This is consistent with intraday-ceiling-modern's +0.0002: with nothing left to learn, the fit learns noise, so fitting actively HURTS out of sample.",
+      "what_this_closes": "Arena intraday_index's reopening condition #2 \u2014 'a gross edge >= 8 index points from a genuinely different signal family' \u2014 is demonstrably UNMET, tested out-of-sample via the one lever its own screens never used. Condition #2 should not be re-attempted with another signal set; the ceiling screen already showed the feature family is exhausted and this shows the regime lever does not close the gap either. Conditions #1 (a cost floor below ~3.0 points) and #3 (a different holding regime, which would be a new arena) remain the only live routes back.",
+      "arena_recommendation": "Arena 'intraday_session' RECOMMENDED FOR CLOSURE, per this hypothesis's own registered kill criterion. Session and regime structure were the lever under test and they do not produce a tradeable edge. Note this does NOT automatically close 'intraday_option': everything here is DIRECTIONAL, and non-directional option structures were not tested by it \u2014 though Arena 1 already killed short volatility on size-independent grounds, and the same measured cost floor applies to anything crossing the same book."
+     }
+    }
+   ],
    "fingerprint": "sha256:46e0af72723c1e92d69ecc3a7ca01397"
   }
  ],
