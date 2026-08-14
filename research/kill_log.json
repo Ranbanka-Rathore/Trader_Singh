@@ -1567,8 +1567,30 @@
    "supersedes": null,
    "note": "Arena 5, screen 3 and the last cheap question in it. Prompted by intraday-ic-modern (unconditional, killed on economics: 2.995 index points against a 4.01-7.71 point floor) and intraday-ceiling-modern (not closed, but showed 26 overfitted features add +0.0002 IC over one signal). Runs on data/intraday/NIFTY/index.parquet, 370,626 1-min bars, 992 trading days. Costs are the MEASURED ones from Amendment E9 rather than the engine default: options 4.01 points transaction + 5.45 pts/hr theta at 4 DTE, futures 7.71 points all-in with no theta; the cheaper at each horizon is used, which favours the claim. gate='strict' recorded for form; this executes no fills. Standardisation MUST be expanding/past-only \u2014 screen 1 was nearly derailed by a whole-session median normaliser, and the same trap applies to the z used here. Only bars whose forward window closes inside the same session are counted; no overnight carry, which is a different strategy class.",
    "registered_at": "2026-08-14T19:18:40",
-   "status": "registered",
-   "events": [],
+   "status": "killed",
+   "events": [
+    {
+     "at": "2026-08-14T19:21:31",
+     "stage": "screen",
+     "verdict": "killed",
+     "detail": {
+      "screen": "scratch/arena5_conditional.py",
+      "raw": "scratch/arena5_conditional_results.json",
+      "cells": 14,
+      "a_all_years_positive": 1,
+      "b_significant_positive": 0,
+      "c_enough_trades": 14,
+      "d_beats_fd": 0,
+      "verdict": "KILLED \u2014 0 of 14 cells significantly positive, 0 of 14 beat a 7% FD.",
+      "direction_was_declared_in_advance": "MOMENTUM was registered before the run, from screen 1's positive ICs. The measured result is not merely insignificant but mostly significantly NEGATIVE after costs (t = -5.21, -3.71, -3.25 on the highest-frequency cells). Conditioned momentum actively loses. Because the sign was declared first, this cannot be re-read as the discovery of a reversal effect.",
+      "conditioning_underdelivers_versus_linear_theory": "The case for running this screen rested on a normal-theory extrapolation: E[|z| given |z|>k] implies the edge should scale to 4.57 pts at k=1.0, 5.81 at 1.5, 7.12 at 2.0, 8.47 at 2.5. MEASURED at h=60: 2.35, 2.88, 2.24, 5.39 \u2014 short by 2.2 to 4.9 points at every threshold, and not even monotonic in k. The signal-return relation is not linear in z and the tails deliver less than proportionally, so that extrapolation was too optimistic and is recorded here as superseded by measurement.",
+      "the_gap_that_kills_it": "Cost floor 7.71 index points (futures, the cheapest instrument at these horizons). Best measured GROSS edge at h=60 across all thresholds: 5.39. The edge does not reach the cost before any of the statistical tests are applied.",
+      "no_overfitting_available_as_an_excuse": "Nothing was fitted: screen 1's fixed formulas, expanding past-only standardisation, threshold the sole free parameter. So this result cannot be attributed to a bad fit, and it cannot be rescued by a better one.",
+      "bug_found_and_fixed_before_recording": "The first run counted every qualifying BAR as a trade, ignoring that a 60-minute hold overlaps the next 59 bars. It reported 19,354 trades/yr (77 a day, when ~6 non-overlapping positions fit a 375-bar session) and annual returns of -2853% to +782%. Rerun with non-overlapping trades the counts are 56-720/yr and returns -132% to +6.9%. The kill was unchanged either way \u2014 it rests on condition (b), whose t-stat already corrected for overlap \u2014 but the broken figures were not allowed into this record.",
+      "arena_recommendation": "Arena 'intraday_index' RECOMMENDED FOR CLOSURE. The three screens together cover the space: intraday-ic-modern killed the unconditional case on economics; intraday-ceiling-modern showed 26 overfitted features add +0.0002 IC over one signal, so the feature space is exhausted; this screen kills the conditional case on both significance and economics. Section 7 leaves closure to the operator, so it is recorded as a recommendation, not executed."
+     }
+    }
+   ],
    "fingerprint": "sha256:45e470d95969cdddce543c78bceaa560"
   }
  ],
