@@ -219,10 +219,26 @@ edge.
 
 ### THE STANDING TASK — run this, and nothing else
 
+**It is now SCHEDULED.** Windows Task Scheduler task
+`AgenticTrader-IntradayArchive`, weekdays **15:45 IST**, running as the current
+user. Verified end-to-end by triggering a real run.
+
 ```
-python archive_daily.py          # after 15:30 IST, on trading days
-python archive_daily.py --coverage   # progress, no API calls
+schtasks /Query /TN "AgenticTrader-IntradayArchive" /V /FO LIST   # state
+type logsrchive\STATUS.txt                                     # last outcome
+python archive_daily.py --coverage                                # progress, no API calls
 ```
+
+`logsrchive\STATUS.txt` is the one thing to glance at. It reads `OK`,
+`TOKEN EXPIRED - NOTHING ARCHIVED`, or `FAILED exit=N`. Full output is in
+`logsrchiverchive_YYYY-MM-DD.log`.
+
+> **Most scheduled runs WILL abort with exit 2 until the token is refreshed.**
+> The Dhan token lives exactly 24 hours and cannot be renewed unattended. This is
+> expected, not a defect — but it means **refreshing `DHAN_ACCESS_TOKEN` in
+> `.env` is a manual daily step**, and a week of ignored `TOKEN EXPIRED` lines is
+> a week of expiries lost permanently. After refreshing, run
+> `archive_daily.bat` by hand to catch up that day.
 
 **Amendment E10 fixes what "a real sample" means, and it was fixed BEFORE the
 data arrived** — because measurements on the current 56 days already look
