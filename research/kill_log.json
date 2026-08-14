@@ -1493,7 +1493,7 @@
    "supersedes": null,
    "note": "Arena 5, ceiling screen, prompted by screen 1's kill (intraday-ic-modern) and by the cost measurement in Amendment E9. Runs on data/intraday/NIFTY/index.parquet (370,626 1-min bars, 992 trading days, 2022-08-16..2026-08-14). gate='strict' recorded for form: this computes correlations and a linear fit on index bars and executes no fills. Every feature must be past-only \u2014 rolling or expanding, never a session-wide aggregate. Screen 1 was nearly derailed by an rvol_ratio normalised on the whole session median, which made it the strongest signal in the screen until the lookahead was found. equity registered at the bottom of Amendment E's Rs 50k-1L range.",
    "registered_at": "2026-08-14T18:45:06",
-   "status": "not_closed",
+   "status": "killed",
    "events": [
     {
      "at": "2026-08-14T18:47:44",
@@ -1516,6 +1516,18 @@
       "where_the_positive_cells_live": "At threshold 0 \u2014 every bar, no selection \u2014 EVERY horizon is net negative, which agrees with screen 1. Positive cells appear only under aggressive conditioning, on 1.4%-21.6% of bars. That is precisely where an OLS fit's overfitting concentrates: a fitted model's most extreme predictions are its least reliable, and selecting on |z| of the fitted value selects the fit's own noise.",
       "long_horizons_are_untestable_intraday": "h=240 and h=375 returned zero usable rows. A forward return of that length must complete inside the same session, and a 375-bar session leaves almost nothing. Multi-hour holds therefore require carrying overnight, which is a different strategy class with different risk and different costs \u2014 not a longer version of this one.",
       "what_this_licenses": "Exactly one thing, named in the registration: an honest out-of-sample test of a SPECIFIC combination, registered separately. The cleanest such test is the conditional version of screen 1's unfitted signals \u2014 conditioning was explicitly outside screen 1's scope, and a single unfitted signal cannot overfit, so a threshold is the only free parameter."
+     }
+    },
+    {
+     "at": "2026-08-14T19:23:27",
+     "stage": "resolution",
+     "verdict": "killed",
+     "detail": {
+      "resolved_by": "intraday-conditional-modern",
+      "why_this_is_not_a_re_reading_of_its_own_criterion": "Stated plainly because it matters for auditability: this hypothesis's OWN kill criterion was NOT met. It said 'KILLED if the in-sample bound fails to exceed the cost floor at EVERY horizon and threshold'. The bound cleared at 13 of 20 cells, so that route to a kill was never available, and it is not being invoked now. Its claim \u2014 that an overfitted in-sample fit can clear the floor \u2014 was simply TRUE, and the registration said in advance that this would carry no information.",
+      "what_actually_resolves_it": "The registration named its own successor: 'the ONLY thing this licenses is an honest walk-forward of a specific combination, registered separately', and identified the cleanest such test as the conditional version of screen 1's unfitted signals. That test was registered as intraday-conditional-modern and was KILLED \u2014 0 of 14 cells significantly positive, 0 of 14 beating a 7% FD, and most significantly negative after costs. Since nothing was fitted there, the in-sample bound measured here is confirmed as an overfitting artifact rather than a signal that honest testing might have recovered.",
+      "terminal_status_reasoning": "Marked 'killed' rather than left at 'not_closed'. 'survived' would be actively dangerous \u2014 in this registry it means 'candidate for paper trading', which this is emphatically not. Leaving it 'not_closed' forever would block arena closure over a question that has in fact been answered. 'killed' with this event attached is the honest and auditable option: the question it opened is closed, and closed against it.",
+      "what_it_contributed": "The durable result is not the verdict but the measurement: 26 features combined by an OLS fit with no hold-out on 133,473 rows reached IC 0.0539 at h=60, against 0.0537 for ONE hand-picked unfitted signal. An incremental +0.0002 for 25 extra features plus unrestricted overfitting. As far as this feature family can see, the information in intraday NIFTY index bars is exhausted by a single simple signal."
      }
     }
    ],
@@ -1660,6 +1672,24 @@
    ],
    "hypotheses": [
     "xsect-mom-modern"
+   ]
+  },
+  "intraday_index": {
+   "status": "closed",
+   "closed_at": "2026-08-14T19:24:00",
+   "grounds": "MEASURED ABSENCE OF A TRADEABLE EDGE \u2014 not absence of evidence, and not 'unresolvable with the data available'. The distinction matters and the evidence supports the stronger claim.\n\nIntraday NIFTY is demonstrably NOT a random walk. Screen 1 found ICs that are significant after correcting for the overlap of forward windows AND sign-stable in every calendar year 2022-2026 (vwap_dev and or_pos both reach IC ~0.053 at h=60). The predictability is real. It is simply smaller than the cost of trading it.\n\nThe cost floor was MEASURED, not assumed (Amendment E9, 312 contracts from the live depth book): 4.01 index points round trip on ATM options plus 5.45 pts/hr of theta at 4 DTE, or 7.71 points all-in on futures with no theta. Statutory charges are the larger half of that and cannot be executed away \u2014 with PERFECT limit fills and zero slippage the floor is still 2.20 points, 73% of the entire measured edge. The best measured edge, at any horizon and any conditioning threshold, is 5.39 points against a 7.71-point floor.\n\nThree screens cover the space between them:\n  intraday-ic-modern          unconditional case killed on economics: 2.995 pts\n                              of edge against a 4.01-7.71 pt floor.\n  intraday-ceiling-modern     the feature space is exhausted. 26 features fitted\n                              in-sample with NO hold-out on 133,473 rows reached\n                              IC 0.0539 at h=60; ONE unfitted hand-picked signal\n                              reached 0.0537. Incremental value of 25 extra\n                              features plus unrestricted overfitting: +0.0002.\n  intraday-conditional-modern conditional case killed on BOTH significance and\n                              economics: 0 of 14 cells significantly positive,\n                              0 of 14 beating a 7% FD, most significantly\n                              NEGATIVE after costs. Nothing was fitted, so it\n                              cannot be blamed on a bad fit or rescued by a\n                              better one. Conditioning also underdelivered\n                              linear-IC theory by 2.2-4.9 points at every\n                              threshold.\n\nSearching harder is not indicated: the ceiling screen shows better features are not available in this family, and a larger sample would only measure the same too-small effect more precisely.",
+   "reopen_requires": "A charter amendment, justified by ONE of the following. Nothing less reopens this arena; Section 7 allows no extensions.\n\n1. A MATERIAL FALL IN THE COST FLOOR. The kill is a cost result, so it is    reversible by costs. Concretely: a measured all-in round-trip cost below    ~3.0 index points for an instrument this account can actually hold. That    would require a change in Indian F&O taxation (STT is the larger half of    the floor and dominates it at ATM), or an instrument with materially better    exposure-per-rupee than a 65-unit NIFTY lot. Re-measure with    backtest/option_spread.py before claiming it.\n\n2. AN EDGE OF A DIFFERENT ORDER, from a signal family genuinely unlike those    tested. The bar is a measured gross edge of >= 8 index points per round    trip, sign-stable across years. Note this is ~2.7x the best unconditional    edge found and ~1.5x the best conditional one, so 'a slightly better    momentum signal' does not qualify. The tested family is multi-lag momentum,    VWAP deviation, opening-range position, realised-vol state, range position,    acceleration and time-of-day.\n\n3. A DIFFERENT HOLDING REGIME. Everything here required the forward window to    close inside the same session; h=240 and h=375 returned zero usable rows for    that reason. Overnight and multi-day holds are a different strategy class    with different risk, different costs and no theta relief for long options,    and were never tested. They would be a NEW arena, not a reopening of this    one.",
+   "evidence": [
+    "scratch/arena5_intraday_ic.py + arena5_ic_results.json",
+    "scratch/arena5_ceiling.py + arena5_ceiling_results.json",
+    "scratch/arena5_conditional.py + arena5_conditional_results.json",
+    "backtest/option_spread.py + scratch/option_spread_measured.json",
+    "RESEARCH_CHARTER.md Amendment E9"
+   ],
+   "hypotheses": [
+    "intraday-ic-modern",
+    "intraday-ceiling-modern",
+    "intraday-conditional-modern"
    ]
   }
  }

@@ -13,10 +13,10 @@ Supersedes the 2026-08-13 handoff, which is preserved at commit `40a8dc4`.
 | Capital | **Rs 50k–1L, staged** — added once the system is developed. Rs 10,111 funded now. |
 | Charter | **Amendment E** written, and bound in `research/charter.py` + 10 tests. |
 | Archive | **3.98M 1-min bars** on disk, 577 contracts. Aug-18 expiry secured. |
-| Arena 5 | **Screen 1 KILLED** — index IS predictable; the edge is smaller than the cost. |
+| Arena 5 | **CLOSED 2026-08-14** — 3 screens, all killed. Index IS predictable; edge < cost. |
 | Spread | **Measured** (E9). Rs 0.25/leg, 3x tighter than assumed — and the kill got *stronger*. |
-| Registry | **10 registered, 10 killed.** |
-| Tests | **856 checks, 0 failures.** |
+| Registry | **12 registered, 12 killed, 0 survivors. 5 of 7 arenas closed.** |
+| Tests | **863 checks, 0 failures.** |
 
 **The single most important number found today:**
 
@@ -132,12 +132,28 @@ the kind that get reported as discoveries:
 
 ---
 
-## 3. Registry state
+## 3. Registry state — Arena 5 is CLOSED
 
-10 registered, 10 killed, 0 survivors. `python -m research.loop list`.
+**12 registered, 12 killed, 0 survivors.** `python -m research.loop list`.
 
-Arena `intraday_index` is **not closed** — Section 7 leaves closure an operator
-decision and fixes no screen allotment. Screen 1 closes one specific idea.
+**Arena `intraday_index` was closed by the operator on 2026-08-14** on grounds of
+**measured absence of a tradeable edge** — deliberately not "absence of evidence"
+and not "unresolvable with the data available". The three screens:
+
+| hypothesis | verdict |
+|---|---|
+| `intraday-ic-modern` | killed — unconditional, 2.995 pts edge vs a 4.01–7.71 pt floor |
+| `intraday-ceiling-modern` | killed — feature space exhausted: 26 overfitted features buy **+0.0002 IC** over one |
+| `intraday-conditional-modern` | killed — 0/14 significant, 0/14 beat a 7% FD, most significantly negative |
+
+The registry now **refuses** any registration into it. Reopening needs a charter
+amendment justified by one of three named conditions (see `kill_log.json`):
+a measured all-in cost below ~3.0 index points; a gross edge ≥ 8 points from a
+genuinely different signal family; or a different holding regime — and overnight
+/ multi-day holds would be a **new arena**, not a reopening of this one.
+
+**Arenas still open: `intraday_option`, `intraday_session`.** Both cross the same
+book and face the same measured floor, so both inherit the ≥8-point bar.
 
 ---
 
@@ -184,12 +200,24 @@ edge.
 
 ### So what is actually left?
 
-The honest reading is that **Arena 5's kill generalises**: any strategy whose
-edge is measured in single-digit index points and which crosses a NIFTY option
-book at this capital has the same problem. That covers most of what Arenas 6 and
-7 would propose. Before designing another screen, the question to settle is
-whether *any* reachable edge is large enough — which is a question about edge
-size, not about signals.
+Arena 5's kill **generalises**: any strategy whose edge is single-digit index
+points and which crosses a NIFTY option book at this capital hits the same floor.
+Arenas 6 and 7 cross that same book, so they inherit a **≥8 index point** bar
+before they are worth registering at all.
+
+Three honest options, in the order they should be considered:
+
+1. **Test whether ANY intraday edge reaches ~8 points**, before designing another
+   signal screen. This is a question about edge *size*, not about signals, and
+   the ceiling screen's method (an upper bound that can only close) is the right
+   shape for it.
+2. **Attack the cost floor instead of the edge** — a different instrument or
+   underlying with better exposure-per-rupee than a 65-unit NIFTY lot. Statutory
+   charges are the larger half of the floor and are not negotiable, so this is
+   about lot economics, not broker choice.
+3. **Invoke Section 7.** 12 registered, 12 killed, 0 survivors, 5 of 7 arenas
+   closed. Amendment E3 already records that the project cannot be justified by
+   its returns at this capital.
 
 **Not a blocker (resolved 2026-08-14):** the Rs 10,111 broker balance is not a
 gap. Capital is **staged** — the operator adds the Rs 50k–1L once the system is
