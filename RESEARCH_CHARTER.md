@@ -903,6 +903,73 @@ before treating the spread column as a distribution. The statutory floor,
 however, does not depend on the spread or on when it is sampled.*
 
 
+## Amendment E10 — what counts as "a real sample", fixed before the data arrives
+
+**Added 2026-08-14, after the operator chose to keep archiving rather than
+register another hypothesis on 56 days of data.**
+
+### E10.0 Why this is written now
+
+The intraday option archive currently holds **56 distinct trading days**
+(2026-05-27 → 2026-08-14). Measurements on it already look encouraging — a
+full-session short straddle shows +Rs 778/lot at t=8.64 — and that is exactly the
+danger. If the sufficiency bar is set *after* watching the sample grow, it will be
+set at whatever point the numbers look best. This amendment fixes it in advance,
+which is the same device that let Phase 1 read its negative results honestly.
+
+### E10.1 Count DISTINCT DAYS, never observations
+
+The 280 straddle-sessions measured on 2026-08-14 came from **56 independent
+days**; observations across strikes within a day are near-identical, inflating
+every t-statistic by ~**2.2x**. **The sample size of any intraday option study is
+the number of distinct trading days.** Reporting a straddle-session count as the
+sample size is a Section 6 evidence failure.
+
+### E10.2 The bar — all three required
+
+| criterion | required | as of 2026-08-14 |
+|---|---|---|
+| distinct trading days archived | **>= 250** | 56 |
+| non-overlapping quarters, effect sign-consistent in each | **>= 3** | 0 |
+| **shock days** in the sample | **>= 2** | **0** |
+
+A **shock day** is objectively defined, from the index history already on disk, so
+it cannot be renegotiated: a session whose realised intraday variance is at or
+above **152.5e-6** — the p99 of 989 sessions from 2022-08 to 2026-08, equivalent
+to **19.6% annualised**. This occurs roughly **1 day in 99**.
+
+Two are required, not one, so the tail is sampled rather than anecdotal. This
+criterion exists because Arena 1's closure and Section 6.4 both turn on the same
+failure: a short-premium edge that is real until the tail arrives. **The current
+archive contains none.**
+
+### E10.3 The stop-date collision, stated now
+
+Roughly 100 trading days remain to the Section 7 review date of **2027-01-07**.
+56 banked plus ~100 gives **~156 days** — well short of 250 — and at 1-in-99,
+only **1 shock day** is expected in that span against a bar of 2.
+
+**So the bar will most likely NOT be met by the stop date.** That is not a reason
+to lower it. It means the review on 2027-01-07 will face a genuine choice, and it
+is recorded now so it arrives as a decision rather than a surprise:
+
+- extend the project by amendment, purely to finish accumulating the sample; or
+- stop on schedule with the intraday-option question **open and undecided**,
+  which is an honest outcome and must not be reported as a negative result; or
+- register a hypothesis on an admittedly short sample and accept that Section 6.4
+  makes its conclusion inadmissible either way.
+
+**Nothing in E10 licenses trading on an insufficient sample.** Section 5's
+promotion gate and Amendment C's paper-sample requirements are unchanged and
+apply on top of this.
+
+### E10.4 Archiving is a data obligation, not a research activity
+
+Running `python archive_daily.py` is not a screen and spends no
+multiple-comparisons budget. It also may not be used to *look*: coverage
+reporting shows day counts and shock counts only, never P&L. The next look at
+this data is the one that follows a registration.
+
 ## Amendment Log
 
 *(append-only; date + reason + what changed. An amendment made after seeing a
