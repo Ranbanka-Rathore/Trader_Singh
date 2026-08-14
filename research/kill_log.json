@@ -1446,6 +1446,56 @@
     }
    ],
    "fingerprint": "sha256:ed71e9bf3a637a638d7f05d09a462015"
+  },
+  {
+   "id": "intraday-ceiling-modern",
+   "arena": "intraday_index",
+   "claim": "An IN-SAMPLE optimal linear combination of a rich intraday feature set (20+ features: multi-lag momentum, VWAP deviation, opening-range position, realised-vol state, range position, acceleration, time-of-day) achieves, at its best horizon and best signal-strength threshold, a per-trade edge in INDEX POINTS exceeding the cheapest measured round-trip cost at that horizon. Costs are the measured ones from Amendment E9: NIFTY options 4.01 points transaction plus theta of 5.45 pts/hr at 4 DTE, or NIFTY futures 7.71 points with no theta; the cheaper of the two is used at each horizon, which favours the claim. Because the fit is in-sample and overfitted with no hold-out, and because horizon and threshold are chosen after seeing every result, the edge produced is an UPPER BOUND on what any out-of-sample strategy in this arena could achieve.",
+   "kill_criterion": "KILLED, and arena 'intraday_index' recommended for closure, if the in-sample overfitted upper-bound edge fails to exceed the cheapest measured cost floor at EVERY horizon in {15,30,60,120,240,375} minutes and at every conditioning threshold tested. The logic is one-directional and deliberate: no out-of-sample strategy can beat an in-sample fit on the same features, so a bound that fails the economics closes the space rather than merely this attempt. IF THE BOUND CLEARS, THAT IS NOT A FINDING and must not be reported as one \u2014 an overfit in-sample fit clearing a bar is expected, carries no out-of-sample content, and leaves the arena exactly as open as it was. In that case the hypothesis is recorded as 'not closed' rather than 'survived', and the next step would be an honest walk-forward of the specific combination, registered separately.",
+   "engine": "intraday_ceiling",
+   "underlying": "NIFTY",
+   "equity": 50000.0,
+   "era": null,
+   "window": [
+    "2022-08-16",
+    "2026-08-14"
+   ],
+   "gate": "strict",
+   "n_configs": 6,
+   "config": {
+    "kind": "in-sample upper bound (deliberately overfitted)",
+    "horizons_min": [
+     15,
+     30,
+     60,
+     120,
+     240,
+     375
+    ],
+    "conditioning_thresholds_z": [
+     0.0,
+     1.0,
+     1.5,
+     2.0,
+     2.5
+    ],
+    "source": "data/intraday/NIFTY/index.parquet",
+    "cost_floor_index_points": {
+     "option_transaction": 4.01,
+     "option_theta_pts_per_hour_4dte": 5.45,
+     "future_all_in": 7.71,
+     "source": "Amendment E9 / backtest/option_spread.py"
+    },
+    "direction": "can only close the arena, never open it"
+   },
+   "sweep": null,
+   "requires": [],
+   "supersedes": null,
+   "note": "Arena 5, ceiling screen, prompted by screen 1's kill (intraday-ic-modern) and by the cost measurement in Amendment E9. Runs on data/intraday/NIFTY/index.parquet (370,626 1-min bars, 992 trading days, 2022-08-16..2026-08-14). gate='strict' recorded for form: this computes correlations and a linear fit on index bars and executes no fills. Every feature must be past-only \u2014 rolling or expanding, never a session-wide aggregate. Screen 1 was nearly derailed by an rvol_ratio normalised on the whole session median, which made it the strongest signal in the screen until the lookahead was found. equity registered at the bottom of Amendment E's Rs 50k-1L range.",
+   "registered_at": "2026-08-14T18:45:06",
+   "status": "registered",
+   "events": [],
+   "fingerprint": "sha256:7df6e604504109ba9637fff80068cc37"
   }
  ],
  "arenas": {
