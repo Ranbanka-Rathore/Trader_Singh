@@ -225,13 +225,13 @@ user. Verified end-to-end by triggering a real run.
 
 ```
 schtasks /Query /TN "AgenticTrader-IntradayArchive" /V /FO LIST   # state
-type logsrchive\STATUS.txt                                     # last outcome
+type logs\archive\STATUS.txt                                     # last outcome
 python archive_daily.py --coverage                                # progress, no API calls
 ```
 
-`logsrchive\STATUS.txt` is the one thing to glance at. It reads `OK`,
+`logs/archive/STATUS.txt` is the one thing to glance at. It reads `OK`,
 `TOKEN EXPIRED - NOTHING ARCHIVED`, or `FAILED exit=N`. Full output is in
-`logsrchiverchive_YYYY-MM-DD.log`.
+`logs/archive/archive_YYYY-MM-DD.log`.
 
 > **Most scheduled runs WILL abort with exit 2 until the token is refreshed.**
 > The Dhan token lives exactly 24 hours and cannot be renewed unattended. This is
