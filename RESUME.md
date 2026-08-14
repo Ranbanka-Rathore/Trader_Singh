@@ -15,8 +15,10 @@ Supersedes the 2026-08-13 handoff, which is preserved at commit `40a8dc4`.
 | Archive | **3.98M 1-min bars** on disk, 577 contracts. Aug-18 expiry secured. |
 | Arena 5 | **CLOSED 2026-08-14** — 3 screens, all killed. Index IS predictable; edge < cost. |
 | Arena 7 | **CLOSED 2026-08-14** — no intraday edge reaches 8 pts OOS; best 7.70 vs 7.71 cost. |
+| Arena 6 | Screen advanced then **KILLED** — its premise (clock-linear decay) is measured false. |
+| **NOW** | **Archiving toward Amendment E10's bar. No hypothesis may be registered until it is met.** |
 | Spread | **Measured** (E9). Rs 0.25/leg, 3x tighter than assumed — and the kill got *stronger*. |
-| Registry | **13 registered, 13 killed, 0 survivors. 6 of 7 arenas closed.** |
+| Registry | **14 registered, 14 killed, 0 survivors. 6 of 7 arenas closed.** |
 | Tests | **863 checks, 0 failures.** |
 
 **The single most important number found today:**
@@ -215,6 +217,44 @@ to turn the spread column into a distribution. Note it cannot rescue the trade �
 the statutory floor is independent of the spread and already takes 73% of the
 edge.
 
+### THE STANDING TASK — run this, and nothing else
+
+```
+python archive_daily.py          # after 15:30 IST, on trading days
+python archive_daily.py --coverage   # progress, no API calls
+```
+
+**Amendment E10 fixes what "a real sample" means, and it was fixed BEFORE the
+data arrived** — because measurements on the current 56 days already look
+encouraging (+Rs 778/lot full-session short straddle, t=8.64) and a bar set later
+is a bar set where the numbers look best.
+
+| criterion | required | now |
+|---|---|---|
+| distinct trading days | **250** | 56 |
+| sign-consistent quarters | **3** | 2 |
+| **shock days** (variance ≥ 152.5e-6 = p99, 19.6% ann.) | **2** | **0** |
+
+**No hypothesis may be registered against this sample until all three are met**
+(E10.2). Sample size is counted in **distinct days, never straddle-sessions** —
+today's 280 observations came from 56 independent days and inflated every t by
+~2.2× (E10.1). Coverage reporting deliberately shows day counts only, never P&L:
+the next look at this data is the one that follows a registration (E10.4).
+
+**The token lives exactly 24 hours.** `archive_daily.py` checks it first and
+aborts loudly with a non-zero exit rather than silently archiving nothing —
+history lost to an expiry is not recoverable at any price. Refresh
+`DHAN_ACCESS_TOKEN` in `.env` before each run. That constraint is why this is not
+yet a scheduled task.
+
+**E10.3 — the collision, so January is not a surprise.** ~100 trading days remain
+to the 2027-01-07 stop: 56 + ~100 = **~156 against a 250-day bar**, and at 1-in-99
+only **one** shock day is expected against a bar of two. **The bar will most
+likely not be met by the stop date.** That is not a reason to lower it. The
+review faces a stated choice: extend purely to finish the sample, stop with the
+question honestly **open**, or register on a short sample and accept that Section
+6.4 makes the conclusion inadmissible either way.
+
 ### So what is actually left?
 
 Arena 5's kill **generalises**: any strategy whose edge is single-digit index
@@ -225,9 +265,15 @@ before they are worth registering at all.
 That question has now been asked and answered: **no intraday edge reaches 8
 points out of sample.** What remains:
 
-1. **One non-directional screen in `intraday_option`** — the only open arena.
-   Everything tested to date was directional. Honest prior: poor. Arena 1 killed
-   short volatility on size-independent grounds and the same cost floor applies.
+1. **`intraday_option` remains the only open arena, but is now gated by E10.**
+   Its one screen advanced and was then killed: the premise it registered —
+   that decay accrues linearly in clock time — is measured false. Real decay is
+   10.1% of the day's total in the 11:00–13:00 window against 32.4% of the clock,
+   and that window's model-free P&L is **+Rs 15/lot at t=0.36**, against the
+   Rs 727 the screen modelled. **`research/ARENAS.md` now carries a disclosure**:
+   the closing window and full session DO clear a four-order cost on this sample,
+   so anything registered here from now on is registered by someone who already
+   knows that.
 2. **Attack the cost floor, not the edge.** Every kill in Phase 2 has been a cost
    result. Statutory charges are the larger half and are not negotiable, so this
    means lot economics — a different underlying or contract size — not a
