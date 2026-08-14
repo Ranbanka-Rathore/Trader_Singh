@@ -650,12 +650,30 @@ Rs 1,00,000 drawdown budget, and the Section 2 capacity criterion.
 
 **The operator's actual capital is Rs 50,000 – Rs 1,00,000.**
 
-Recorded because it matters and is not yet reconciled: the funded Dhan account
-showed an available balance of **Rs 10,111.18** when probed on 2026-08-14. The
-Rs 50k–1L figure is the operator's stated capital; the Rs 10,111 is what the
-broker reports today. Every number below is expressed as a **percentage**, so
-whichever figure turns out to be binding, the research does not have to be
-redone — which is the specific mistake this amendment exists to stop repeating.
+**Capital is staged, and that is deliberate.** The funded Dhan account showed
+**Rs 10,111.18** when probed on 2026-08-14. That is not a contradiction of the
+Rs 50k–1L figure and is not an accounting gap: the operator's position, given
+2026-08-14, is that the **Rs 50k–1L is added once the system is developed** —
+funding follows validation, not the other way round.
+
+This has three consequences the charter should hold onto:
+
+1. **The research and paper stages run at nominal capital.** Nothing before the
+   Section 5 promotion gate needs the money to be present, and Section 1 already
+   requires the search to be paper-only until that gate is passed.
+2. **E2's percentage thresholds are the right shape for exactly this reason.**
+   The deployment figure is not known precisely today and does not need to be:
+   a criterion expressed as a percentage does not care which point in the
+   Rs 50k–1L range is eventually funded. This is what stops the original mistake
+   — a rupee figure hardening into an axiom — from recurring.
+3. **E3 below is therefore the operator's own funding model, not this
+   amendment's editorial.** The project is justified as a validated system that
+   capital is added to, which is precisely how it is being funded.
+
+**What this does NOT license.** Staged capital is a reason to size the eventual
+deployment carefully, never a reason to relax a gate on the grounds that "the
+real money isn't in yet". A promotion earned at nominal capital is a promotion
+to trade at the sizing that promotion was measured at.
 
 ### E1. What still binds from Phase 1, unchanged
 
@@ -890,8 +908,9 @@ result it would change invalidates that result.)*
   written in as an axiom on 2026-08-07. The 15% CAGR target, the Rs 2.25L/year
   goal, Amendment A's Rs 1,00,000 drawdown budget and the Section 2 capacity
   criterion all descended from it. Actual capital is **Rs 50,000 – Rs 1,00,000**
-  (with the funded account showing Rs 10,111 on the day, unreconciled and recorded
-  as such). Every threshold is now expressed as a **percentage** so no rupee figure
+  (the funded account showed Rs 10,111 on the day; capital is **staged** — the
+  operator adds it once the system is developed, so funding follows validation,
+  which is exactly the justification E3 records). Every threshold is now expressed as a **percentage** so no rupee figure
   can become an axiom again. Supersedes Section 2's criteria table and Amendment
   A1's targets; **Sections 3–7 and Amendments B, C, D, D5 are unchanged and still
   in force**, including Section 4's comparisons discipline and the 2027-01-07

@@ -10,7 +10,7 @@ Supersedes the 2026-08-13 handoff, which is preserved at commit `40a8dc4`.
 | | |
 |---|---|
 | Data probe | **Answered.** Expired option history is NOT retrievable. Index is 5+ yrs. |
-| Capital | **Rs 50k–1L** (operator). Broker account shows **Rs 10,111** — unreconciled. |
+| Capital | **Rs 50k–1L, staged** — added once the system is developed. Rs 10,111 funded now. |
 | Charter | **Amendment E** written, and bound in `research/charter.py` + 10 tests. |
 | Archive | **3.98M 1-min bars** on disk, 577 contracts. Aug-18 expiry secured. |
 | Arena 5 | **Screen 1 KILLED** — index IS predictable; the edge is smaller than the spread. |
@@ -172,10 +172,13 @@ them into 90-second Redis TTLs (`market_data_service._process_tick` →
 Do this before designing any further screen. It is one measurement that either
 reopens the arena or closes most of Phase 2 honestly.
 
-**Second, unblocked and independent:** reconcile the Rs 10,111 broker balance
-against the stated Rs 50k–1L. Amendment E's arithmetic is written in
-percentages so nothing has to be redone, but position sizing at Rs 10k is a
-different problem from position sizing at Rs 1L.
+**Not a blocker (resolved 2026-08-14):** the Rs 10,111 broker balance is not a
+gap. Capital is **staged** — the operator adds the Rs 50k–1L once the system is
+developed. Funding follows validation, which is exactly what Amendment E3 says
+the project is for, and is why E2's thresholds are percentages rather than rupee
+figures. Nothing before the Section 5 gate needs the money present. It does mean
+a promotion earned at nominal size is a promotion to trade at *that* size — not
+a licence to relax a gate because the real money is not in yet.
 
 ---
 
