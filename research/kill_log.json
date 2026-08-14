@@ -1727,7 +1727,57 @@
    "note": "Arena 6 (intraday_option), the last open arena. Non-directional by construction: the quantity measured is variance, which has no sign. Runs on data/intraday/NIFTY/index.parquet (370,626 1-min bars, 989 sessions, 2022-08-16..2026-08-14) \u2014 the INDEX series, deliberately, because Amendment E6 forbids resting an options hypothesis on option history that was not archived before expiry and no expiry-day option bars exist on disk yet. Costs are the measured Amendment E9 figures. A straddle is 2 legs and a round trip is 4 orders, so the cost is roughly double the single-leg figures used in arena 5. gate='strict' recorded for form; this executes no fills. Windows are fixed clock intervals declared in config, not searched. Every conditioning variable is past-only: the low-vol day filter uses the PRIOR day's realised vol, never the current day's.",
    "registered_at": "2026-08-14T20:53:59",
    "status": "registered",
-   "events": [],
+   "events": [
+    {
+     "at": "2026-08-14T21:01:01",
+     "stage": "screen",
+     "verdict": "advance",
+     "detail": {
+      "screen": "scratch/arena6_varshare.py",
+      "raw": "scratch/arena6_varshare_results.json",
+      "cells": 12,
+      "clearing_all_four": 3,
+      "survivors": [
+       {
+        "window": "11:00-13:00",
+        "conditioning": "prior_day_low_vol",
+        "edge_rs": 726.71,
+        "cost_rs": 189.72,
+        "worst_day_rs": -1827.11,
+        "t": 28.37,
+        "years": 2
+       },
+       {
+        "window": "13:00-14:30",
+        "conditioning": "prior_day_low_vol",
+        "edge_rs": 509.47,
+        "cost_rs": 189.72,
+        "worst_day_rs": -210.6,
+        "t": 10.83,
+        "years": 2
+       },
+       {
+        "window": "11:00-14:30",
+        "conditioning": "prior_day_low_vol",
+        "edge_rs": 1236.17,
+        "cost_rs": 189.72,
+        "worst_day_rs": -1985.42,
+        "t": 28.26,
+        "years": 2
+       }
+      ],
+      "verdict": "ADVANCE on the registered criteria \u2014 the first non-kill in 14 hypotheses.",
+      "BLOCKER_NOT_IN_THE_REGISTERED_CRITERIA": "The structure priced is a 1-lot NAKED SHORT STRADDLE, needing roughly Rs 228,000 of SPAN+exposure margin (backtest/margin.py naked_frac 0.12 of notional, two legs, generous 40% offset). That is 2.3x the TOP of Amendment E's Rs 50k-1L range: the account cannot hold the position, so the result describes an edge it cannot access. Recorded as a blocker and NOT used to convert the verdict into a kill \u2014 affordability was not among the four registered conditions, and the charter's opening rule is that an amendment made after seeing a result it would change invalidates that result. The gap is mine: the registration should have carried a margin condition.",
+      "the_affordable_variant_was_not_measured": "An iron fly is defined-risk and needs only ~Rs 6,500 of margin at 100-point wings, which fits. It was NOT measured and cannot be inferred from this: 4 legs and 8 orders round trip rather than 4, roughly doubling cost, and long wings that decay AGAINST the position, cutting net theta well below the naked straddle priced here. Whether it clears the 2x bar needs its own registration.",
+      "mechanism_validated_on_archived_option_data": "Both assumptions were checked against option bars archived today rather than assumed. (1) Intraday IV is FLAT \u2014 0.1157 / 0.1168 / 0.1171 at 10:00 / 12:30 / 15:00 on the 24400 CE \u2014 so vol is not marked up through the quiet midday and decay is roughly linear in clock time. (2) Straddles genuinely DO decay intraday: the 24400 straddle lost 11.06 pts/day on average, 13.99 on quiet days (spot <80 pts), across 46 sessions. Had either failed the edge would have been an artifact of the assumption.",
+      "where_the_edge_comes_from": "Not a mispricing. The option is priced for CALENDAR time including the overnight gap; an intraday seller is flat overnight and bears only intraday variance, which runs ~42% of implied. The seller collects decay for time they are exposed to only part of the risk. Structural, and the reason intraday premium selling is a crowded trade in this market.",
+      "the_tail_is_the_whole_story": "Unconditionally it is ruinous: 11:00-14:30 on ALL days has a worst day of -Rs 54,852, 110% of a Rs 50,000 account. Every surviving cell is prior_day_low_vol. That filter is not merely shrinking the sample \u2014 low-prior-vol days have a MAX window variance of 70.66e-6 against an all-days p99 of 87.64e-6 and max of 1100.10e-6, so the tail is genuinely shorter, not just less sampled. Volatility clustering is real. But the protection is statistical, not structural: an intraday shock on a quiet day is made less likely, not excluded.",
+      "thin_evidence_flagged": "The low-vol subset has 338 days and only TWO calendar years with >= 60 days. Condition (c) is satisfied as written but on two years \u2014 weak by this project's own standards.",
+      "bug_found_and_fixed_before_recording": "The first run overstated every edge by exactly 2x, using a scale of 2*LOT*premium/(IV^2 * T) against a bracket already carrying IV^2. It surfaced because the reported edge for 11:00-14:30 was Rs 1,706 against only Rs 1,354 of theta available over that window, and an edge above the total decay collected is impossible. Corrected to LOT*premium/T; 4 cells became 3.",
+      "prior_recorded_as_poor_still_stands": "Arena 1 killed weekly short volatility, finding the premium was payment for a left tail. This does not overturn that \u2014 it is intraday and flat overnight, a different exposure \u2014 and the unconditional tail here is consistent with Arena 1 rather than contradicting it."
+     }
+    }
+   ],
    "fingerprint": "sha256:e0abbddb08acaa6f446a0e3fb1125364"
   }
  ],
