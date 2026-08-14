@@ -850,6 +850,59 @@ loosely, and to prefer closing an arena early over extending it.
 The hard project stop of **2027-01-07** in Section 7 is not extended by this
 amendment. Phase 2 gets the remaining time, not more.
 
+### E9. Cost must be measured per INDEX POINT, not per rupee — and E4's premium guidance is misleading
+
+**Added later the same day (2026-08-14), after measuring the real option book.
+It corrects an implication of E4 above.**
+
+E4 concluded that at Rs 50,000 and 1% risk "the affordable premium is ~Rs
+19/unit". That arithmetic is correct and its implication is wrong. Measured
+against the actual depth book (312 contracts, `backtest/option_spread.py`,
+`scratch/option_spread_measured.json`), **a Rs 19 option is close to the most
+expensive thing on the board to trade.**
+
+The reason is that cost per rupee of premium and cost per unit of *exposure* run
+in opposite directions. A far-OTM option is cheap to buy and has almost no delta,
+so one lot buys very little index exposure — while the statutory charge per lot
+is near-flat and does not shrink with it.
+
+| premium | mid | delta | exposure/lot | **cost, index points, round trip** | floor at zero spread |
+|---|---|---|---|---|---|
+| <5 | 1.36 | 0.009 | 0.6 | **94.52** | 83.11 |
+| 10–20 | 13.57 | 0.086 | 5.6 | **12.87** | 8.78 |
+| 20–40 | 27.35 | 0.154 | 10.0 | **6.65** | 5.03 |
+| 40–80 | 56.89 | 0.271 | 17.6 | **5.09** | 3.07 |
+| 80–160 | 117.06 | 0.429 | 27.9 | **4.01** | 2.20 |
+| >160 | 675.49 | 0.851 | 55.3 | **10.60** | 2.34 |
+
+Three things follow, and they bind on every Phase 2 arena:
+
+1. **Quote every cost in index points.** A spread quoted in rupees says nothing
+   until it is divided by the delta it buys. The measured median half-spread is
+   Rs 0.25/leg — three times *tighter* than the Rs 0.75 the engine assumes — and
+   the trade is still uneconomic, because the rupee figure was never the binding
+   quantity.
+2. **Statutory charges are the larger half of the cost, and are the half that
+   execution skill cannot touch.** At ATM: Rs 61.44 statutory against Rs 50.38 of
+   spread. With perfect limit fills and zero slippage the floor is still **2.20
+   index points** round trip.
+3. **The squeeze is structural, not a tuning problem.** Cost per point is
+   minimised at ATM, and ATM is precisely what this capital cannot hold: one lot
+   is Rs 7,609, and a −40% stop on it is **6.1% of a Rs 50,000 account** against
+   E4's own 1–2% per-trade budget. The contract whose cost structure works is
+   unaffordable; the contract that is affordable costs 12.87 points.
+
+**So E4's "max affordable premium" is a risk-budget ceiling, and it must never be
+read as a recommendation.** Anything registered against a premium below ~Rs 40
+should state its cost in index points explicitly, because the number will be
+large and it will usually be the reason the hypothesis dies.
+
+*Caveat kept with the finding: one after-hours snapshot of the closing book, two
+expiries, 10–12 contracts per mid-premium bucket. Intraday sampling is required
+before treating the spread column as a distribution. The statutory floor,
+however, does not depend on the spread or on when it is sampled.*
+
+
 ## Amendment Log
 
 *(append-only; date + reason + what changed. An amendment made after seeing a
@@ -936,3 +989,33 @@ result it would change invalidates that result.)*
   returns** — Rs 11,250/yr against a Rs 5,250 FD for 780 hours — and is justified
   only as a validated system tested where being wrong is cheap, written down so
   the gap cannot later be closed by quietly raising position size.
+- 2026-08-14 — **Amendment E9** added, same day, **correcting an implication of
+  E4**. Reason: E4 computed the largest premium a 1-2% per-trade risk budget can
+  carry at Rs 50k-1L (~Rs 19/unit at the low end) and that arithmetic is right,
+  but reading it as *where to trade* is wrong. Measured against the real depth
+  book (312 contracts, `backtest/option_spread.py`), **a Rs 19 option is close to
+  the most expensive instrument on the board** — 12.87 index points of round-trip
+  cost against Arena 5's 2.995-point edge — because cost per rupee of premium and
+  cost per unit of *exposure* run in opposite directions: a far-OTM option is
+  cheap to buy and has almost no delta, while the statutory charge per lot is
+  near-flat and does not shrink with it.
+  Three requirements follow and bind every Phase 2 arena: **quote every cost in
+  index points**, since the measured half-spread of Rs 0.25/leg is three times
+  *tighter* than the engine's assumed 0.75 and the trade is still uneconomic;
+  **statutory charges are the larger half** (Rs 61.44 vs Rs 50.38 of spread at
+  ATM) and are the half execution skill cannot touch, leaving an irreducible
+  **2.20-point floor** at perfect fills, which is 73% of the whole edge; and the
+  squeeze is **structural** — cost per point is minimised at ATM, but one ATM lot
+  is Rs 7,609 and a -40% stop on it is 6.1% of a Rs 50,000 account against E4's
+  own 1-2% budget. The contract whose cost structure works is unaffordable and
+  the affordable one costs 12.87 points, so at this capital **no contract on the
+  board clears this edge**; the best case anywhere, ignoring risk limits
+  entirely, is 4.01 against 2.995.
+  **This strengthens the Arena 5 kill rather than reopening it.** Screen 1 had
+  paired a Rs 19 premium with an ATM delta of 0.5 — inconsistent, since that
+  option's delta is ~0.09 — which made the original economics too *generous*.
+  E4's ceiling stands as a risk limit and must never again be read as a
+  recommendation. Caveat recorded with the finding: one after-hours snapshot,
+  two expiries, 10-12 contracts per mid bucket; intraday sampling is still
+  required before the spread column is treated as a distribution, though the
+  statutory floor depends on neither the spread nor the sampling time.

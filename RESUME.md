@@ -13,23 +13,24 @@ Supersedes the 2026-08-13 handoff, which is preserved at commit `40a8dc4`.
 | Capital | **Rs 50k–1L, staged** — added once the system is developed. Rs 10,111 funded now. |
 | Charter | **Amendment E** written, and bound in `research/charter.py` + 10 tests. |
 | Archive | **3.98M 1-min bars** on disk, 577 contracts. Aug-18 expiry secured. |
-| Arena 5 | **Screen 1 KILLED** — index IS predictable; the edge is smaller than the spread. |
+| Arena 5 | **Screen 1 KILLED** — index IS predictable; the edge is smaller than the cost. |
+| Spread | **Measured** (E9). Rs 0.25/leg, 3x tighter than assumed — and the kill got *stronger*. |
 | Registry | **10 registered, 10 killed.** |
 | Tests | **856 checks, 0 failures.** |
 
 **The single most important number found today:**
 
 ```
-predictable move, best cell (h=60)   2.995 index points
-round-trip spread at 0.75/leg        3.000 index points   (at ATM delta 0.5)
-                                     ratio 0.998
+predictable move, best cell (h=60)        2.995 index points
+cheapest round-trip cost on the board     4.010 index points   (ATM, MEASURED)
+irreducible floor, perfect limit fills    2.200 index points   (statutory only)
 ```
 
-The intraday edge is real, sign-stable across four years — and almost exactly
-equal to the cost of crossing the book. **Caveat that matters: the 0.75/leg is
-the project's assumed default, not a measured NIFTY spread.** The near-exact
-equality is therefore partly an artifact of an assumed number, which is what
-makes §4 below the obvious next step rather than a nice-to-have.
+The intraday edge is real and sign-stable across four years. It is also smaller
+than the cheapest way to trade it — and 73% of it is consumed by taxes and
+exchange charges alone, before any spread is crossed. The spread turned out to be
+three times tighter than assumed and it did not matter, because rupees were never
+the binding unit: **index points are.** See §4.
 
 ---
 
@@ -140,37 +141,55 @@ decision and fixes no screen allotment. Screen 1 closes one specific idea.
 
 ---
 
-## 4. THE NEXT STEP, and why it is this one
+## 4. THE SPREAD IS NOW MEASURED — and the kill got stronger
 
-**Measure the actual NIFTY option bid-ask spread.**
+**Done 2026-08-14** (`backtest/option_spread.py`, Amendment E9). No tick recorder
+was needed: Dhan's `quote_data` returns the full 5-level depth book, after hours
+too. 312 contracts, 260 traded, 2 expiries.
 
-The entire Arena 5 verdict turns on a cost number the project has never
-measured. `0.75/leg` is a default in `real_backtester.Config`, not an
-observation. The sensitivity table shows exactly how much rides on it:
+Median half-spread is **Rs 0.25/leg — three times TIGHTER than the assumed
+0.75.** That looked like it would reopen the arena. In index points it does the
+opposite, because screen 1 had paired a Rs 19 premium with an ATM delta of 0.5,
+and a Rs 19 option's delta is ~0.09. **The original economics were too generous.**
 
-| spread/leg | best cell, net Rs/trade |
-|---|---|
-| 0.00 | +47.82 |
-| 0.10 | +34.82 |
-| 0.25 | +15.32 |
-| **~0.36** | **breakeven** |
-| 0.50 | −17.18 |
-| 0.75 | −49.68 |
+| premium | mid | delta | **cost, index pts, round trip** | floor at zero spread |
+|---|---|---|---|---|
+| <5 | 1.36 | 0.009 | **94.52** | 83.11 |
+| 10–20 | 13.57 | 0.086 | **12.87** | 8.78 |
+| 20–40 | 27.35 | 0.154 | **6.65** | 5.03 |
+| 40–80 | 56.89 | 0.271 | **5.09** | 3.07 |
+| 80–160 | 117.06 | 0.429 | **4.01** | **2.20** |
+| >160 | 675.49 | 0.851 | **10.60** | 2.34 |
 
-If the real spread on tradeable NIFTY options is under ~0.36/leg, screen 1's
-kill is wrong and must be revisited. If it is 0.75 or worse, the kill is right
-and it also closes most of what Arenas 6 and 7 could propose — because they all
-have to cross the same book.
+**Against a 2.995-point edge, the cheapest point on the whole board is 4.01.**
 
-**This is what the deferred live tick recorder is for**, and it has been promoted
-from "nice for fill realism later" to the critical path. 1-min OHLC carries no
-bid/ask; only a live feed does. The harvester already receives ticks and drops
-them into 90-second Redis TTLs (`market_data_service._process_tick` →
-`data_service.ingest_tick`); it currently subscribes **only NIFTY index, secid
-13, quote mode**, so option contracts would need adding.
+Three things that now bind every Phase 2 arena:
 
-Do this before designing any further screen. It is one measurement that either
-reopens the arena or closes most of Phase 2 honestly.
+1. **Quote costs in index points, never rupees.** A rupee spread says nothing
+   until divided by the delta it buys.
+2. **Statutory charges are the larger half** (Rs 61.44 vs Rs 50.38 of spread at
+   ATM) — and the half execution skill cannot touch. Perfect limit fills still
+   leave a **2.20-point floor, 73% of the entire edge.**
+3. **The squeeze is structural.** Cost/point is minimised at ATM; ATM is what
+   this capital cannot hold. One ATM lot is Rs 7,609 and a −40% stop is 6.1% of a
+   Rs 50,000 account against a 1–2% budget. The contract whose cost structure
+   works is unaffordable; the affordable one costs 12.87 points.
+
+**Caveat, and the one open task:** this is ONE after-hours snapshot of the
+closing book, 2 expiries, 10–12 contracts per mid bucket. Run
+`python -m backtest.option_spread --watch --minutes 360` during Monday's session
+to turn the spread column into a distribution. Note it cannot rescue the trade —
+the statutory floor is independent of the spread and already takes 73% of the
+edge.
+
+### So what is actually left?
+
+The honest reading is that **Arena 5's kill generalises**: any strategy whose
+edge is measured in single-digit index points and which crosses a NIFTY option
+book at this capital has the same problem. That covers most of what Arenas 6 and
+7 would propose. Before designing another screen, the question to settle is
+whether *any* reachable edge is large enough — which is a question about edge
+size, not about signals.
 
 **Not a blocker (resolved 2026-08-14):** the Rs 10,111 broker balance is not a
 gap. Capital is **staged** — the operator adds the Rs 50k–1L once the system is
