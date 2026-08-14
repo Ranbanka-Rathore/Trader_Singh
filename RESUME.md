@@ -240,6 +240,21 @@ python archive_daily.py --coverage                                # progress, no
 > a week of expiries lost permanently. After refreshing, run
 > `archive_daily.bat` by hand to catch up that day.
 
+Exit codes: `0` ok · `2` token expired, nothing archived · `3` another run
+already in progress · anything else, read the log.
+
+**Three gotchas paid for on 2026-08-14, all fixed but worth knowing:**
+
+- **`.bat` files must have CRLF.** With bare LF, cmd.exe mis-parses multi-line
+  `if`/`for` blocks and fails with `'ily' is not recognized as an internal
+  command` — the parser splitting tokens mid-word. Pinned in `.gitattributes`.
+- **`schtasks /End` orphans the Python children.** The task reports `Ready`
+  while two board archives keep running. Check
+  `Get-Process python` and kill by PID.
+- **A board run takes ~11 minutes**, so a scheduled fire can land on a manual
+  one. `logs/archive/.run.lock` (atomic `mkdir`) now prevents it. If a run is
+  killed mid-flight the lock survives — delete the directory to clear it.
+
 **Amendment E10 fixes what "a real sample" means, and it was fixed BEFORE the
 data arrived** — because measurements on the current 56 days already look
 encouraging (+Rs 778/lot full-session short straddle, t=8.64) and a bar set later
