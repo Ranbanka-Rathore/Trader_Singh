@@ -1278,6 +1278,49 @@
     }
    ],
    "fingerprint": "sha256:cda8b4a7d8fe724b124a17ad4576a31f"
+  },
+  {
+   "id": "intraday-ic-modern",
+   "arena": "intraday_index",
+   "claim": "At least one of four pre-declared signals (mom_h, vwap_dev, or_pos, rvol_ratio) measured on NIFTY 1-minute index bars carries directional information about the forward h-minute index return at h in {5,15,30,60}, strongly enough to matter economically at Amendment E's capital. Specifically: some (signal, horizon) cell shows a Spearman IC whose |t| clears the Section 4 noise bar for N=16 (|t| >= 2.36), with the SAME IC sign in each of the four calendar years measured separately (2022 partial, 2023, 2024, 2025, 2026 partial \u2014 Amendment D5's sign-consistency rule applied to time rather than liquidity era), AND whose implied gross edge per trade at that horizon is at least 2x the net per-trade target from Amendment E5. Direction is NOT predicted: both momentum (IC>0) and reversal (IC<0) count, which is why the bar is two-sided and the sign-consistency requirement is what stops a sign flip across years being read as a finding.",
+   "kill_criterion": "KILLED if no (signal, horizon) cell satisfies all three conditions together: (a) |t| >= 2.36 on the pooled Spearman IC, (b) the same IC sign in every calendar year with at least 60 trading days of data, and (c) implied gross edge per trade >= 2x the Amendment E5 net target at that horizon's achievable trade frequency. A cell that clears (a) but fails (b) is a sign-unstable estimate and is NOT a finding \u2014 that is the D5 lesson. A cell that clears (a) and (b) but fails (c) is real but too small to trade at this capital, and is recorded as such rather than carried forward. This screen can only kill or advance; per Amendment B5 it cannot promote anything.",
+   "engine": "intraday_ic",
+   "underlying": "NIFTY",
+   "equity": 50000.0,
+   "era": null,
+   "window": [
+    "2022-08-16",
+    "2026-08-14"
+   ],
+   "gate": "strict",
+   "n_configs": 16,
+   "config": {
+    "signals": {
+     "mom_h": "return over the trailing h minutes (momentum if IC>0, reversal if IC<0)",
+     "vwap_dev": "(price - session VWAP) / trailing 30-min stdev of price",
+     "or_pos": "position in the first-15-min opening range: (p - OR_low)/(OR_high - OR_low)",
+     "rvol_ratio": "trailing 30-min realised vol / that session's median 30-min realised vol"
+    },
+    "horizons_min": [
+     5,
+     15,
+     30,
+     60
+    ],
+    "bar_minutes": 1,
+    "source": "data/intraday/NIFTY/index.parquet",
+    "ic_method": "spearman",
+    "session_only": "09:15-15:30, out-of-session bars excluded",
+    "min_days_per_year_for_sign_test": 60
+   },
+   "sweep": null,
+   "requires": [],
+   "supersedes": null,
+   "note": "Arena 5, screen 1, and the RESUME.md Step-4 'measure before building' item. Runs on data/intraday/NIFTY/index.parquet (370,626 1-min bars, 992 trading days, 2022-08-16..2026-08-14), archived from Dhan on 2026-08-14. gate='strict' is recorded for form only: this screen computes correlations on index bars and executes no fills, so no liquidity gate applies to it. Any STRATEGY descending from a surviving cell must be re-run under a real gate. equity is registered at the BOTTOM of Amendment E's Rs 50k-1L range, which is the conservative choice for the economic condition (c). Killing this hypothesis does not by itself close arena 'intraday_index' \u2014 Section 7 leaves arena closure an operator decision recorded with its grounds, and Section 8 fixes no screen allotment. It would, however, close the specific idea that a single unconditional signal predicts intraday index direction.",
+   "registered_at": "2026-08-14T16:16:58",
+   "status": "registered",
+   "events": [],
+   "fingerprint": "sha256:ed71e9bf3a637a638d7f05d09a462015"
   }
  ],
  "arenas": {

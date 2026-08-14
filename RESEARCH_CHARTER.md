@@ -813,9 +813,19 @@ Registered here, before measurement, per Section 4:
 - **Arena 7 — session-structure effects** (opening range, close auction,
   time-of-day conditioning). Index-first, options only if Arena 5 survives.
 
-The Section 4 multiple-comparisons budget carries over and **compounds** with
-Phase 1's nine registered hypotheses per Amendment B4. Phase 2 does not get a
-fresh budget because it changed arenas.
+**On the multiple-comparisons budget, stated precisely.** Amendment B4 compounds
+the budget across *retries* — a hypothesis registered with `--supersedes`
+inherits its ancestors' config counts. Arena 5 is not a retry of anything: no
+Phase 1 hypothesis touched intraday data, every one used EOD bhavcopy. So B4
+charges these registrations nothing, and each starts a fresh lineage. Saying
+otherwise would miscite the charter.
+
+What is nevertheless true, and is recorded here rather than dressed up as a
+rule: **this project has already drawn nine times from the search and found
+nothing.** That is not a Section 4 correction — Section 4 prices the configs
+inside a hypothesis, not the number of hypotheses a project has tried — but it
+is a reason to hold Phase 2 to its pre-registrations strictly rather than
+loosely, and to prefer closing an arena early over extending it.
 
 ### E8. The stop-date is unchanged
 
@@ -884,8 +894,12 @@ result it would change invalidates that result.)*
   as such). Every threshold is now expressed as a **percentage** so no rupee figure
   can become an axiom again. Supersedes Section 2's criteria table and Amendment
   A1's targets; **Sections 3–7 and Amendments B, C, D, D5 are unchanged and still
-  in force**, including the compounding multiple-comparisons budget (B4) and the
-  2027-01-07 stop-date.
+  in force**, including Section 4's comparisons discipline and the 2027-01-07
+  stop-date. (E7 states precisely what B4 does and does not charge: it compounds
+  across *retries*, and Phase 2's arenas are not retries of anything, so they
+  start fresh lineages. The fact that the project has already spent nine
+  hypotheses is recorded as a reason for strictness, not misread as a Section 4
+  correction.)
   **Made after the Section 7 verdict and before any Phase 2 research was run** —
   no Phase 2 result informed it. It does not reopen Arena 1 or Arena 4, whose
   closures are size-independent; Arenas 2 and 3 stay closed too, being
