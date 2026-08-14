@@ -33,6 +33,13 @@ ARENAS: Dict[str, str] = {
     "cross_sectional": "Cross-sectional equities — stock F&O, relative value",
     "futures_trend": "Directional / trend on liquid futures",
     "event_vol": "Event-driven volatility — earnings, RBI policy, budget",
+    # Amendment E7 (2026-08-14). All four arenas above are CLOSED; Phase 2 opens
+    # intraday, which no Phase 1 hypothesis touched — every one used EOD
+    # bhavcopy. These are added by amendment, which is what the registry's
+    # "a new arena is a charter amendment" rule requires.
+    "intraday_index": "Intraday NIFTY index structure at 5-60 min horizons",
+    "intraday_option": "Expiry-day and short-DTE option behaviour (forward-tested, E6)",
+    "intraday_session": "Session structure — opening range, close, time-of-day",
 }
 
 
@@ -300,10 +307,31 @@ PORTFOLIO_N_RANGE = (6, 15)
 
 # A1/A3 — absolute drawdown budget; the loss that would actually cause the
 # operator to switch the system off.
-DRAWDOWN_BUDGET_RS = 100_000.0
+#
+# Amendment E (2026-08-14) SUPERSEDES the rupee figure. Rs 1,00,000 was 6.67% of
+# a Rs 15,00,000 capital base that the operator never chose — it descended from
+# an earlier session's sizing recommendation and became an axiom. Actual capital
+# is Rs 50,000-1,00,000, so a Rs 1L drawdown budget is the entire account twice
+# over. The budget is now a PERCENTAGE, which is the whole point of E: no rupee
+# figure gets to be an axiom again.
+DRAWDOWN_BUDGET_PCT = 0.15        # E2 — max drawdown <= 15% of equity
+TRADING_CAPITAL_RANGE_RS = (50_000.0, 100_000.0)  # E0 — operator's stated range
+
+# Kept only so that anything still importing it fails loudly rather than silently
+# sizing against a dead premise.
+DRAWDOWN_BUDGET_RS = None         # E: use DRAWDOWN_BUDGET_PCT * equity
+
 MIN_PORTFOLIO_SHARPE = 1.4        # FD parity — below this the project stops
 WORTH_IT_PORTFOLIO_SHARPE = 2.0
 TARGET_PORTFOLIO_SHARPE = 3.0
+# E2 — the operator's "profitable every month" reads as a variance preference,
+# not a literal target (12/12 needs Sharpe 10.7). 75% of months needs 2.34.
+PHASE2_TARGET_SHARPE = 2.3
+
+
+def drawdown_budget_rs(equity: float) -> float:
+    """E2's drawdown budget in rupees, for a given equity. Always derived."""
+    return DRAWDOWN_BUDGET_PCT * float(equity)
 
 
 def portfolio_sharpe(individual: float, n: int, rho: float) -> float:

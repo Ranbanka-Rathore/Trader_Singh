@@ -168,7 +168,29 @@ def test_portfolio_math():
           charter.portfolio_sharpe(0.5, 10_000, 0.10) < charter.WORTH_IT_PORTFOLIO_SHARPE)
     check("individual bar is 0.8", charter.MIN_OOS_SHARPE == 0.8)
     check("OOS trade minimum is 100", charter.MIN_OOS_TRADES == 100)
-    check("drawdown budget is Rs 1,00,000", charter.DRAWDOWN_BUDGET_RS == 100_000.0)
+    # Amendment E (2026-08-14) replaced the fixed Rs 1,00,000 budget with a
+    # percentage. The old figure was 6.67% of a Rs 15L capital base the operator
+    # never chose; at the real Rs 50k-1L it was the whole account twice over.
+    check("drawdown budget is a percentage, not a rupee figure",
+          charter.DRAWDOWN_BUDGET_PCT == 0.15)
+    check("the dead rupee constant is not silently usable",
+          charter.DRAWDOWN_BUDGET_RS is None)
+    check("budget derives from equity (Rs 75,000 -> Rs 11,250)",
+          abs(charter.drawdown_budget_rs(75_000) - 11_250.0) < 0.01)
+    check("budget scales (Rs 50,000 -> Rs 7,500)",
+          abs(charter.drawdown_budget_rs(50_000) - 7_500.0) < 0.01)
+    check("operator's stated capital range is recorded",
+          charter.TRADING_CAPITAL_RANGE_RS == (50_000.0, 100_000.0))
+    # E2: "profitable every month" reads as a variance preference; 75% of months
+    # needs annual Sharpe 2.34, and 12/12 needs 10.7, which nothing achieves.
+    check("Phase 2 Sharpe target is 2.3", charter.PHASE2_TARGET_SHARPE == 2.3)
+    # E7 added three intraday arenas by amendment, which is what the registry
+    # requires; the four Phase 1 arenas remain listed and remain closed.
+    for a in ("intraday_index", "intraday_option", "intraday_session"):
+        check(f"Amendment E7 arena '{a}' is registrable", a in charter.ARENAS)
+    check("Phase 1 arenas survive the amendment",
+          all(a in charter.ARENAS for a in
+              ("index_structures", "cross_sectional", "futures_trend", "event_vol")))
 
 
 # ── stats ────────────────────────────────────────────────────────────────────

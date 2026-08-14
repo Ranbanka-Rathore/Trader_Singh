@@ -52,11 +52,17 @@ def _max_drawdown(pnls: List[float]) -> float:
 
 
 def evaluate(trades: List[Dict[str, Any]], modelled: Dict[str, Any],
-             min_trades: int = MIN_PAPER_TRADES) -> Dict[str, Any]:
+             min_trades: int = MIN_PAPER_TRADES,
+             equity: Optional[float] = None) -> Dict[str, Any]:
     """Judge a paper sample. `trades` must already be filtered to the structure.
 
     Each trade: {exit_date, realized_pnl, live_priced, strategy_type}.
     `modelled`: {expectancy, dd_p99} taken from the promotion's stored evidence.
+    `equity`: the capital the drawdown budget is a percentage of (Amendment E).
+    Defaults to the BOTTOM of the operator's stated range: the budget scales
+    with equity, so assuming the smaller account yields the smaller rupee
+    budget and demands more size reduction. Guessing high would quietly make
+    the gate more lenient, which is the wrong way to be wrong.
     """
     ordered = sorted(trades, key=lambda t: str(t.get("exit_date") or ""))
     synthetic = [t for t in ordered if not t.get("live_priced")]
@@ -119,7 +125,8 @@ def evaluate(trades: List[Dict[str, Any]], modelled: Dict[str, Any],
 
     # A3 again: the operator signs off on a rupee figure, so surface it whether
     # or not it passes, scaled to the drawdown budget.
-    budget = charter.DRAWDOWN_BUDGET_RS
+    # Amendment E: budget is a percentage of equity, derived — never a constant.
+    budget = charter.drawdown_budget_rs(equity or min(charter.TRADING_CAPITAL_RANGE_RS))
     size_mult = (budget / p99) if p99 > 0 else None
 
     return {

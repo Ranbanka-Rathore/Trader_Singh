@@ -145,9 +145,12 @@ def walk_forward_stage(h: Dict[str, Any]) -> Dict[str, Any]:
     # Amendment A3 — advisory, not a kill. A p99 drawdown above budget is a
     # sizing instruction, not a verdict: halve the risk and it halves with it.
     p99 = boot.get("p99", 0.0)
-    size_mult = (charter.DRAWDOWN_BUDGET_RS / p99) if p99 > 0 else None
+    # Amendment E: the budget is a percentage of the equity this hypothesis was
+    # registered at, never a fixed rupee figure.
+    budget_rs = charter.drawdown_budget_rs(h.get("equity") or min(charter.TRADING_CAPITAL_RANGE_RS))
+    size_mult = (budget_rs / p99) if p99 > 0 else None
     dd_note = (f"modelled p99 max drawdown Rs {p99:,.0f} vs budget "
-               f"Rs {charter.DRAWDOWN_BUDGET_RS:,.0f}")
+               f"Rs {budget_rs:,.0f} ({charter.DRAWDOWN_BUDGET_PCT:.0%} of equity)")
     if size_mult is not None and size_mult < 1.0:
         dd_note += f" — size at {size_mult:.2f}x to fit, and sign off on the rupee figure"
 
@@ -593,10 +596,16 @@ def cmd_promote_live(a) -> int:
     print(f"\n  '{a.structure}' -> stage LIVE. Real orders are now permitted for "
           f"{', '.join(entry['covers'])}.")
     print(f"  Modelled p99 drawdown Rs {rep['modelled_dd_p99']:,.0f} against a "
-          f"Rs {charter.DRAWDOWN_BUDGET_RS:,.0f} budget"
+          f"Rs {rep['drawdown_budget']:,.0f} budget "
+          f"({charter.DRAWDOWN_BUDGET_PCT:.0%} of equity, Amendment E)"
           + (f" — start at {mult:.2f}x size." if mult < 1.0 else "."))
-    print(f"  Amendment A3: start at Rs 20-30k of risk and escalate on realised "
-          f"milestones, not on confidence.")
+    # A3's original "Rs 20-30k of risk" was 1.3-2% of a Rs 15L account. At the
+    # Rs 50k-1L of Amendment E that same rupee figure is 20-60% of the account,
+    # so the instruction is kept as the PERCENTAGE it always meant.
+    lo, hi = charter.TRADING_CAPITAL_RANGE_RS
+    print(f"  Amendment A3, as a percentage: start at ~2% of equity at risk "
+          f"(Rs {0.02 * lo:,.0f}-{0.02 * hi:,.0f} at this capital) and escalate on "
+          f"realised milestones, not on confidence.")
     print(f"  Re-run check-paper --mode LIVE regularly; a p99 breach revokes this.")
     return 0
 
