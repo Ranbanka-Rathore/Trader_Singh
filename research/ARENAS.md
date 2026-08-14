@@ -2260,3 +2260,48 @@ corollary — discard effects too small to detect in ~30 trades — applies in t
 other direction here: the effect required is so *large* that finding it would be
 more surprising than not finding it. The index universe is where arena 3 should
 stop, not where it should be redrawn.
+
+---
+
+## DISCLOSURE — knowledge spent in arena `intraday_option`, 2026-08-14
+
+Measuring the actual intraday decay profile of traded NIFTY straddles (to check a
+premise of `intraday-varshare-modern`) produced knowledge that was **not** covered
+by any registration. Recorded here so it cannot later be re-presented as a
+discovery, under the same rule that applies to arena 3's signal study above.
+
+**What was measured.** 280 near-ATM straddle-sessions across 22 contracts and 3
+expiries, spanning **56 distinct trading days (2026-05-27 to 2026-08-14)**, from
+`data/intraday/NIFTY/opt/`. Actual traded prices, no model.
+
+Short-straddle P&L per lot by window, against a Rs 230 four-order cost:
+
+| window | mean Rs/lot | t (raw) | vs cost |
+|---|---|---|---|
+| 09:15–10:00 | +198 | +4.72 | −32 |
+| 10:00–11:00 | +114 | +3.33 | −116 |
+| 11:00–13:00 | **+15** | +0.36 | −215 |
+| 13:00–14:30 | +118 | +1.62 | −112 |
+| 14:30–15:25 | **+331** | +7.97 | **+101** |
+| FULL SESSION | **+778** | +8.64 | **+547** |
+
+And the decay profile itself, as a share of the day's intraday decay against
+clock share: 09:15–10:00 **31.1%** vs 12.2%; 10:00–11:00 23.2% vs 16.2%;
+11:00–13:00 **10.1%** vs 32.4%; 13:00–14:30 21.1% vs 24.3%; 14:30–15:25 14.4% vs
+14.9%. **Option decay is not clock-linear**; the midday window receives less than
+a third of its clock share, below even its 22.0% share of variance.
+
+**What this means for future registrations here.** Anything registered in
+`intraday_option` from now on is registered by someone who already knows that the
+closing window and the full session clear a four-order cost on this sample while
+the midday windows do not. A registration claiming to *discover* that is not a
+discovery.
+
+**Why it is nevertheless not a result.** Three reasons, all disqualifying on
+their own: the 280 observations come from only **56 independent days** and are
+near-identical across strikes within a day, so every t above is inflated by
+roughly **2.2x**; the window is a single sub-three-month regime containing **no
+shock day**, which is Section 6.4's unsampled tail; and none of it was
+pre-registered. A 1-lot naked short straddle also needs **~Rs 2,28,000** of
+margin, 2.3x the top of the Amendment E capital range, so the structure measured
+is not one this account can hold.

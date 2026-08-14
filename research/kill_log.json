@@ -1726,7 +1726,7 @@
    "supersedes": null,
    "note": "Arena 6 (intraday_option), the last open arena. Non-directional by construction: the quantity measured is variance, which has no sign. Runs on data/intraday/NIFTY/index.parquet (370,626 1-min bars, 989 sessions, 2022-08-16..2026-08-14) \u2014 the INDEX series, deliberately, because Amendment E6 forbids resting an options hypothesis on option history that was not archived before expiry and no expiry-day option bars exist on disk yet. Costs are the measured Amendment E9 figures. A straddle is 2 legs and a round trip is 4 orders, so the cost is roughly double the single-leg figures used in arena 5. gate='strict' recorded for form; this executes no fills. Windows are fixed clock intervals declared in config, not searched. Every conditioning variable is past-only: the low-vol day filter uses the PRIOR day's realised vol, never the current day's.",
    "registered_at": "2026-08-14T20:53:59",
-   "status": "registered",
+   "status": "killed",
    "events": [
     {
      "at": "2026-08-14T21:01:01",
@@ -1775,6 +1775,20 @@
       "thin_evidence_flagged": "The low-vol subset has 338 days and only TWO calendar years with >= 60 days. Condition (c) is satisfied as written but on two years \u2014 weak by this project's own standards.",
       "bug_found_and_fixed_before_recording": "The first run overstated every edge by exactly 2x, using a scale of 2*LOT*premium/(IV^2 * T) against a bracket already carrying IV^2. It surfaced because the reported edge for 11:00-14:30 was Rs 1,706 against only Rs 1,354 of theta available over that window, and an edge above the total decay collected is impossible. Corrected to LOT*premium/T; 4 cells became 3.",
       "prior_recorded_as_poor_still_stands": "Arena 1 killed weekly short volatility, finding the premium was payment for a left tail. This does not overturn that \u2014 it is intraday and flat overnight, a different exposure \u2014 and the unconditional tail here is consistent with Arena 1 rather than contradicting it."
+     }
+    },
+    {
+     "at": "2026-08-14T21:45:26",
+     "stage": "premise_falsified",
+     "verdict": "killed",
+     "detail": {
+      "resolution": "KILLED \u2014 the premise stated inside the registered claim is falsified.",
+      "why_this_is_not_moving_the_goalposts": "The registered claim did not merely assume clock-linear decay implicitly; it SAID so: 'with implied vol flat across the session, implied variance accrues linearly in clock time, so a variance share below the time share IS the edge'. That premise has now been measured false. A claim whose stated premise is false is false. This is not the same as adding a condition after seeing a result \u2014 the margin blocker WAS such an addition and was deliberately NOT used to kill the hypothesis.",
+      "the_measurement_that_falsifies_it": "162 quiet-day straddle-sessions across 22 near-ATM contracts and 3 expiries, measuring the actual traded decay profile through the session. Share of the day's intraday decay by window, against clock share: 09:15-10:00 31.1% vs 12.2%; 10:00-11:00 23.2% vs 16.2%; 11:00-13:00 10.1% vs 32.4%; 13:00-14:30 21.1% vs 24.3%; 14:30-15:25 14.4% vs 14.9%. Decay is NOT clock-linear. The midday window receives less than a third of its clock share of decay, which is less even than its 22.0% share of variance \u2014 sellers there collect less decay than the risk they carry.",
+      "model_free_confirmation_in_rupees": "280 near-ATM straddle-sessions over 56 distinct trading days, actual traded prices, no model at all. Short-straddle P&L per lot by window against a Rs 230 four-order cost: 09:15-10:00 +198 (-32 net); 10:00-11:00 +114 (-116); 11:00-13:00 +15 (-215); 13:00-14:30 +118 (-112); 14:30-15:25 +331 (+101); FULL SESSION +778 (+547). The 11:00-13:00 window \u2014 this screen's top survivor at a modelled Rs 727 \u2014 is worth Rs 15 per lot with t=0.36. The model was measuring its own assumption.",
+      "what_survived_the_correction_and_is_NOT_a_finding": "The same measurement shows the CLOSING window (14:30-15:25, +Rs 331) and the FULL SESSION (+Rs 778) do clear the four-order cost, with t of 7.97 and 8.64. This is recorded as KNOWLEDGE SPENT, not as a result, for three reasons. (i) The 280 observations come from only 56 distinct trading days and are near-identical across strikes within a day, so the effective sample is ~56 and every t is inflated by ~2.2x. (ii) The window is 2026-05-27 to 2026-08-14, one regime of under three months, containing no shock day \u2014 Section 6.4's unsampled tail exactly. (iii) It was never registered. Per the ARENAS.md disclosure rule, anything registered in intraday_option from now on is registered by someone who already knows the shape of this answer.",
+      "the_margin_blocker_still_stands_independently": "A 1-lot naked short straddle needs ~Rs 228,000 of margin, 2.3x the top of the capital range, so none of the above is reachable at this capital in that structure. The affordable iron fly variant pays roughly double the cost (8 orders, ~Rs 460) and collects less decay because its long wings decay against it; on the full-session figure it would be marginal at best.",
+      "why_the_iron_fly_was_not_registered": "The operator asked for it, and the design it would have tested \u2014 the midday windows this screen advanced \u2014 is now known to be worthless. Registering a structure variant on a dead window would have spent budget testing a premise already falsified. A full-session or closing-window iron fly is a different and live question, but it is a NEW hypothesis carrying the disclosure above, not a variant of this one."
      }
     }
    ],
