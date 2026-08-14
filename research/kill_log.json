@@ -1493,8 +1493,32 @@
    "supersedes": null,
    "note": "Arena 5, ceiling screen, prompted by screen 1's kill (intraday-ic-modern) and by the cost measurement in Amendment E9. Runs on data/intraday/NIFTY/index.parquet (370,626 1-min bars, 992 trading days, 2022-08-16..2026-08-14). gate='strict' recorded for form: this computes correlations and a linear fit on index bars and executes no fills. Every feature must be past-only \u2014 rolling or expanding, never a session-wide aggregate. Screen 1 was nearly derailed by an rvol_ratio normalised on the whole session median, which made it the strongest signal in the screen until the lookahead was found. equity registered at the bottom of Amendment E's Rs 50k-1L range.",
    "registered_at": "2026-08-14T18:45:06",
-   "status": "registered",
-   "events": [],
+   "status": "not_closed",
+   "events": [
+    {
+     "at": "2026-08-14T18:47:44",
+     "stage": "ceiling",
+     "verdict": "not_closed",
+     "detail": {
+      "screen": "scratch/arena5_ceiling.py",
+      "raw": "scratch/arena5_ceiling_results.json",
+      "n_features": 26,
+      "rows": 370113,
+      "verdict": "NOT CLOSED \u2014 and per the registered kill criterion this is NOT a finding.",
+      "what_the_registration_said_about_this_outcome": "The kill criterion, written before the run, said: 'IF THE BOUND CLEARS, THAT IS NOT A FINDING and must not be reported as one \u2014 an overfit in-sample fit clearing a bar is expected, carries no out-of-sample content, and leaves the arena exactly as open as it was.' It cleared. It is recorded as not_closed, not as survived. The arena stays open; nothing has been demonstrated.",
+      "the_actually_informative_result": "Screen 1's best SINGLE hand-picked feature, with no fitting whatsoever, reached IC 0.0537 at h=60. This screen's TWENTY-SIX features, combined by an OLS fit with no hold-out on 133,473 rows \u2014 i.e. free to overfit as much as it likes \u2014 reached IC 0.0539. The incremental IC bought by 25 extra features plus unrestricted overfitting is +0.0002. As far as this family of features can see, the information in intraday NIFTY index bars is already fully captured by one simple signal. That is a ceiling result even though it did not trip the economic kill.",
+      "in_sample_ic_by_horizon": {
+       "15": 0.0183,
+       "30": 0.0311,
+       "60": 0.0539,
+       "120": 0.0826
+      },
+      "where_the_positive_cells_live": "At threshold 0 \u2014 every bar, no selection \u2014 EVERY horizon is net negative, which agrees with screen 1. Positive cells appear only under aggressive conditioning, on 1.4%-21.6% of bars. That is precisely where an OLS fit's overfitting concentrates: a fitted model's most extreme predictions are its least reliable, and selecting on |z| of the fitted value selects the fit's own noise.",
+      "long_horizons_are_untestable_intraday": "h=240 and h=375 returned zero usable rows. A forward return of that length must complete inside the same session, and a 375-bar session leaves almost nothing. Multi-hour holds therefore require carrying overnight, which is a different strategy class with different risk and different costs \u2014 not a longer version of this one.",
+      "what_this_licenses": "Exactly one thing, named in the registration: an honest out-of-sample test of a SPECIFIC combination, registered separately. The cleanest such test is the conditional version of screen 1's unfitted signals \u2014 conditioning was explicitly outside screen 1's scope, and a single unfitted signal cannot overfit, so a threshold is the only free parameter."
+     }
+    }
+   ],
    "fingerprint": "sha256:7df6e604504109ba9637fff80068cc37"
   }
  ],
