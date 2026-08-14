@@ -1,266 +1,221 @@
-# RESUME HERE — Phase 2 (intraday), opening on corrected premises
+# RESUME HERE — Phase 2, after the first intraday screen
 
-**Written 2026-08-13. Next session: 2026-08-14, during live market hours, with a
-fresh Dhan token.**
-
----
-
-## 1. Why we are continuing after Section 7 was invoked
-
-Phase 1's survey completed and reached its named failure branch: 9 hypotheses,
-9 killed, 0 survivors, all four arenas closed. That verdict stands and is
-recorded in `RESEARCH_CHARTER.md`.
-
-**We are not ignoring it. A founding premise turned out to be wrong.**
-
-The charter's capital figure — Rs 15,00,000 — was never chosen by the operator.
-It entered the repo on 2026-07-06 as `TRADING_EQUITY=1500000`, traced back to a
-capital-sizing *recommendation* an earlier assistant session made for the ladder
-("Rs 5L = proof-of-life, Rs 15-20L = ladder income"), and was written into the
-charter on 2026-08-08 as an axiom. Everything downstream came from it: the 15%
-CAGR target, the Rs 2.25L/year goal, the Rs 1,00,000 drawdown budget ("6.67% of
-Rs 15L"), and the capacity criterion.
-
-Section 7 says that at the review point "the project is reassessed against this
-document as written". Reassessing a document whose first premise was a mistake is
-exactly that, not an evasion of it.
-
-> **ACTION REQUIRED: the charter needs a formal Amendment E recording the capital
-> correction and the new targets. Do not start research before it is written.**
-> Silently proceeding on new premises is how the last set of premises went
-> unexamined for five days.
+**Written 2026-08-14 (session ran ~12:50–17:00 IST, market open then closed).**
+Supersedes the 2026-08-13 handoff, which is preserved at commit `40a8dc4`.
 
 ---
 
-## 2. What Phase 1 established that STILL BINDS — do not re-run these
-
-Two of the four closures are size-independent and remain true at any capital:
-
-- **Weekly NIFTY short volatility loses BEFORE friction.** 377 trades across an
-  ATM butterfly and a 0.18-delta condor. The +2.38 vol-point premium is payment
-  for a left tail, not a mispricing. More capital loses more.
-- **Single-stock earnings straddles are priced approximately fair.** Mid-price
-  premium **-Rs 174/trade** across 246 events. Both directions lose at *every*
-  slippage level including zero, because a 4-leg round trip costs an order of
-  magnitude more than the premium.
-
-Two closures were partly artifacts of the wrong capital figure:
-
-- **Cross-sectional** required IC 0.054 only because Rs 15L + F&O lot sizes
-  forced a 2+2-name book. At 5+5 names it is 0.044; at zero cost 0.035. Best
-  measured candidate was 0.0359 across 12 signals. Closed on search budget, not
-  on signal space.
-- **Trend** closed because detection threshold ≈ profitability threshold.
-
-**At under Rs 5L none of the above is reachable anyway** — Phase 5 already found
-the honest minimum for NIFTY credit spreads is ~Rs 4.4L, and 4-leg structures
-need margin this account does not have. The old arenas are closed *and*
-unaffordable. Phase 2 is a different space, not a retry.
-
----
-
-## 3. The three answers that define Phase 2
+## 0. TL;DR of what changed today
 
 | | |
 |---|---|
-| **Capital** | **Under Rs 5L** — exact figure STILL NEEDED, see §6 |
-| **Data** | Paid intraday history — but check Dhan first, see §5 |
-| **Target** | *"remain profitable on a monthly basis, whatever that may be"* |
+| Data probe | **Answered.** Expired option history is NOT retrievable. Index is 5+ yrs. |
+| Capital | **Rs 50k–1L** (operator). Broker account shows **Rs 10,111** — unreconciled. |
+| Charter | **Amendment E** written, and bound in `research/charter.py` + 10 tests. |
+| Archive | **3.98M 1-min bars** on disk, 577 contracts. Aug-18 expiry secured. |
+| Arena 5 | **Screen 1 KILLED** — index IS predictable; the edge is smaller than the spread. |
+| Registry | **10 registered, 10 killed.** |
+| Tests | **856 checks, 0 failures.** |
 
-### What the monthly target actually requires — know this before setting a bar
+**The single most important number found today:**
 
-| profitable months | annual Sharpe needed |
+```
+predictable move, best cell (h=60)   2.995 index points
+round-trip spread at 0.75/leg        3.000 index points   (at ATM delta 0.5)
+                                     ratio 0.998
+```
+
+The intraday edge is real, sign-stable across four years — and almost exactly
+equal to the cost of crossing the book. **Caveat that matters: the 0.75/leg is
+the project's assumed default, not a measured NIFTY spread.** The near-exact
+equality is therefore partly an artifact of an assumed number, which is what
+makes §4 below the obvious next step rather than a nice-to-have.
+
+---
+
+## 1. What was answered, and what it cost to answer
+
+### Step 1 — the data probe (RESUME §5 of the old handoff)
+
+| series | what Dhan serves |
 |---|---|
-| 9 of 12 (75%) | **2.34** |
-| 10 of 12 (83%) | **3.35** |
-| 11 of 12 (92%) | 4.79 |
-| 12 of 12 | 10.7 — not achievable by anything |
+| NIFTY index 1-min | **5+ years** (probed to 2021) |
+| NIFTY futures 1-min | **~75 days, rolling purge** |
+| live option 1-min | from the contract's **first trade** to now |
+| **expired option 1-min** | **nothing, permanently** |
 
-The old charter's Sharpe-1.0 bar produces a profitable month only **61%** of the
-time. Literally every month is not a target any strategy can hold.
+The expired probe was built to be unarguable: the four security ids came from
+this project's own `order_audit` — known contracts, known trading days — and a
+live control on the identical call returned 1,540 bars. All four returned 0, at
+both 10 and 38 days past expiry.
 
-**Read the answer as a preference, not a number:** low variance and short
-drawdowns matter more than peak return. That is a real design constraint and it
-points at many small trades with tight risk, not few large ones. **Proposed bar
-for Amendment E: annual Sharpe >= 2.3 (~75% of months profitable).** Demanding,
-but not absurd intraday, where sample size finally works for us rather than
-against.
+**Consequence:** the plan's "persist live ticks" was the wrong mechanism. A live
+contract keeps its whole history until expiry, so the right mechanism is a
+**daily archival job**, and it is *retroactive* — it recovered history the old
+plan had written off as already lost.
+
+Also learned: Dhan caps a single call at **90 days** (DH-905), but within that
+limit one call returns a contract's entire life, which is what makes archiving
+the whole live board affordable.
+
+### Step 2 — the archive (`backtest/intraday_archive.py`)
+
+3,980,747 bars across 577 contracts in 11 minutes. `--report` gives the quality
+report; 595 contracts returned `empty` and are recorded as such rather than
+skipped (they never traded — consistent with the known NIFTY liquidity picture).
+
+> **OPERATIONAL, AND THE ONLY THING WITH A DEADLINE:**
+> **run `python -m backtest.intraday_archive --board --band 15 --expiries 4`
+> before each Tuesday expiry.** The next is **2026-08-18**. Contracts purge at
+> expiry and cannot be recovered. Ideally run it daily; it is 11 minutes.
+
+### Step 3 — Amendment E
+
+Written, and *bound in code* rather than left in prose: `DRAWDOWN_BUDGET_RS`
+(a Rs 1,00,000 figure that was 6.67% of a capital base the operator never chose)
+is now `DRAWDOWN_BUDGET_PCT = 0.15` with `drawdown_budget_rs(equity)` deriving
+it; the old constant is `None` so stale readers fail loudly. Three call sites
+converted. Three intraday arenas added to `ARENAS`. Ten tests bind all of it.
+
+E's measured findings, which constrain everything downstream:
+- **E5:** friction takes **49–62%** of the gross edge a 15% CAGR needs, and
+  barely improves across Rs 50k–1L, because flat brokerage does not scale with
+  the net target. **Frequency is the lever, not capital.**
+- **E3:** at this capital the project **cannot be justified by returns**
+  (Rs 11,250/yr vs a Rs 5,250 FD, for 780 hours). It is justified only as a
+  validated system tested where being wrong is cheap.
+
+### Step 4 — Arena 5, screen 1 (`intraday-ic-modern`)
+
+Registered at `340f4f1` **before** it ran. 370,626 bars, 992 trading days,
+2022-08-16 → 2026-08-14. Four signals × four horizons = 16 cells.
+
+- **(a) significance: 8 of 16 cells PASSED** after correcting |t| for the
+  overlap of forward windows (without that correction every cell passes on
+  sample size alone — the correction is doing real work).
+- **(b) sign consistency: all 8 PASSED.** `vwap_dev` and `or_pos` at h=60 both
+  reach IC ≈ 0.053 with the same sign in every year 2022–2026.
+- **(c) economics: 0 of 8 passed.** Best cell grosses Rs 97/lot against Rs 147
+  of round-trip cost. **At zero spread it still only nets Rs 48**, and every
+  cell at h ≤ 30 loses money even then.
+
+**Intraday NIFTY is not a random walk. The predictability is simply smaller than
+the spread.** That is a *measured absence*, the same shape as Arenas 1 and 4 —
+not an absence of evidence. A larger sample would measure the same too-small
+effect more precisely.
+
+**Two errors caught in-flight, both recorded in the kill log** because they are
+the kind that get reported as discoveries:
+
+1. **A lookahead artifact.** A fifth signal, `rvol_ratio`, was initially the
+   *strongest* result (IC 0.084, t 5.75, sign-consistent every year). Its
+   normaliser was the session median of realised vol over the **whole session**,
+   so the 10:00 value knew 15:00. With a past-only expanding median it fails at
+   every horizon and leaves the screen entirely.
+2. **A permissive economic test.** The first version of condition (c) compared
+   gross against the CAGR target **without subtracting friction at all** and
+   "advanced" three cells that lose money on every trade. It now prices
+   statutory charges *and* the spread, and sweeps the spread 0 → 1.50/leg so the
+   verdict rests on no single assumed number.
 
 ---
 
-## 4. Why intraday, and the number that justifies it
+## 2. What still binds, and is not to be re-run
 
-Every Phase 1 hypothesis used **end-of-day bhavcopy**. Intraday is not merely
-untested — there is no intraday history stored anywhere. `data/` holds only EOD
-bhavcopy and the events calendar, there are no candle or tick tables in the
-schema, and the harvester publishes ticks to Redis with a 90-second TTL and then
-discards them. The live system is built entirely around intraday and has zero
-intraday research behind it.
+- Arena 1 (weekly short vol) and Arena 4 (earnings straddles): **closed,
+  size-independent**, unaffected by the capital correction.
+- Arenas 2 and 3: **closed**, and unaffordable at this capital regardless
+  (~Rs 4.4L minimum for NIFTY credit spreads).
+- Arena 5's **unconditional single-signal** idea: dead as of today.
+- The traps list in §6 below. Every item on it was paid for once already.
 
-**The cost arithmetic, from the project's own friction model** (`friction_model`,
-NIFTY lot = 65 from the scrip master):
+---
 
-| trade | friction vs the edge it chases |
+## 3. Registry state
+
+10 registered, 10 killed, 0 survivors. `python -m research.loop list`.
+
+Arena `intraday_index` is **not closed** — Section 7 leaves closure an operator
+decision and fixes no screen allotment. Screen 1 closes one specific idea.
+
+---
+
+## 4. THE NEXT STEP, and why it is this one
+
+**Measure the actual NIFTY option bid-ask spread.**
+
+The entire Arena 5 verdict turns on a cost number the project has never
+measured. `0.75/leg` is a default in `real_backtester.Config`, not an
+observation. The sensitivity table shows exactly how much rides on it:
+
+| spread/leg | best cell, net Rs/trade |
 |---|---|
-| 4-leg earnings straddle | Rs 3,994/trade against a Rs 174 edge — **23x** |
-| weekly condor | negative *before* friction |
-| **1-lot intraday long option** | **Rs 66 round trip = ~1.0 index point** |
+| 0.00 | +47.82 |
+| 0.10 | +34.82 |
+| 0.25 | +15.32 |
+| **~0.36** | **breakeven** |
+| 0.50 | −17.18 |
+| 0.75 | −49.68 |
 
-A 20-point premium move on 1 lot is Rs 1,300 gross, so friction is ~**5%** of it.
-The EOD structures died harvesting a tiny edge (2 vol points) with an expensive
-vehicle (4 legs). A 1-2 leg intraday trade chases 10-30% of the instrument's
-price with ~1 point of cost. Roughly a 100x better edge-to-cost ratio, and long
-options need **no margin**, so under Rs 5L is workable rather than marginal.
+If the real spread on tradeable NIFTY options is under ~0.36/leg, screen 1's
+kill is wrong and must be revisited. If it is 0.75 or worse, the kill is right
+and it also closes most of what Arenas 6 and 7 could propose — because they all
+have to cross the same book.
 
-**Honest prior:** intraday index direction is the most competed space in this
-market — HFT and prop desks live there. But the structural bet in Section 8 gets
-*stronger* at this size, not weaker: a Rs 5L participant trading 1-2 lots is
-genuinely beneath anyone's notice. At Rs 15L that argument was strained; here it
-is real.
+**This is what the deferred live tick recorder is for**, and it has been promoted
+from "nice for fill realism later" to the critical path. 1-min OHLC carries no
+bid/ask; only a live feed does. The harvester already receives ticks and drops
+them into 90-second Redis TTLs (`market_data_service._process_tick` →
+`data_service.ingest_tick`); it currently subscribes **only NIFTY index, secid
+13, quote mode**, so option contracts would need adding.
 
----
+Do this before designing any further screen. It is one measurement that either
+reopens the arena or closes most of Phase 2 honestly.
 
-## 5. THE PLAN — in order, starting tomorrow
-
-### Step 1 — Probe what intraday data already exists (do FIRST, needs token)
-
-`dhan_integration.py:617` already implements `get_historical_intraday()`, and the
-SDK exposes `intraday_minute_data` and `historical_daily_data`. **The data may
-already be free on the existing account.**
-
-Probe, and record the answers here:
-
-**ANSWERED 2026-08-14 13:00 IST** (`scratch/phase2_probe_intraday.py`,
-`phase2_probe_expired.py`, `phase2_probe_retention.py`; raw JSON beside each).
-
-- [x] NIFTY **spot/index** (secid 13, `IDX_I`) — **5+ years of 1-min bars.**
-      Hits at every rung of the ladder out to 1825 days (2021-08). Deep and free.
-      *Caveat:* the 2021 window returned 2260 bars for ~4 days where 375/day is
-      the session length, and a last bar at 18:42 — old-era timestamps need a
-      quality pass before use (see §9).
-- [x] NIFTY **futures** (front month, Aug2026, secid 58072) — **~75 days,
-      rolling.** Bars at 70d ago, empty at 80d. Not per-contract-life: a
-      rolling purge.
-- [x] A **live weekly option** (Aug18 24350 CE, secid 45104) — bars from
-      **2026-07-27 onward**, empty before. Cross-checked against longer-dated
-      contracts: Sep2026 24500 CE has bars at 30d but not 60d; Oct2026 24500 CE
-      has bars at 5d but not 30d. So an option's archive begins roughly **when
-      the contract starts actually trading**, not when it is listed — which
-      matches the known ~21-DTE liquidity onset for NIFTY.
-- [x] An **EXPIRED weekly option** — **NOT RETRIEVABLE. This is the answer that
-      shapes Phase 2.** Four contracts from this project's own `order_audit`
-      (known-good ids, known contracts, known trading days): 65677 and 65685
-      (expired 2026-08-04, 10 days ago) and 44623 and 44643 (expired 2026-07-07,
-      38 days ago) all returned **0 bars** — both for their final trading week
-      and for a window around the date the system actually placed orders against
-      them. The live control (45104) returned 1540 bars on the identical call, so
-      the difference is expiry and not the request.
-
-### What the probe actually decided
-
-Not "research next week" vs "record and wait" — a third thing neither branch
-anticipated:
-
-> **A live option contract's entire trading history is retrievable right up to
-> expiry, and is purged the moment it expires.**
-
-So the capture mechanism is **not** a live tick recorder. It is a **daily
-archival job** that walks the live contracts and pulls their 1-min bars to disk
-before they expire. Two consequences:
-
-1. **It is retroactive.** Every currently-live contract can be backfilled
-   *today* — its life-to-date, not just from now on. That is history the
-   "record forward" plan assumed was already lost.
-2. **The deadline is softer than §5 assumed, but real and dated.** Nothing is
-   lost by not recording *today*; things are lost at each *expiry*. The nearest
-   is **2026-08-18 (Tuesday, 4 days away)** — 462 contracts whose history goes
-   with it. Then 2026-08-25, and so on weekly.
-
-A live tick recorder is still worth building later for fill realism (bid/ask and
-queue behaviour that 1-min OHLC cannot show), but it is no longer the thing
-standing between Phase 2 and its first measurement.
-
-### Step 2 — Archive live option contracts before they expire  *(REVISED by the probe)*
-
-~~Persist live ticks.~~ Superseded. The probe showed live contracts keep their
-full history until expiry, so the job is to **pull 1-min bars for live contracts
-to disk, on a schedule that beats each expiry** — and to backfill every live
-contract now, which recovers history the original plan had written off.
-
-**Deadline: 2026-08-18 (Tue)** for the 462 contracts on that expiry, then weekly.
-
-Mirror `backtest/bhavcopy.py`'s discipline: cache to disk, quality report,
-explicit schema, refuse to silently return an empty range.
-
-Deferred, not cancelled: a live tick recorder for bid/ask and queue behaviour,
-which 1-min OHLC cannot show and which fill realism will eventually need.
-
-### Step 3 — Write Amendment E to the charter
-
-Capital, target Sharpe, drawdown as a percentage, and the Phase 2 arena
-definitions. **Before any research runs.**
-
-### Step 4 — Measure before building
-
-The single most effective thing in Phase 1 was measuring the premium or the IC
-*before* writing a strategy — it killed hypotheses in minutes that would
-otherwise have cost weeks. The intraday equivalent:
-
-> Before building anything, measure whether NIFTY 1-minute returns have any
-> predictable structure at a horizon where ~1 index point of friction is
-> affordable.
-
-A few days of work that either opens the arena or closes it honestly.
+**Second, unblocked and independent:** reconcile the Rs 10,111 broker balance
+against the stated Rs 50k–1L. Amendment E's arithmetic is written in
+percentages so nothing has to be redone, but position sizing at Rs 10k is a
+different problem from position sizing at Rs 1L.
 
 ---
 
-## 6. NEEDED FROM THE OPERATOR
-
-1. **Exact capital figure.** "Under Rs 5L" spans Rs 50k to Rs 4.9L, and the
-   difference decides whether the book holds 1 position or 6.
-2. **Fresh Dhan token** in `.env` (`DHAN_ACCESS_TOKEN`). The one currently there
-   is from 2026-08-07 and will have expired.
-3. Confirmation that live-market hours are available for the Step 2 work.
-
----
-
-## 7. System state as left on 2026-08-13
+## 5. System state as left on 2026-08-14
 
 | | |
 |---|---|
-| `main` | `06609a0`, pushed, clean tree, in sync with origin |
-| research branch | `a203fba`, pushed |
-| test suite | 847 checks, 0 failures, 20 files (`python tests/run_all.py`) |
-| services | **all stopped** — python, node, WSL, ports 8000/8001/3000/5432/6379 |
+| `main` | `634e821`, clean tree, **not yet pushed** |
+| tests | **856 checks, 0 failures**, 20 files (`python tests/run_all.py`) |
+| services | **all stopped** except WSL Postgres, which this session started |
 | `TRADING_MODE` | `PAPER` |
-| `LADDER_MODE` | `false` (the ladder is a fill artifact: PF 3.47 -> 0.78) |
-| live entries | refused — `unpromoted_ladder`, zero promotions on record |
-| logs | `worker.log` emptied (was 100% test artifacts); tests now write to `logs/test/` |
-| registry | 9 registered, 9 killed, 4 of 4 arenas closed |
+| live entries | refused — zero promotions on record |
+| archive | `data/intraday/` — 3.98M bars; `manifest.json` is the index |
+| Dhan token | expires **2026-08-15 12:51 IST** — refresh before next session |
 
-To restart the stack: `start_v8.bat`, then `python check_health.py`.
-Postgres and Redis live in WSL at 172.26.128.109 — bring WSL up first.
+Postgres/Redis are in WSL at 172.26.128.109; `wsl -d Ubuntu -u root service
+postgresql start`. Windows→WSL TCP was flaky this session; `wsl -d Ubuntu -u
+postgres psql -d agentic_trader -c "..."` works when the TCP path does not.
+
+To restart the full stack: `start_v8.bat`, then `python check_health.py`.
 
 ---
 
-## 8. Traps this project has already paid for — do not re-learn them
+## 6. Traps this project has already paid for — do not re-learn them
 
-- **The engine's defaults are shaped around vertical credit spreads.** Six config
-  knobs silently did nothing on other structures. Check every `--set` against the
-  entry path that will actually read it. `Config.__post_init__` now refuses the
-  known ones.
-- **Never accept an aggregate fill/skip rate as evidence about the market.**
-  Decompose by *kind* of refusal — self-imposed rule vs schema artefact vs real
-  illiquidity. Arena 4's "capacity" problem was 45% a risk cap and only 12%
-  actual illiquidity.
+- **Lookahead hides in the normaliser, not the signal.** `rvol_ratio` used a
+  whole-session median and became the best signal in the screen. Any statistic
+  computed per-session must be `expanding()`, never a session-wide aggregate.
+- **Overlapping forward windows inflate |t| by ~sqrt(h).** Uncorrected, all 16
+  cells clear Section 4 on sample size alone.
+- **friction_model carries NO bid/ask.** It prices brokerage and statutory
+  charges only. On a cheap option the spread is the *larger* half of the cost.
+- **The engine's defaults are shaped around vertical credit spreads.** Six
+  config knobs silently did nothing on other structures.
+- **Never accept an aggregate fill/skip rate as evidence.** Decompose by *kind*
+  of refusal. Arena 4's "capacity" problem was 45% a risk cap, 12% illiquidity.
 - **When a short structure loses, compute the MID-PRICE P&L before proposing the
-  long side.** The spread is paid in both directions. This is what stopped a
-  well-motivated but wrong "buy earnings vol instead" hypothesis.
+  long side.** The spread is paid in both directions.
 - **A log file's recency is not evidence a service ran.** Check the logger name.
-  `worker.log` looked like live activity and was 427/427 test fixtures.
-- **The two-era schema break bites repeatedly.** `txns` is NaN before 2024 and
-  `UndrlygPric` is empty for stock futures before 2024. Use `strict_legacy` on
-  any window starting 2023-01-01, or `strict` silently deletes a third of it.
-- **Pre-registration works.** The carry signal was declared, with direction and
-  thresholds, in a commit made before the number existed — which is the only
-  reason its negative result could not be re-read as "short carry works".
+- **The two-era bhavcopy schema break bites repeatedly.** Use `strict_legacy` on
+  any window starting 2023-01-01.
+- **Pre-registration works.** It is the only reason today's negative result
+  cannot be re-read later as "intraday momentum works".
