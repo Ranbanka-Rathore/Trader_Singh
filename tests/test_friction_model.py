@@ -137,6 +137,57 @@ def test_backtester_leg_shape():
     check("'price' key accepted", approx(agg["total"], ref["total"], 0.01))
 
 
+def test_explicit_instrument_key():
+    """A leg saying instrument='future' must be charged FUTURES rates.
+
+    basket_friction originally inferred the instrument solely from
+    opt_type == 'fut' and silently ignored an `instrument` key. Option STT is
+    0.1% of PREMIUM; futures STT is 0.02% of NOTIONAL. So a futures leg labelled
+    only with `instrument` was charged option rates against a base ~1000x
+    larger — an ~8x overcharge (Rs 3,014 instead of Rs 468 on one NIFTY lot,
+    46.4 index points instead of 7.2). It looked plausible, which is what made
+    it dangerous.
+    """
+    print("\n[8] Explicit instrument key is honoured")
+    px, qty = 24400.0, 65
+
+    by_key = fm.basket_friction([{"side": "SELL", "price": px, "quantity": qty,
+                                  "instrument": "future"}])
+    by_conv = fm.basket_friction([{"side": "SELL", "opt_type": "FUT", "price": px,
+                                   "quantity": qty}])
+    ref_fut = fm.leg_friction(side="SELL", price=px, quantity=qty,
+                              instrument="future")
+    ref_opt = fm.leg_friction(side="SELL", price=px, quantity=qty,
+                              instrument="option")
+
+    check("instrument='future' matches futures rates",
+          approx(by_key["total"], ref_fut["total"], 0.01))
+    check("instrument='future' agrees with opt_type='FUT'",
+          approx(by_key["total"], by_conv["total"], 0.01))
+    check("and is NOT charged option rates",
+          not approx(by_key["total"], ref_opt["total"], 1.0))
+    check("the overcharge it prevents is ~8x",
+          ref_opt["total"] / max(ref_fut["total"], 1e-9) > 5.0)
+
+    # 'option' stays explicit-able, and the default is unchanged.
+    by_opt = fm.basket_friction([{"side": "SELL", "price": 80.0, "quantity": 130,
+                                  "instrument": "option"}])
+    check("instrument='option' matches option rates",
+          approx(by_opt["total"],
+                 fm.leg_friction(side="SELL", price=80.0, quantity=130)["total"], 0.01))
+    check("no instrument and no opt_type still defaults to option",
+          approx(fm.basket_friction([{"side": "SELL", "price": 80.0, "quantity": 130}])["total"],
+                 by_opt["total"], 0.01))
+
+    # A typo must fail loudly rather than silently pick a rate table.
+    try:
+        fm.basket_friction([{"side": "SELL", "price": px, "quantity": qty,
+                             "instrument": "futures_typo"}])
+        check("an unknown instrument raises", False)
+    except ValueError:
+        check("an unknown instrument raises", True)
+
+
 if __name__ == "__main__":
     test_option_sell_leg()
     test_option_buy_leg()
@@ -145,5 +196,6 @@ if __name__ == "__main__":
     test_basket_aggregation()
     test_round_trip()
     test_backtester_leg_shape()
+    test_explicit_instrument_key()
     print(f"\n{'='*50}\nRESULT: {PASS} passed, {FAIL} failed")
     sys.exit(1 if FAIL else 0)

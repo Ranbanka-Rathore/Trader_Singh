@@ -124,7 +124,23 @@ def basket_friction(
         if qty is None:
             raise ValueError("leg has no 'quantity' and no default_quantity given")
         price = leg.get("entry_fill", leg.get("price", 0.0)) or 0.0
-        instrument = "future" if str(leg.get("opt_type", "")).lower() == "fut" else "option"
+        # Instrument selection is load-bearing: option STT is 0.1% of PREMIUM
+        # while futures STT is 0.02% of NOTIONAL, so mislabelling a futures leg
+        # charges option rates against a ~1000x larger base — an ~8x overcharge
+        # that looks plausible and is easy to miss. Honour an explicit
+        # `instrument` key as well as the `opt_type == "fut"` convention, so a
+        # caller that says what it means gets what it asked for.
+        explicit = str(leg.get("instrument", "")).strip().lower()
+        if explicit in ("fut", "future", "futures"):
+            instrument = "future"
+        elif explicit in ("option", "opt"):
+            instrument = "option"
+        elif explicit:
+            raise ValueError(
+                f"unknown instrument {leg.get('instrument')!r} on a friction leg; "
+                f"use 'option' or 'future' (or the opt_type='FUT' convention)")
+        else:
+            instrument = "future" if str(leg.get("opt_type", "")).lower() == "fut" else "option"
         f = leg_friction(side=str(leg.get("side", "")), price=float(price),
                          quantity=int(qty), instrument=instrument)
         for k in _BREAKDOWN_KEYS:
