@@ -15,10 +15,13 @@ Invokes `RESEARCH_CHARTER.md` §7, project level.
 ever reached it.**
 
 ```
-registered   14        promoted to live      0
-killed       14        reached Section 5     0
+registered   15        promoted to live      0
+killed       15        reached Section 5     0
 survived      0        arenas closed      6 of 7
 ```
+
+*(14/14 when drafted 2026-08-18; see the §9 addendum for the fifteenth, which
+reopened a closed arena under a pre-written condition and failed it.)*
 
 Section 7 fires as written. The research programme stops.
 
@@ -38,7 +41,7 @@ Two corrections to the literal text, both recorded rather than quietly applied:
 
 ## 2. The record
 
-### Hypotheses — 14 registered, 14 killed
+### Hypotheses — 15 registered, 15 killed
 
 | id | arena | verdict |
 |---|---|---|
@@ -56,6 +59,7 @@ Two corrections to the literal text, both recorded rather than quietly applied:
 | `intraday-conditional-modern` | intraday_index | killed |
 | `intraday-edgesize-modern` | intraday_session | killed |
 | `intraday-varshare-modern` | intraday_option | killed |
+| `pa-levels-modern` | intraday_index | killed *(2026-08-19, §9)* |
 
 Every one was registered **before** it ran. That is the only reason this document
 can be trusted: none of these results can be re-read later as a discovery.
@@ -68,7 +72,7 @@ This distinction is load-bearing and §6.4 exists to enforce it.
 |---|---|---|
 | `index_structures` | 2026-08-13 | **measured absence** — question was resolvable |
 | `event_vol` | 2026-08-13 | **measured absence** — question was resolvable |
-| `intraday_index` | 2026-08-14 | **measured absence of a tradeable edge** |
+| `intraday_index` | 2026-08-14, **re-closed 2026-08-19** | **measured absence of a tradeable edge**; reopened once under condition 2 and failed it (§9) |
 | `intraday_session` | 2026-08-14 | **measured absence** from session/regime structure |
 | `cross_sectional` | 2026-08-13 | *search budget exhausted* — not the question |
 | `futures_trend` | 2026-08-10 | *resolvability and throughput* — not demonstrated absence |
@@ -266,19 +270,83 @@ threshold.
 
 ---
 
-## 9. Disposition
+## 9. Addendum — the reopening was granted, tested, and spent (2026-08-19)
+
+This document was drafted 2026-08-18 at 14 registered / 14 killed. It is now
+**15 / 15**, and the extra one is worth recording because it is the only time
+this project reopened a closed arena.
+
+**What happened.** The operator identified a signal family the survey had never
+touched — horizontal support/resistance levels, swing structure (LH-LL / HH-HL),
+candlestick reversals and gap edges. Checked against `kill_log.json`, none of it
+appears in the tested family (*multi-lag momentum, VWAP deviation, opening-range
+position, realised-vol state, range position, acceleration, time-of-day*). That
+is exactly what `intraday_index`'s **condition 2** was written for, so
+**Amendment F** reopened the arena once, at condition 2's own unmodified bar of
+**8.0 gross index points, sign-stable across years**.
+
+**The result — `pa-levels-modern`, KILLED:**
+
+| arm | n | gross | 95% CI | 8.0 pts |
+|---|---|---|---|---|
+| confluence ≥2 | 234 | **−1.845** | [−6.00, +2.31] | **EXCLUDED** (4.64 SE) |
+| confluence ≥3 | 51 | +0.663 | [−8.85, +10.18] | **INSIDE** (1.51 SE) |
+
+At ≥2 this is a **measured absence**. At ≥3 it is an **absence of evidence** and
+the closure says so: 8 points against a measured 34.7-point per-trade SD needs
+~76 trades, the rule makes ~13/year, so it needs ~6 years against a 4-year
+window. The ≥3 arm's sign-stability "PASS" is **degenerate** — only 2024 clears
+the 20-trade floor, while the raw per-year means (−20.0/+7.9/−6.3/+4.9/+6.5) are
+visibly unstable.
+
+**Three process notes, because they are the transferable part:**
+
+1. **Run 1 was thrown out, and not because of its number.** It measured the
+   10-bar retest clock from the *touch* rather than the completed move away,
+   producing 0.20 retests per session. That was caught by a **funnel diagnostic**
+   (9.2 levels → 2.2 touches → 0.20 retests), not by noticing an unfavourable
+   P&L — which is the only reason correcting it was legitimate rather than
+   fitting. The ambiguous sentence was amended in the pre-registration *before*
+   run 2.
+2. **Two implementation errors were caught by tests before any result existed:**
+   candlestick shapes were wrongly given fixed directions (a hammer at a high is
+   a hanging man), and gap-fill logic ignored direction, deleting still-live gaps
+   in trending markets.
+3. **Reopening did not erase the kill.** `reopen_arena` moves the closure to
+   `arena_history` rather than deleting it, so the 2026-08-14 record — grounds,
+   evidence, three dead hypotheses — survives intact alongside the amendment,
+   the condition invoked, and what the reopening was spent on.
+
+**What the price-action closure does NOT claim.** Not that chart-reading fails,
+and not anything about the operator's discretionary judgement. Levels here are
+built from **strictly prior sessions** — stricter than a human watching a session
+form — and wedges, head-and-shoulders, cup-and-handle and double tops were never
+tested. It claims only that this mechanical encoding, at ≥2 confluences, carries
+no edge at the 8-point scale the cost floor demands.
+
+**Condition 2 is now spent** (Amendment F4). Condition 1 failed on 2026-08-18 on
+its affordability clause. Only condition 3 — overnight / multi-day holds —
+remains untouched, and F and the original closure both state it would be a **new
+arena**, not a reopening.
+
+---
+
+## 10. Disposition
 
 1. **Research programme: STOPPED.** No further hypotheses registered.
-2. **`intraday_option`: closed as UNRESOLVED**, on the E10.3 collision — the
+2. **`intraday_index`: re-closed 2026-08-19**, reopening spent.
+3. **`intraday_option`: closed as UNRESOLVED**, on the E10.3 collision — the
    question is legitimate and the data to answer it will not arrive in time.
    This is absence of evidence and is labelled as such.
-3. **Archive: CONTINUES**, unchanged, as a data asset rather than a research
+4. **Archive: CONTINUES**, unchanged, as a data asset rather than a research
    activity.
-4. **Capital: not deployed.** No promotion was earned, so Section 5 was never
+5. **Capital: not deployed.** No promotion was earned, so Section 5 was never
    satisfied and no live code path was opened.
 
 The failure mode §7 was written to guard against was *"another two and a half
 years of near-misses that never quite die."* This programme ran roughly five
-months, registered fourteen falsifiable hypotheses, killed fourteen, and stopped.
+months, registered **fifteen** falsifiable hypotheses, killed **fifteen**, and
+stopped — including one that reopened a closed arena under a condition written in
+advance, failed it, and closed it again the same week.
 
 That is the section working.
