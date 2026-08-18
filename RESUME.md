@@ -341,10 +341,40 @@ points out of sample.** What remains:
    the closing window and full session DO clear a four-order cost on this sample,
    so anything registered here from now on is registered by someone who already
    knows that.
-2. **Attack the cost floor, not the edge.** Every kill in Phase 2 has been a cost
-   result. Statutory charges are the larger half and are not negotiable, so this
-   means lot economics — a different underlying or contract size — not a
-   different broker.
+2. ~~**Attack the cost floor, not the edge.**~~ **ANSWERED 2026-08-18 — this door
+   is closed for NSE index options.** `python -m backtest.cost_floor`. Every kill
+   in Phase 2 has been a cost result, and the floor had only ever been measured on
+   NIFTY, so the obvious move was a different underlying or contract size.
+   Measured across all four NSE index contracts, normalised as **cost per unit of
+   daily sigma** (index points are NOT comparable across underlyings — the exact
+   analogue of E9's rupees-vs-points trap):
+
+   | contract | cost pts | sigma pts | **cost/sigma** | notional/lot |
+   |---|---|---|---|---|
+   | BANKNIFTY | 5.602 | 793.6 | **0.71%** | 17,41,910 |
+   | NIFTY | 1.924 | 255.9 | **0.75%** | 16,01,340 |
+   | MIDCPNIFTY | 1.493 | 190.6 | **0.78%** | 17,77,512 |
+   | FINNIFTY | 2.870 | 364.9 | **0.79%** | 16,11,810 |
+
+   Raw index points span **3.75×** (1.49 → 5.60) and look like a large free
+   choice. Normalised, they span **1.11×** — and notional per lot spans 1.11×
+   too. That is the mechanism: **SEBI standardises index lots to a common
+   notional (~₹16–18 lakh), and cost/sigma = cost_Rs / (delta × sigma × notional).
+   The one variable that would let you escape the floor is the one the regulator
+   fixed.** BANKNIFTY's 6% advantage is inside the noise of the approximations and
+   costs 2.4× the capital.
+
+   NIFTY is also the most **affordable** ATM lot (₹8,200, 16.4% of a ₹50k account;
+   the others are 39–45%), so it was already the right contract on both axes.
+   A −40% stop is still 6.6% of the account against E2's 1–2% budget — the squeeze
+   is unchanged, it simply cannot be escaped by switching contract.
+
+   **Not covered:** BSE (SENSEX, BANKEX) — `friction_model` carries NSE rates
+   only. Their lots are *smaller* (20 and 30), so the flat ₹20 amortises worse;
+   the direction is known, the magnitude is not. Spread is excluded throughout, so
+   this is the **irreducible** floor. Self-check reproduces RESUME's measured
+   2.20-pt NIFTY floor to 2% from a fully independent path (bhavcopy premiums vs
+   the Dhan depth book).
 3. **Scheduled-event conditioning**, the one gap named in the `intraday_session`
    closure. `data/events/` (RBI board meetings 2016–2025) and
    `backtest/macro_events.py` (FOMC) exist and were never used intraday. Bar is
