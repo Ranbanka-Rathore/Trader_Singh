@@ -160,6 +160,21 @@ because they are defined against the prior bar's direction.
 This **removes** a free choice rather than adding one: context now supplies
 direction, exactly as a chart reader would read it.
 
+**Two further specifications, also fixed before the run:**
+
+- **VWAP proxy.** §3.2.6 says "session VWAP". The NIFTY *index* has no volume, so
+  a true VWAP does not exist on this series. The screen reuses
+  `scratch/arena5_intraday_ic.py`'s definition **verbatim** — typical price
+  (H+L+C)/3, expanding over the session — rather than inventing a second proxy.
+  Same definition as the arena's earlier screens, so the input is comparable and
+  no new choice is introduced.
+- **Levels are built from strictly prior SESSIONS**, not merely prior bars. This
+  is *stricter* than the operator's method, who can watch the session form. It is
+  deliberate: a 60-minute bar covering 09:15–10:15 is not known at 09:30, and a
+  screen that used it would be `rvol_ratio` again. The cost is that levels
+  forming intraday are missed; the benefit is that partial-bar leakage on the
+  higher timeframes is impossible by construction.
+
 ---
 
 ## 4. THE KILL CRITERION (registered before running)
