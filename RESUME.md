@@ -447,7 +447,8 @@ Session ran 2026-08-14, ~12:50 → 23:00 IST. Left clean.
 | scheduled task | `AgenticTrader-IntradayArchive` **Ready**, next Mon 2026-08-17 15:45 |
 | archive lock | clear (`logs/archive/.run.lock` absent) |
 | `TRADING_MODE` | `PAPER` |
-| live entries | refused — **zero promotions on record**, 14/14 hypotheses killed |
+| live entries (system) | refused — **zero promotions on record**, 14/14 hypotheses killed |
+| live entries (operator, manual) | **1 on 2026-08-18** — see below. The system refused nothing because the system was not involved |
 | archive | `data/intraday/` — 4.3M bars, 56 option days; `manifest.json` is the index |
 | Dhan token | **expires 2026-08-15 12:51 IST — refresh before anything else** |
 
@@ -459,6 +460,41 @@ Dhan and the parquet files.
 
 To restart the full stack: `start_v8.bat`, then `python check_health.py`. **The
 standing task does not need the stack**; do not start it just to archive.
+
+### The manual live trade of 2026-08-18 — recorded so the record stays honest
+
+The operator took a discretionary live trade outside the system. It is logged
+here because a handoff that says "live entries refused" while the broker shows a
+fill is the one thing this project must never do.
+
+```
+NIFTY-Aug2026-24200-PE  LONG 1 lot (65), INTRADAY, expiring same day
+BUY  11:19:12 @ 29.30      SELL 11:30:56 @ 51.20      held 11m 44s
+gross +Rs 1,423.50   friction Rs 52.79   NET +Rs 1,370.71  (+11.9% of account)
+```
+
+**This is n=1 and proves nothing about method.** It was long gamma into a fast
+directional move; the identical setup expires worthless on a flat tape. Judging
+the approach by this outcome is precisely the inference Section 6.4 exists to
+block, and [[live-pnl-is-unproven-not-good]] already records the same caution
+from an earlier 3-trade run.
+
+Two things it *did* demonstrate, both structural rather than predictive:
+- **Friction was 3.7% of gross, and the flat ₹40 brokerage was 76% of that** —
+  `backtest/cost_floor.py`'s thesis visible in a single contract note. On a ₹100
+  gross the ₹40 would have been the whole trade.
+- **Sizing cannot comply with the charter at this account size.** Max loss was
+  the full ₹1,904 premium = 16.8% of the account against E2's 1–2% budget, and
+  one lot is indivisible, so it cannot be sized down. Same squeeze
+  `cost_floor` measured, now observed live.
+
+The operator also marked 24,173 as support ahead of the low (actual low
+24,174.45 — within 1.45 pts) and identified an unfilled 2026-07-28/29 gap. The
+gap is real but is **24,041.15–24,136.75**, not 24,000–24,173, and price never
+reached it. Tested on 1,972 daily bars (2016–2023): of 46 gap-ups ≥50 pts, 78%
+were re-entered and **89% then traversed fully** — but only **22% did so within
+one session** (median 6). The destination thesis is well supported; the *speed*
+thesis is not, which is exactly what a same-day expiry needs.
 
 ---
 
