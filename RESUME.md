@@ -253,6 +253,48 @@ to turn the spread column into a distribution. Note it cannot rescue the trade �
 the statutory floor is independent of the spread and already takes 73% of the
 edge.
 
+> ### DONE 2026-08-18 — and the number moved enough to trip a reopening condition
+>
+> 103 sweeps, **32,136 quotes**, full live session 09:54→15:11. The after-hours
+> 4.01 was a **wide** estimate, exactly as the caveat suspected: live books are
+> tighter.
+>
+> | | after-hours (08-14) | **live (08-18)** |
+> |---|---|---|
+> | cheapest bucket | ATM, 80–160 prem | 80–160 prem (mid 114.70, delta 0.455) |
+> | all-in round trip | **4.01 pts** | **2.73 pts** |
+> | statutory-only floor | 2.20 pts | **2.07 pts** |
+>
+> **`intraday_index`'s kill_log names three reopening conditions. The first is
+> "a measured all-in cost below ~3.0 index points". 2.73 < 3.0 — it is MET.**
+> That is what pre-registration is for: the condition was fixed before the
+> measurement existed, so this cannot be read as a number found after the fact.
+>
+> **Contamination checked and ruled out.** Today was an expiry Tuesday, so 41% of
+> quotes were 0 DTE with anomalously tight books. They contributed **nothing** to
+> the cost table: BS delta is undefined at T=0, so all 15,912 0-DTE rows carry a
+> null delta and were filtered out. The 2.73 is a clean **7-DTE** measurement. In
+> the decisive bucket the 0d and 7d half-spreads are identical (0.150) anyway.
+>
+> **What this does NOT do — read before acting:**
+> - It does **not** resurrect the strategy. Only the COST side was re-measured.
+>   The 2.995-pt edge is itself suspect in the *other* direction: §4 already
+>   records that screen 1 paired a ₹19 premium with an ATM delta of 0.5 when a ₹19
+>   option's delta is ~0.09. The edge needs re-deriving against the contract that
+>   actually produces the 2.73, not just a cost swap.
+> - `intraday-edgesize-modern` separately found **no** intraday edge reaches 8 pts
+>   OOS. That kill is untouched by this.
+> - **n=2 measurements, disagreeing** (4.01 vs 2.73). The honest reading is that
+>   the cost is not a constant, not that 2.73 is the truth.
+> - The irreducible statutory floor is **2.07 pts**, leaving +0.92 of a 2.995 edge
+>   before any slippage beyond the quoted spread.
+> - **The affordability squeeze is unchanged.** The cheapest bucket is a ₹114.70
+>   option — **₹7,455/lot, 65% of the ₹11,488 account.** The contract whose cost
+>   structure works is still the one this capital cannot hold.
+>
+> **Reopening `intraday_index` requires a charter amendment and is the operator's
+> call.** Nothing has been registered.
+
 ### THE STANDING TASK — run this, and nothing else
 
 **It is now SCHEDULED.** Windows Task Scheduler task
