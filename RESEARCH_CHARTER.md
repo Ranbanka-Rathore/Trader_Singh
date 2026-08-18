@@ -970,6 +970,95 @@ multiple-comparisons budget. It also may not be used to *look*: coverage
 reporting shows day counts and shock counts only, never P&L. The next look at
 this data is the one that follows a registration.
 
+## Amendment F — `intraday_index` reopens under condition 2, once, at the 8-point bar
+
+**Written 2026-08-18, BEFORE any price-action code exists and before any
+backtest of this family has been run.**
+
+### F1 — What is being invoked, and why this is not an extension
+
+`intraday_index` was closed 2026-08-14 on measured absence of a *tradeable* edge.
+Its `reopen_requires` names three conditions. This amendment invokes **condition
+2** verbatim:
+
+> *"AN EDGE OF A DIFFERENT ORDER, from a signal family genuinely unlike those
+> tested. The bar is a measured gross edge of >= 8 index points per round trip,
+> sign-stable across years... The tested family is multi-lag momentum, VWAP
+> deviation, opening-range position, realised-vol state, range position,
+> acceleration and time-of-day."*
+
+**The family proposed here — horizontal support/resistance levels, swing
+structure, candlestick reversal patterns, and gap edges — appears nowhere on that
+list.** Section 7 permits no extensions, so this is a reopening under a
+pre-written condition, not a new arena. Filing price action as a *new* arena to
+avoid a closed one would defeat the rule; the 8-point bar comes with condition 2
+and binds here in full.
+
+**Condition 1 was tested on 2026-08-18 and FAILED** (live cost 2.73 pts, but only
+in a bucket costing 65% of equity; every affordable bucket ≥3.67). That test is
+the template: a reopening needs the *whole* condition, not the threshold.
+
+### F2 — Parameters are fixed here, from measurement or from the operator's
+prior statement, and may not be searched
+
+The failure mode this section exists to prevent is `intraday-ceiling-modern`:
+26 features fitted in-sample with no hold-out bought **+0.0002 IC** over one
+hand-picked signal. A price-action family has far more researcher degrees of
+freedom than that screen did. Every one is therefore pinned in advance:
+
+| parameter | value | provenance |
+|---|---|---|
+| level tolerance | **0.26 × median true range** of that timeframe | operator stated "50 pts on the daily" on 2026-08-18 *before* any result; 50 / 195.3 = 0.26. One constant, all timeframes. |
+| timeframes | 5-min, 15-min, 1-hour, daily | operator-stated |
+| lookback | **60 sessions** | MEASURED: 300 gaps 2016–2023; ~95% of gaps are touched within 60 sessions, 120 buys ~1% more |
+| min touches for a level | **2** | operator-stated ("hit 2-3 times") |
+| retest requirement | touch → move away ≥1×TR(5min) → return within tolerance | operator-stated ("price never reverses immediately... retracement of 5-10 candles") |
+| confluence threshold | **≥2** signals | operator-stated ("if there is 2-3 indications... I take the trade") |
+| candlestick set | hammer, inverted hammer, doji, bullish harami, bearish harami, engulfing | operator-stated, standard OHLC definitions |
+
+**No parameter above may be tuned.** If the hypothesis fails, it is closed, not
+re-parameterised (Section 7, per hypothesis). A variant needs a new registration
+and charges the Section 4 budget.
+
+Deliberately EXCLUDED from the first registration, to protect the comparisons
+budget: head-and-shoulders, cup-and-handle, rising/falling wedges, double
+top/bottom. These are definitionally fuzzy, admit many encodings, and each
+encoding is a free choice. They may be registered separately **only if the core
+survives**.
+
+### F3 — PCR enters the survey for the first time
+
+Put-call ratio appears nowhere in `kill_log.json`; no registered hypothesis has
+ever tested it. It was one of the operator's two founding ideas (the other, VWAP,
+was tested and was one of the two best signals in the whole programme — IC 0.053,
+sign-stable every year). PCR is admitted here as a **confluence input only**, not
+as a standalone signal, and counts as one of the ≥2.
+
+### F4 — The bar, and what it costs to fail
+
+The kill criterion is condition 2's, unmodified: **gross edge ≥ 8.0 index points
+per round trip, sign-stable across every calendar year with ≥60 trading days.**
+
+8.0 is not arbitrary — it is ~2.2× the 3.67-point all-in cost of the cheapest
+contract this account can actually hold (measured live 2026-08-18), and ~2.7× the
+best unconditional edge Phase 2 found.
+
+**This reopening is granted ONCE.** If the hypothesis is killed, `intraday_index`
+returns to closed and condition 2 is spent — a second price-action variant does
+not reopen it again. Section 7's target was "another two and a half years of
+near-misses that never quite die," and an arena that can be reopened repeatedly
+by adjacent ideas is that failure mode wearing a different hat.
+
+### F5 — Section 7 status is unchanged
+
+`SECTION_7_CLOSURE.md` stands. The survey completed and nothing reached Section
+5; this amendment does not un-close the other five arenas, does not alter E10.2's
+gate on `intraday_option`, and confers no permission to trade. A hypothesis that
+clears the 8-point bar has cleared a *screen*, and Amendment B5 still forbids a
+screen from promoting anything. Live capital remains behind Section 5's four
+walk-forward criteria, the 2× slippage stress, the jackknife, and a 30-trade
+paper sample.
+
 ## Amendment Log
 
 *(append-only; date + reason + what changed. An amendment made after seeing a
@@ -1086,3 +1175,18 @@ result it would change invalidates that result.)*
   two expiries, 10-12 contracts per mid bucket; intraday sampling is still
   required before the spread column is treated as a distribution, though the
   statutory floor depends on neither the spread nor the sampling time.
+- 2026-08-18 — **Amendment F** added. Reason: `intraday_index` reopens ONCE under
+  its own pre-written condition 2 ("a signal family genuinely unlike those
+  tested"), for horizontal support/resistance levels, swing structure,
+  candlestick reversal patterns and gap edges — none of which appear in the
+  tested family. Pins every parameter in advance from either measurement (60-day
+  lookback, from 300 gaps 2016-2023) or from the operator's prior statement
+  (0.26x true-range tolerance, ≥2 confluence, 2-touch levels, retest rule), so
+  none can be searched. Admits PCR to the survey for the first time, as a
+  confluence input only. Excludes wedges/H&S/cup-and-handle from the first
+  registration to protect the Section 4 budget. Kill bar is condition 2's own,
+  unmodified: gross edge ≥ 8.0 index points per round trip, sign-stable across
+  years. Reopening is spent on this one hypothesis. Grants no trading permission
+  and does not disturb `SECTION_7_CLOSURE.md`, E10.2, or Section 5. **Made
+  before any price-action code existed and before any backtest of this family
+  was run — no result informed it.**
