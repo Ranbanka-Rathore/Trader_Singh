@@ -204,6 +204,80 @@ def close_arena(arena: str, grounds: str, reopen_requires: str,
     return rec
 
 
+def reopen_arena(arena: str, amendment: str, condition: str, justification: str,
+                 spent_on: Optional[str] = None) -> Dict[str, Any]:
+    """Reopen a closed arena under a named, pre-written reopening condition.
+
+    Section 7 says "no extensions", and `close_arena` + `register` enforce that
+    by refusing registration outright. But every closure this project has written
+    also names `reopen_requires` — the evidence that WOULD justify the charter
+    amendment Section 7 otherwise forbids. Until now nothing could act on it, so
+    an amendment could only ever be prose, and prose that no code consults is the
+    exact hole that let the ladder reach live with Section 5 already written.
+
+    This is deliberately narrow, and narrow in a specific way: it does not
+    DELETE the closure. The record is moved to `arena_history`, so the arena's
+    kill and its grounds survive in full and a later reader can see that it was
+    closed, on what evidence, and what was claimed to justify reopening it. An
+    arena that could be silently un-closed would make every kill in this log
+    provisional.
+
+    `condition` must name WHICH of the closure's own reopen_requires clauses is
+    being invoked, and `justification` must say how it was met. Both are
+    mandatory for the same reason `grounds` is mandatory on closure: a reopening
+    that cannot be audited later is indistinguishable from moving the goalposts.
+
+    `spent_on` records the hypothesis the reopening is granted for, where the
+    amendment grants it once (Amendment F4). It is recorded, not enforced here —
+    re-closing after that hypothesis resolves is an operator action, and
+    inventing an automatic trigger would be the same "fitting the rule to a
+    decision already taken" that `close_arena` declines to do.
+    """
+    if arena not in charter.ARENAS:
+        raise RegistryError(
+            f"unknown arena '{arena}'; charter Section 8 lists {sorted(charter.ARENAS)}")
+    for field, val in (("amendment", amendment), ("condition", condition),
+                       ("justification", justification)):
+        if not str(val or "").strip():
+            raise RegistryError(
+                f"reopening an arena needs '{field}'. Section 7 forbids "
+                f"extensions, so a reopening is only legitimate as a named "
+                f"charter amendment meeting a condition the closure itself "
+                f"wrote down in advance. Without that it is just a retry.")
+    log = load()
+    closed = (log.get("arenas") or {}).get(arena)
+    if not closed:
+        raise RegistryError(
+            f"arena '{arena}' is not closed, so there is nothing to reopen.")
+    rec = dict(closed)
+    rec.update({
+        "arena": arena,          # closure records carry no arena key of their own
+        "status": "reopened",
+        "reopened_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "reopened_by_amendment": str(amendment).strip(),
+        "reopened_under_condition": str(condition).strip(),
+        "reopen_justification": str(justification).strip(),
+        "reopen_spent_on": spent_on,
+    })
+    log.setdefault("arena_history", []).append(rec)
+    del log["arenas"][arena]
+    save(log)
+    return rec
+
+
+def arena_history(arena: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Past closures of arenas that were later reopened — the audit trail.
+
+    A reopened arena reads as open everywhere else in this module, which is the
+    point: registration must work. This is how you still see that it was closed
+    once, on what grounds, and what was claimed to justify reopening it.
+    """
+    hist = load().get("arena_history") or []
+    if arena is None:
+        return list(hist)
+    return [h for h in hist if h.get("arena") == arena]
+
+
 # ── registration ─────────────────────────────────────────────────────────────
 def register(hid: str, arena: str, claim: str, kill_criterion: str,
              window: List[str], gate: str = "strict", n_configs: int = 1,
