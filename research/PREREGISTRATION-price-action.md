@@ -177,6 +177,58 @@ direction, exactly as a chart reader would read it.
 
 ---
 
+---
+
+## 3B. AMENDMENT — 2026-08-18, after run 1, BEFORE run 2
+
+**Run 1 did not test this hypothesis. It tested a stricter one, because §3.3 is
+ambiguous and the screen implemented the restrictive reading.**
+
+§3.3 says *"return within tolerance **within 10 five-minute bars**"* without
+saying ten bars **from what**. `scratch/pa_levels.py` measured them from the
+**touch**, so a single 10-bar window had to contain the move away *and* the
+return. The operator's actual words were *"there will be retracement back to that
+reversal point consisting of 5-10 candles"* — the **retracement leg** is 5–10
+candles, and it begins after the move away, not at the touch.
+
+Measured consequence, from the funnel diagnostic over 300 sessions:
+
+```
+levels per session    9.2
+touches per session   2.2
+RETESTS per session   0.20      <- only 17% of sessions produced even one
+```
+
+At confluence ≥3 that yielded **35 trades in four years**, SE 6.07, and a 95% CI
+of **[−8.81, +14.97]** — which *contains the 8.0 bar*. The screen could not rule
+the bar out either way, so its "FAIL" on (a) was an absence of evidence, not a
+measured absence.
+
+**Corrected specification.** The 10-bar retest clock starts when the move away
+completes (the bar at which price has travelled ≥1 × TR(5-min) from the level),
+not at the touch. There is **no** timeout on touch → move-away: the setup stays
+live until the move away occurs or the session ends. That deliberately adds **no
+new parameter** — a "wait at most N bars for the move away" rule would be a free
+choice this document never pinned.
+
+**Nothing else changes.** Tolerance, lookback, touch count, confluence
+thresholds, candlestick definitions, exits and the 8.0-point bar are all
+untouched. This is a correction to an ambiguous sentence, not a loosening chosen
+because the first result was unfavourable — and the direction of the ambiguity
+was identified from a **funnel diagnostic (levels → touches → retests)**, not
+from looking at which setting produced more P&L.
+
+**Run 1's ≥2 arm does NOT survive as a separate finding.** It used the same
+defective encoding, so its 158 trades are the fast-retest subset rather than the
+registered rule. Its measured absence applies to a rule that was never
+registered, and it is recorded as context, not as a kill.
+
+**This is the one correction permitted.** Run 2 is the test. If run 2 kills the
+hypothesis, `intraday_index` returns to closed and Amendment F's condition 2 is
+spent, exactly as F4 states.
+
+---
+
 ## 4. THE KILL CRITERION (registered before running)
 
 **KILLED unless ALL THREE hold together:**

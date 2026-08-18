@@ -145,7 +145,7 @@ def run():
         t5, tol5 = tr["5min"], tol["5min"]
 
         for lv in levels:
-            state, touch_i, side = "idle", None, None
+            state, touch_i, away_i, side = "idle", None, None, None
             for i in range(1, len(day5)):
                 bar = day5.iloc[i]
                 prev = day5.iloc[i - 1]
@@ -159,13 +159,19 @@ def run():
                     side = "long" if ref > lv.price else "short"
                     state, touch_i = "touched", i
                 elif state == "touched":
+                    # No timeout waiting for the move away. Preregistration §3B:
+                    # a "wait at most N bars" rule would be a free parameter the
+                    # document never pinned, so the setup stays live until the
+                    # move away happens or the session ends.
                     away = (c - lv.price) if side == "long" else (lv.price - c)
                     if away >= pa.REVERSAL_TR_MULT * t5:
-                        state = "away"
-                    elif i - touch_i > pa.RETEST_MAX_BARS:
-                        state = "idle"
+                        state, away_i = "away", i
                 elif state == "away":
-                    if i - touch_i > pa.RETEST_MAX_BARS:
+                    # The 10-bar retest clock starts HERE, at the completed move
+                    # away -- not at the touch. Run 1 measured it from the touch,
+                    # so one window had to contain both legs, and that produced
+                    # 0.20 retests per session. Preregistration §3B.
+                    if i - away_i > pa.RETEST_MAX_BARS:
                         state = "idle"
                         continue
                     if not near:
