@@ -121,6 +121,47 @@ holds** — that is condition 3's territory and a different arena.
 
 ---
 
+---
+
+## 3A. AMENDMENT — 2026-08-18, written BEFORE the screen was run
+
+§3.2.3 said "standard OHLC definitions" for the candlestick set. Implementing
+them showed that phrase is not a specification: every pattern needs numeric
+thresholds, and each one is a free parameter this document failed to pin. Per the
+rule at the top of this file, they are fixed here **before any run**, not chosen
+afterwards.
+
+| element | value |
+|---|---|
+| doji | body ≤ **0.10** × bar range |
+| hammer / inverted hammer | body ≤ **0.35** × range, long shadow ≥ **2.0** × body, opposite shadow ≤ **0.30** × range |
+| harami | this bar's body wholly inside the prior body, opposite colour |
+| engulfing | this bar's body wholly contains the prior body, opposite colour |
+| swing detection | zigzag with a **1.0 × true range** reversal threshold |
+
+These are conventional textbook values, chosen without reference to any result —
+no version of this screen has been run. They are recorded so that if a later
+reader wonders whether 0.35 was tuned, the commit history answers it.
+
+**A second, more substantive correction.** The first draft of `price_action.py`
+assigned each candlestick shape a direction, putting `hammer` in the bullish set
+and `inverted_hammer` in the bearish set. That is wrong, and wrong in a way that
+would have quietly degraded the screen: **shape alone does not carry direction.**
+A hammer at a low is bullish; the identical shape at a high is a hanging man and
+is bearish. An inverted hammer at a low is bullish; the same shape at a high is a
+shooting star.
+
+Corrected encoding: `doji`, `hammer` and `inverted_hammer` are **direction-
+neutral** reversal signals, and their direction comes from which kind of level
+they occur at — which the symmetric long-at-support / short-at-resistance rule
+already supplies. Only the two-bar patterns (harami, engulfing) carry a colour,
+because they are defined against the prior bar's direction.
+
+This **removes** a free choice rather than adding one: context now supplies
+direction, exactly as a chart reader would read it.
+
+---
+
 ## 4. THE KILL CRITERION (registered before running)
 
 **KILLED unless ALL THREE hold together:**
