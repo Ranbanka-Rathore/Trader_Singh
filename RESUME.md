@@ -265,10 +265,38 @@ edge.
 > | all-in round trip | **4.01 pts** | **2.73 pts** |
 > | statutory-only floor | 2.20 pts | **2.07 pts** |
 >
-> **`intraday_index`'s kill_log names three reopening conditions. The first is
-> "a measured all-in cost below ~3.0 index points". 2.73 < 3.0 — it is MET.**
-> That is what pre-registration is for: the condition was fixed before the
-> measurement existed, so this cannot be read as a number found after the fact.
+> **The reopening condition is NOT met — read the whole clause, not the number.**
+> An earlier draft of this section claimed 2.73 < 3.0 satisfied it. It does not.
+> `kill_log.json` condition 1 reads, in full:
+>
+> > *"a measured all-in round-trip cost below ~3.0 index points **for an
+> > instrument this account can actually hold**. That would require a change in
+> > Indian F&O taxation (STT is the larger half of the floor and dominates it at
+> > ATM), or an instrument with materially better exposure-per-rupee than a
+> > 65-unit NIFTY lot."*
+>
+> Both qualifiers fail:
+>
+> | bucket | COST pts | <3.0? | lot cost | % of ₹11,488 | −40% stop |
+> |---|---|---|---|---|---|
+> | 20–40 | 5.40 | no | ₹1,879 | 16.4% | 6.5% |
+> | 40–80 | 3.67 | no | ₹3,629 | 31.6% | 12.6% |
+> | **80–160** | **2.73** | **YES** | **₹7,508** | **65.4%** | **26.1%** |
+>
+> The *only* bucket that clears 3.0 costs **65% of the account** to hold, and a
+> −40% move on it is **26% of equity against E2's 1–2% budget**. Every bucket
+> this account can actually hold costs **3.67 pts or more**. That clause was put
+> in the condition precisely to stop this substitution.
+>
+> The **mechanism** fails too. The condition anticipated the fall coming from a
+> taxation change or a better instrument. Neither happened: statutory charges are
+> unchanged (₹61.24 today vs ₹61.44 on 08-14), and it is the same 65-unit NIFTY
+> lot. The number moved only because an after-hours book was replaced by a live
+> one — **the same instrument measured better, not a cheaper instrument.**
+>
+> **Verdict: the kill STANDS. No amendment is warranted on this evidence.** What
+> the measurement did buy is real but narrower — the cost floor is now honestly
+> measured live, and §4's "4.01" should be read as the after-hours figure it was.
 >
 > **Contamination checked and ruled out.** Today was an expiry Tuesday, so 41% of
 > quotes were 0 DTE with anomalously tight books. They contributed **nothing** to
