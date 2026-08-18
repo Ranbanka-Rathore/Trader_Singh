@@ -1793,6 +1793,31 @@
     }
    ],
    "fingerprint": "sha256:e0abbddb08acaa6f446a0e3fb1125364"
+  },
+  {
+   "id": "pa-levels-modern",
+   "arena": "intraday_index",
+   "claim": "On NIFTY 1-minute index bars, entries taken at a pre-identified horizontal level -- confirmed by at least 2 independent confluence signals and entered only on a RETEST rather than first touch -- produce a gross edge of >= 8.0 index points per round trip, with the same sign in every calendar year having >= 60 trading days of data. Levels are built from: price touched within 0.26x the median true range of its timeframe at least twice, each touch reversing away by >= 1x that true range, over a 60-session lookback, on 5-min / 15-min / 1-hour / daily; plus unfilled gap edges; plus round numbers. Confluence signals are: level touched >=2 times; approach structure aligned (LH-LL into support, HH-HL into resistance); a candlestick reversal at the level on the 5-min (hammer, inverted hammer, doji, bullish harami, bearish harami, engulfing); level coincides with an unfilled gap edge; level coincides with a round number; price on the favourable side of session VWAP; PCR at a same-day extreme outside its trailing 20-session 10th/90th percentile. Entry requires touch, then a move away of >= 1x TR(5-min), then a return within tolerance inside 10 five-minute bars. Exit is the first of: next opposing level within tolerance, adverse excursion of 1x TR(5-min) beyond the level, or session close -- no overnight holds. Direction is NOT predicted: the rule is symmetric and long-at-support and short-at-resistance are tested together. Every parameter above is fixed in advance from either measurement (the 60-session lookback is measured from 300 gaps over 1,972 sessions 2016-2023, where ~95% of gaps are touched within 60) or from the operator's statement made on 2026-08-18 before any result of this family existed (0.26 = 50 points on the daily divided by NIFTY's 195.3-point median daily true range; >=2 confluences from 'if there is 2-3 indications I take the trade'; the retest rule from 'there is a retracement of 5-10 candles, then the actual reversal').",
+   "kill_criterion": "KILLED unless all three hold together: (a) gross edge >= 8.0 index points per round trip pooled over 2022-08-16..2026-08-14, (b) the same sign in every calendar year with >= 60 trading days of data, and (c) |t| on the per-trade edge clears the Section 4 bar for the number of configurations actually run, after correction for overlapping forward windows. Clearing (a) but failing (b) is a sign-unstable estimate and is NOT a finding (Amendment D5). Clearing (a) and (b) but failing (c) is recorded as real but unproven and is NOT carried forward. Per Amendment B5 this screen cannot promote anything; clearing the bar earns a Section 5 walk-forward test and nothing more. On failure, intraday_index returns to CLOSED and Amendment F's condition-2 reopening is SPENT -- a second price-action variant does not reopen it, and the hypothesis is closed, not tuned.",
+   "engine": "pa_levels",
+   "underlying": "NIFTY",
+   "equity": 50000.0,
+   "era": null,
+   "window": [
+    "2022-08-16",
+    "2026-08-14"
+   ],
+   "gate": "strict",
+   "n_configs": 2,
+   "config": {},
+   "sweep": null,
+   "requires": [],
+   "supersedes": null,
+   "note": "Amendment F. Parameters pinned in research/PREREGISTRATION-price-action.md and may not be tuned. Registered before scratch/pa_levels.py existed.",
+   "registered_at": "2026-08-18T20:38:09",
+   "status": "registered",
+   "events": [],
+   "fingerprint": "sha256:cc94a918518b30555d1e2e1eb32ebcd3"
   }
  ],
  "arenas": {
@@ -1863,24 +1888,6 @@
     "xsect-mom-modern"
    ]
   },
-  "intraday_index": {
-   "status": "closed",
-   "closed_at": "2026-08-14T19:24:00",
-   "grounds": "MEASURED ABSENCE OF A TRADEABLE EDGE \u2014 not absence of evidence, and not 'unresolvable with the data available'. The distinction matters and the evidence supports the stronger claim.\n\nIntraday NIFTY is demonstrably NOT a random walk. Screen 1 found ICs that are significant after correcting for the overlap of forward windows AND sign-stable in every calendar year 2022-2026 (vwap_dev and or_pos both reach IC ~0.053 at h=60). The predictability is real. It is simply smaller than the cost of trading it.\n\nThe cost floor was MEASURED, not assumed (Amendment E9, 312 contracts from the live depth book): 4.01 index points round trip on ATM options plus 5.45 pts/hr of theta at 4 DTE, or 7.71 points all-in on futures with no theta. Statutory charges are the larger half of that and cannot be executed away \u2014 with PERFECT limit fills and zero slippage the floor is still 2.20 points, 73% of the entire measured edge. The best measured edge, at any horizon and any conditioning threshold, is 5.39 points against a 7.71-point floor.\n\nThree screens cover the space between them:\n  intraday-ic-modern          unconditional case killed on economics: 2.995 pts\n                              of edge against a 4.01-7.71 pt floor.\n  intraday-ceiling-modern     the feature space is exhausted. 26 features fitted\n                              in-sample with NO hold-out on 133,473 rows reached\n                              IC 0.0539 at h=60; ONE unfitted hand-picked signal\n                              reached 0.0537. Incremental value of 25 extra\n                              features plus unrestricted overfitting: +0.0002.\n  intraday-conditional-modern conditional case killed on BOTH significance and\n                              economics: 0 of 14 cells significantly positive,\n                              0 of 14 beating a 7% FD, most significantly\n                              NEGATIVE after costs. Nothing was fitted, so it\n                              cannot be blamed on a bad fit or rescued by a\n                              better one. Conditioning also underdelivered\n                              linear-IC theory by 2.2-4.9 points at every\n                              threshold.\n\nSearching harder is not indicated: the ceiling screen shows better features are not available in this family, and a larger sample would only measure the same too-small effect more precisely.",
-   "reopen_requires": "A charter amendment, justified by ONE of the following. Nothing less reopens this arena; Section 7 allows no extensions.\n\n1. A MATERIAL FALL IN THE COST FLOOR. The kill is a cost result, so it is    reversible by costs. Concretely: a measured all-in round-trip cost below    ~3.0 index points for an instrument this account can actually hold. That    would require a change in Indian F&O taxation (STT is the larger half of    the floor and dominates it at ATM), or an instrument with materially better    exposure-per-rupee than a 65-unit NIFTY lot. Re-measure with    backtest/option_spread.py before claiming it.\n\n2. AN EDGE OF A DIFFERENT ORDER, from a signal family genuinely unlike those    tested. The bar is a measured gross edge of >= 8 index points per round    trip, sign-stable across years. Note this is ~2.7x the best unconditional    edge found and ~1.5x the best conditional one, so 'a slightly better    momentum signal' does not qualify. The tested family is multi-lag momentum,    VWAP deviation, opening-range position, realised-vol state, range position,    acceleration and time-of-day.\n\n3. A DIFFERENT HOLDING REGIME. Everything here required the forward window to    close inside the same session; h=240 and h=375 returned zero usable rows for    that reason. Overnight and multi-day holds are a different strategy class    with different risk, different costs and no theta relief for long options,    and were never tested. They would be a NEW arena, not a reopening of this    one.",
-   "evidence": [
-    "scratch/arena5_intraday_ic.py + arena5_ic_results.json",
-    "scratch/arena5_ceiling.py + arena5_ceiling_results.json",
-    "scratch/arena5_conditional.py + arena5_conditional_results.json",
-    "backtest/option_spread.py + scratch/option_spread_measured.json",
-    "RESEARCH_CHARTER.md Amendment E9"
-   ],
-   "hypotheses": [
-    "intraday-ic-modern",
-    "intraday-ceiling-modern",
-    "intraday-conditional-modern"
-   ]
-  },
   "intraday_session": {
    "status": "closed",
    "closed_at": "2026-08-14T20:49:23",
@@ -1897,5 +1904,31 @@
     "intraday-edgesize-modern"
    ]
   }
- }
+ },
+ "arena_history": [
+  {
+   "status": "reopened",
+   "closed_at": "2026-08-14T19:24:00",
+   "grounds": "MEASURED ABSENCE OF A TRADEABLE EDGE \u2014 not absence of evidence, and not 'unresolvable with the data available'. The distinction matters and the evidence supports the stronger claim.\n\nIntraday NIFTY is demonstrably NOT a random walk. Screen 1 found ICs that are significant after correcting for the overlap of forward windows AND sign-stable in every calendar year 2022-2026 (vwap_dev and or_pos both reach IC ~0.053 at h=60). The predictability is real. It is simply smaller than the cost of trading it.\n\nThe cost floor was MEASURED, not assumed (Amendment E9, 312 contracts from the live depth book): 4.01 index points round trip on ATM options plus 5.45 pts/hr of theta at 4 DTE, or 7.71 points all-in on futures with no theta. Statutory charges are the larger half of that and cannot be executed away \u2014 with PERFECT limit fills and zero slippage the floor is still 2.20 points, 73% of the entire measured edge. The best measured edge, at any horizon and any conditioning threshold, is 5.39 points against a 7.71-point floor.\n\nThree screens cover the space between them:\n  intraday-ic-modern          unconditional case killed on economics: 2.995 pts\n                              of edge against a 4.01-7.71 pt floor.\n  intraday-ceiling-modern     the feature space is exhausted. 26 features fitted\n                              in-sample with NO hold-out on 133,473 rows reached\n                              IC 0.0539 at h=60; ONE unfitted hand-picked signal\n                              reached 0.0537. Incremental value of 25 extra\n                              features plus unrestricted overfitting: +0.0002.\n  intraday-conditional-modern conditional case killed on BOTH significance and\n                              economics: 0 of 14 cells significantly positive,\n                              0 of 14 beating a 7% FD, most significantly\n                              NEGATIVE after costs. Nothing was fitted, so it\n                              cannot be blamed on a bad fit or rescued by a\n                              better one. Conditioning also underdelivered\n                              linear-IC theory by 2.2-4.9 points at every\n                              threshold.\n\nSearching harder is not indicated: the ceiling screen shows better features are not available in this family, and a larger sample would only measure the same too-small effect more precisely.",
+   "reopen_requires": "A charter amendment, justified by ONE of the following. Nothing less reopens this arena; Section 7 allows no extensions.\n\n1. A MATERIAL FALL IN THE COST FLOOR. The kill is a cost result, so it is    reversible by costs. Concretely: a measured all-in round-trip cost below    ~3.0 index points for an instrument this account can actually hold. That    would require a change in Indian F&O taxation (STT is the larger half of    the floor and dominates it at ATM), or an instrument with materially better    exposure-per-rupee than a 65-unit NIFTY lot. Re-measure with    backtest/option_spread.py before claiming it.\n\n2. AN EDGE OF A DIFFERENT ORDER, from a signal family genuinely unlike those    tested. The bar is a measured gross edge of >= 8 index points per round    trip, sign-stable across years. Note this is ~2.7x the best unconditional    edge found and ~1.5x the best conditional one, so 'a slightly better    momentum signal' does not qualify. The tested family is multi-lag momentum,    VWAP deviation, opening-range position, realised-vol state, range position,    acceleration and time-of-day.\n\n3. A DIFFERENT HOLDING REGIME. Everything here required the forward window to    close inside the same session; h=240 and h=375 returned zero usable rows for    that reason. Overnight and multi-day holds are a different strategy class    with different risk, different costs and no theta relief for long options,    and were never tested. They would be a NEW arena, not a reopening of this    one.",
+   "evidence": [
+    "scratch/arena5_intraday_ic.py + arena5_ic_results.json",
+    "scratch/arena5_ceiling.py + arena5_ceiling_results.json",
+    "scratch/arena5_conditional.py + arena5_conditional_results.json",
+    "backtest/option_spread.py + scratch/option_spread_measured.json",
+    "RESEARCH_CHARTER.md Amendment E9"
+   ],
+   "hypotheses": [
+    "intraday-ic-modern",
+    "intraday-ceiling-modern",
+    "intraday-conditional-modern"
+   ],
+   "arena": "intraday_index",
+   "reopened_at": "2026-08-18T20:38:09",
+   "reopened_by_amendment": "F",
+   "reopened_under_condition": "2",
+   "reopen_justification": "Amendment F, condition 2: a signal family genuinely unlike those tested. The tested family recorded in this arena's own closure is multi-lag momentum, VWAP deviation, opening-range position, realised-vol state, range position, acceleration and time-of-day. Horizontal support/resistance levels, swing structure (LH-LL / HH-HL), candlestick reversal patterns and gap edges appear nowhere on that list. VWAP is on it, and is therefore admitted here only as one confluence input among seven, never as the signal. Condition 1 was tested on 2026-08-18 and FAILED (live all-in cost 2.73 index points, but only in a premium bucket costing 65% of account equity; every affordable bucket is >= 3.67), which is the template: a reopening needs the whole condition, not the threshold.",
+   "reopen_spent_on": "pa-levels-modern"
+  }
+ ]
 }
