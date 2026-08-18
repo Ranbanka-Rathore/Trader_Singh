@@ -3,12 +3,36 @@
 > **START HERE, IN THIS ORDER**
 > 1. Refresh `DHAN_ACCESS_TOKEN` in `.env` (24-hour life; it is certainly stale).
 > 2. `type logs\archive\STATUS.txt` — did the scheduled runs succeed?
-> 3. `python archive_daily.py --coverage` — how far from the E10.2 bar?
+> 3. `venv\Scripts\python archive_daily.py --coverage` — how far from the E10.2
+>    bar? **Read the date RANGE, not just the counts.** STATUS.txt reports the
+>    last run that *happened*; the range reports the last day actually on disk.
+>    On 2026-08-18 those disagreed: STATUS said `OK` and Monday was missing.
 > 4. If any weekday was missed, run `archive_daily.bat` by hand. Missed expiries
 >    are the only losses in this project that cannot be recovered at any price.
 >
 > **Do not register a hypothesis.** Amendment E10.2 forbids it until the sample
-> reaches 250 days / 3 quarters / 2 shock days. It is at 56 / 2 / 0.
+> reaches 250 days / 3 quarters / 2 shock days. It is at 57 / 2 / 0.
+>
+> **`python` on PATH is 3.14 and has no pyarrow — every command here needs
+> `venv\Scripts\python.exe`.** The bare `python` dies on the parquet import.
+
+---
+
+## Session 2026-08-18 (expiry Tuesday) — archive only, no research
+
+Monday 2026-08-17 was **missed**: the PC was off at the 15:45 fire (booted
+22:41), and the late attempt returned `0x800710E0` — Task Scheduler refusing a
+stale trigger, not a fault in the .bat or the Python. **Recovered in full** by a
+manual 08:55 run, because a live contract keeps its whole history until expiry.
+Coverage 56 → **57 days**, range now ends 2026-08-17.
+
+**Fixed:** the task now carries `StartWhenAvailable=true` (a missed run fires
+within ~10 min of the machine next coming up) and `ExecutionTimeLimit=PT2H`.
+
+**STILL OPEN AT HANDOFF:** today's own session for the **172 contracts expiring
+2026-08-18** is captured only by a run after 15:30 today. The token is valid
+until ~08:45 on 2026-08-19, so no refresh is needed first — but the PC must be
+ON at 15:45. This is the one loss that cannot be bought back.
 
 
 
@@ -388,5 +412,10 @@ standing task does not need the stack**; do not start it just to archive.
 - **A log file's recency is not evidence a service ran.** Check the logger name.
 - **The two-era bhavcopy schema break bites repeatedly.** Use `strict_legacy` on
   any window starting 2023-01-01.
+- **A scheduled task cannot run on a PC that is off, and STATUS.txt will not
+  tell you.** It reports the last run that *happened*, so it read `OK` from
+  2026-08-14 for four days while Monday was quietly lost. The date range in
+  `--coverage` is the honest signal. `StartWhenAvailable` now covers the reboot
+  case; nothing covers a machine left off through an expiry.
 - **Pre-registration works.** It is the only reason today's negative result
   cannot be re-read later as "intraday momentum works".
